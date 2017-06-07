@@ -57,11 +57,11 @@ An example app is `reproduce.py` which can reproduce an on-chain transaction as 
 
 The app takes a `txhash`, and 
 
-1 Fetch the transaction data from an API. 
-2 Mark (source, destination) as need-to-fetch
-3 Fetch balance and nonce at source, add to `genesis`
-4 Execute transaction on the `evm`
-5 If transaction has any externally reaching ops (BALANCE, EXTCODECOPY, CALL etc), 
+1. Fetch the transaction data from an API. 
+2. Mark (source, destination) as need-to-fetch
+3. Fetch balance and nonce at source, add to `genesis`
+4. Execute transaction on the `evm`
+5. If transaction has any externally reaching ops (BALANCE, EXTCODECOPY, CALL etc), 
   * Add those accounts as need-to-fetch
 6. Go back to 3 until the execution does not result in any more accounts to be fetched. 
 7. Save the transaction trace and genesis
