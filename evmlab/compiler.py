@@ -240,43 +240,4 @@ class Program():
 	def __str__(self):
 		return ",".join(self.compiled)
 
-#	def add(self, x,y):
-#		self.push(x).push(y)._add(ADD)
 
-def test():
-	p = Program()
-	p.mstore(0 ,0x38d18acb67d25c8bb9942764b62f18e17054f66a817bd4295423adf9ed98873e)
-	#Stuff all kinds of stuff into the 'v'-value
-	p.mstore(32   ,0xdeadbeef00000000cafebabe00000000cafebabe0000deadbeef00cadebabe1b)
-	p.mstore(64   ,0x723841761d213b60ac1cbf063207cbeba6c2725bcaf7c189e63f13d93fc1dc07)
-	p.mstore(96   ,0x789d1dd423d25f0772d2748d60f7e4b81bb14d086eba8e8e8efb6dcff8a4ae02)
-	p.call(0xfff,1,0,0,0x80,0x80,0x20)
-	p.rreturn(140,20)
-
-	old = "7f38d18acb67d25c8bb9942764b62f18e17054f66a817bd4295423adf9ed98873e6000527fdeadbeef00000000cafebabe00000000cafebabe0000deadbeef00cadebabe1b6020527f723841761d213b60ac1cbf063207cbeba6c2725bcaf7c189e63f13d93fc1dc076040527f789d1dd423d25f0772d2748d60f7e4b81bb14d086eba8e8e8efb6dcff8a4ae02606052602060806080600060006001610ffff16014608cf3"
-	new = p.bytecode()
-
-	if new != old:
-		print old
-		print "DIFF!"
-	else:
-		print "OK"
-
-	import subprocess
-	print subprocess.check_output(["/home/martin/tmp/go-ethereum/build/bin/evm","--debug", "--code", new])
-
-if __name__ == '__main__':
-	test()
-
-
-
-
-#Insert evm executable here... 
-
-# Correct address for ecdsa_recover with hash/rsv-values above, but v 0x1b:
-# 0x629defec4044715f5f43403bb88a7074a7a28f67 
-
-# We get that whatever we put into the upper bytes of 'v', any byte above the lowest two:
-
-#0x629defec4044715f5f43403bb88a7074a7a28f67
-#0x629defec4044715f5f43403bb88a7074a7a28f67

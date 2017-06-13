@@ -18,6 +18,9 @@ import tempfile, os
 from evmlab import etherchain
 from evmlab import compiler as c
 from evmlab import genesis as gen
+from evmlab import infura
+from web3 import Web3, RPCProvider
+from evmlab import multiapi
 
 def generateCall(addr, gas = None, value = 0):
     """ Generates a piece of code which calls the supplies address"""
@@ -43,37 +46,30 @@ def findExternalCalls(list_of_output):
     
     return list(accounts)
 
-def reproduceTx(txhash, evmbin):
-    
+def debugdump(obj):
+    import pprint
+    pprint.PrettyPrinter().pprint(obj)
+
+
+
+def reproduceTx(txhash, evmbin, api):
+
     from evmlab import gethvm
     vm = gethvm.VM(evmbin)
     genesis = gen.Genesis()
-    api = etherchain.EtherChainAPI()
+    
 
-    """
-            {
-            "hash": "0xb8fdb51a1731a3a53d255b757432d0e2cdf65d12e90f76d66f80e907cf113b9e",
-            "sender": "0x0b61c0c5ea330248b17069a7bdff35bf2c4062f0",
-            "recipient": "0x6090a6e47849629b7245dfa1ca21d94cd15878ef",
-            "accountNonce": "68",
-            "price": 4000804100,
-            "gasLimit": 300000,
-            "amount": 0,
-            "block_id": 3830525,
-            "time": "2017-06-06T17:31:31.000Z",
-            "newContract": 0,
-            "isContractTx": null,
-            "blockHash": "0xbf7daca54e2d00f5692f48af120e27aa3650ec72a424847b40ae3a6adad4f89a",
-            "parentHash": "0xb8fdb51a1731a3a53d255b757432d0e2cdf65d12e90f76d66f80e907cf113b9e",
-            "txIndex": null,
-            "gasUsed": 81180,
-            "type": "tx"
-        }
-    """
+
 
     tx = api.getTransaction(txhash)
-    s = tx['sender']
-    r = tx['recipient']
+
+    s = tx['from']
+    r = tx['to']
+
+    #s = tx['sender']
+    #r = tx['recipient']
+    debugdump(tx)
+    blnum = int(tx['blockNumber'])
     bootstrap = generateCall(r)
     toAdd  = [s,r]
     done = False
@@ -82,14 +78,15 @@ def reproduceTx(txhash, evmbin):
         # Add accounts that we know of 
         for x in toAdd:
             if not genesis.has(x): 
-                print("Adding %s to alloc... " % x)
-                genesis.add(api.getAccount(x))
+                acc = api.getAccountInfo( x , blnum)
+                debugdump(acc)
+                genesis.add(acc)
                 done = False
         if not done:
             #genesis.prettyprint()
             g_path = genesis.export_geth()
             print("Executing tx...")
-            output =  vm.execute(code = bootstrap, genesis = g_path, json = True)
+            output =  vm.execute(code = bootstrap, genesis = g_path, json = True, sender=s)
             externalAccounts = findExternalCalls(output)
             print("Externals: %s " % externalAccounts )
             toAdd = externalAccounts
@@ -110,8 +107,13 @@ def reproduceTx(txhash, evmbin):
 
 def test():
     evmbin = "/home/martin/go/src/github.com/ethereum/go-ethereum/build/bin/evm"
+#    evmbin = "/home/martin/data/workspace/go-ethereum/build/bin/evm"
     tx = "0x66abc672b9e427447a8a8964c7f4671953fab20571ae42ae6a4879687888c495"
-    reproduceTx(tx, evmbin)
+
+    web3 = Web3(RPCProvider(host = 'mainnet.infura.io', port= 443, ssl=True))
+    chain = etherchain.EtherChainAPI()
+    api = multiapi.MultiApi(web3 = web3, etherchain = chain)
+    reproduceTx(tx, evmbin, api)
 
 
 if __name__ == '__main__':

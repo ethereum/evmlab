@@ -7,7 +7,7 @@ class VM(object):
 	def __init__(self,executable="evm"):
 		self.executable = executable
 
-	def execute(self, code = None, codeFile = None, genesis = None, gas = 4700000, json = False, statdump=True):
+	def execute(self, code = None, codeFile = None, genesis = None, gas = 4700000, json = False, statdump=True, sender= None, memory=False):
 
 		cmd = [self.executable]
 
@@ -30,6 +30,12 @@ class VM(object):
 			cmd.append("--gas")
 			cmd.append("%d" % gas)
 		
+		if sender is not None: 
+			cmd.append("--sender")
+			cmd.append(sender)
+
+		if not memory:
+			cmd.append("--nomemory")
 		if json: 
 			cmd.append("--json")
 
