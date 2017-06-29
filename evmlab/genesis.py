@@ -21,7 +21,8 @@ class Genesis(object):
                 "eip158Block": 0, 
                 "eip155Block": 0, 
                 "homesteadBlock": 0, 
-                "daoForkBlock": 0
+                "daoForkBlock": 0,
+                "metropolisBlock": 2000,
             }
         }
         return g
@@ -51,6 +52,7 @@ class Genesis(object):
                     "eip160Transition" : "0x0",
                     "eip161abcTransition" : "0x0",
                     "eip161dTransition" : "0x0",
+
                     }
                 }
             },
