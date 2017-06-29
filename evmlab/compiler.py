@@ -59,6 +59,7 @@ LOG2          = 0xa2 # Pops: 4, Pushes: 0, Gas: 1125],
 LOG3          = 0xa3 # Pops: 5, Pushes: 0, Gas: 1500],
 LOG4          = 0xa4 # Pops: 6, Pushes: 0, Gas: 1875],
 CREATE        = 0xf0 # Pops: 3, Pushes: 1, Gas: 32000],
+CREATE2       = 0xfb # 
 CALL          = 0xf1 # Pops: 7, Pushes: 1, Gas: 40],
 CALLCODE      = 0xf2 # Pops: 7, Pushes: 1, Gas: 40],
 RETURN        = 0xf3 # Pops: 2, Pushes: 0, Gas: 0],
@@ -124,6 +125,7 @@ class Program():
 		self.compiled = []
 		self.ops = []
 		self.mstore= lambda index,value: self.push(value).push(index).op(MSTORE)
+		self.mstore8= lambda index,value: self.push(value).push(index).op(MSTORE8)
 		self.add =   lambda x,y: self.push(y).push(x).op(ADD)
 		self.sub =   lambda x,y: self.push(y).push(x).op(SUB)
 		self.mul =   lambda x,y: self.push(y).push(x).op(MUL)
