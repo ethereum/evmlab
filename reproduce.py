@@ -109,7 +109,7 @@ def test():
     evmbin = "/home/martin/go/src/github.com/ethereum/go-ethereum/build/bin/evm"
 #    evmbin = "/home/martin/data/workspace/go-ethereum/build/bin/evm"
     tx = "0x66abc672b9e427447a8a8964c7f4671953fab20571ae42ae6a4879687888c495"
-
+    tx = "0x9dbf0326a03a2a3719c27be4fa69aacc9857fd231a8d9dcaede4bb083def75ec"
     web3 = Web3(RPCProvider(host = 'mainnet.infura.io', port= 443, ssl=True))
     chain = etherchain.EtherChainAPI()
     api = multiapi.MultiApi(web3 = web3, etherchain = chain)
