@@ -18,7 +18,6 @@ import tempfile, os
 from evmlab import etherchain
 from evmlab import compiler as c
 from evmlab import genesis as gen
-from evmlab import infura
 from web3 import Web3, RPCProvider
 from evmlab import multiapi
 
