@@ -102,7 +102,7 @@ class Genesis(object):
         n = account['nonce'] 
         if n is None:
             n = 0
-        b = hex(account['balance'])
+        b ="0x%x" % (account['balance'])
 
         self.alloc[account['address'].lower()] = {
             "balance" : b, 
