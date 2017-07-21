@@ -185,15 +185,10 @@ class Program():
 		self._addOp(PUSH1+(length-1), bytecode(value));
 		return self
 
-	def call(self,gas ,address,value = 0,instart = 0, insize = 0, incode = "", out = 0, outsize = 0):
-                if (len(incode)):
-                    self.push(0)
-                    self.push(0)
-                    self.push(len(incode)/2)
-                    self._addOp(CALLDATACOPY)
+	def call(self,gas ,address,value = 0,instart = 0, insize = 0, out = 0, outsize = 0):
 		self.push(outsize)
 		self.push(out)
-		self.push(len(incode)/2)
+		self.push(insize)
 		self.push(instart)
 		self.push(value)
 		self.push(address)

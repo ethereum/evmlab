@@ -24,8 +24,14 @@ from sys import argv, exit
 
 def generateCall(addr, gas = None, value = 0, incode=""):
     """ Generates a piece of code which calls the supplies address"""
+
     p = c.Program()
-    p.call(gas,addr, value, incode=incode)
+    if (len(incode)):
+        p.push(0)
+        p.push(0)
+        p.push(len(incode) / 2)
+        p._addOp(0x37)
+    p.call(gas, addr, value, insize=len(incode)/2)
     p.op(c.POP)
     return p.bytecode()
 
