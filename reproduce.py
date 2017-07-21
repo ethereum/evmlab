@@ -27,9 +27,9 @@ def generateCall(addr, gas = None, value = 0, incode=""):
 
     p = c.Program()
     if (len(incode)):
-        p.push(0)
-        p.push(0)
         p.push(len(incode) / 2)
+        p.push(0)
+        p.push(0)
         p._addOp(0x37)
     p.call(gas, addr, value, insize=len(incode)/2)
     p.op(c.POP)
@@ -71,6 +71,7 @@ def reproduceTx(txhash, evmbin, api):
 
     s = tx['from']
     r = tx['to']
+    tx['input'] = tx['input'][2:]
 
     #s = tx['sender']
     #r = tx['recipient']
@@ -96,18 +97,11 @@ def reproduceTx(txhash, evmbin, api):
             externalAccounts = findExternalCalls(output)
             print("Externals: %s " % externalAccounts )
             toAdd = externalAccounts
-
-    #Now save a trace
-    output =  vm.execute(code = bootstrap, genesis = g_path, json = True, input = tx['input'])
-
-    fd, temp_path = tempfile.mkstemp(dir='.', prefix=txhash+'_', suffix=".txt")
-    with open(temp_path, 'w') as f :
-        f.write("\n".join(output))
-
-    os.close(fd)
-
-
-    print("Saved trace to %s" % temp_path)
+            fd, temp_path = tempfile.mkstemp(dir='.', prefix=txhash+'_', suffix=".txt")
+            with open(temp_path, 'w') as f :
+                f.write("\n".join(output))
+            os.close(fd)
+            print("Saved trace to %s" % temp_path)
     print("Genesis complete: %s" % g_path)
 
 
