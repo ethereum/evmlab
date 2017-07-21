@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 This is a tool to replicate live on-chain events. It starts with a transaction id
 
@@ -11,7 +12,6 @@ This is a tool to replicate live on-chain events. It starts with a transaction i
 7. Generate a genesis, and code to invoke the on-chain event.
 
 """
-#!/usr/bin/env python
 
 import json
 import tempfile, os
@@ -20,11 +20,12 @@ from evmlab import compiler as c
 from evmlab import genesis as gen
 from web3 import Web3, RPCProvider
 from evmlab import multiapi
+from sys import argv, exit
 
-def generateCall(addr, gas = None, value = 0):
+def generateCall(addr, gas = None, value = 0, incode=""):
     """ Generates a piece of code which calls the supplies address"""
     p = c.Program()
-    p.call(gas,addr, value)
+    p.call(gas,addr, value, incode=incode)
     p.op(c.POP)
     return p.bytecode()
 
@@ -69,7 +70,7 @@ def reproduceTx(txhash, evmbin, api):
     #r = tx['recipient']
     debugdump(tx)
     blnum = int(tx['blockNumber'])
-    bootstrap = generateCall(r)
+    bootstrap = generateCall(r, incode=tx['input'])
     toAdd  = [s,r]
     done = False
     while not done:    
@@ -85,15 +86,15 @@ def reproduceTx(txhash, evmbin, api):
             #genesis.prettyprint()
             g_path = genesis.export_geth()
             print("Executing tx...")
-            output =  vm.execute(code = bootstrap, genesis = g_path, json = True, sender=s)
+            output =  vm.execute(code = bootstrap, genesis = g_path, json = True, sender=s, input = tx['input'])
             externalAccounts = findExternalCalls(output)
             print("Externals: %s " % externalAccounts )
             toAdd = externalAccounts
 
     #Now save a trace
-    output =  vm.execute(code = bootstrap, genesis = g_path, json = True)
+    output =  vm.execute(code = bootstrap, genesis = g_path, json = True, input = tx['input'])
 
-    fd, temp_path = tempfile.mkstemp(suffix=".txt")
+    fd, temp_path = tempfile.mkstemp(dir='.', prefix=txhash+'_', suffix=".txt")
     with open(temp_path, 'w') as f :
         f.write("\n".join(output))
 
@@ -105,7 +106,7 @@ def reproduceTx(txhash, evmbin, api):
 
 
 def test():
-    evmbin = "/home/martin/go/src/github.com/ethereum/go-ethereum/build/bin/evm"
+    evmbin = "evm"
 #    evmbin = "/home/martin/data/workspace/go-ethereum/build/bin/evm"
     tx = "0x66abc672b9e427447a8a8964c7f4671953fab20571ae42ae6a4879687888c495"
     tx = "0x9dbf0326a03a2a3719c27be4fa69aacc9857fd231a8d9dcaede4bb083def75ec"
@@ -114,6 +115,17 @@ def test():
     api = multiapi.MultiApi(web3 = web3, etherchain = chain)
     reproduceTx(tx, evmbin, api)
 
+def fetch(args):
+    if len(args) < 1:
+        print("Usage: ./reproducy.py <tx hash>")
+        exit(1)
+    evmbin = "evm"
+    tx = args[0]
+    web3 = Web3(RPCProvider(host = 'mainnet.infura.io', port= 443, ssl=True))
+    chain = etherchain.EtherChainAPI()
+    api = multiapi.MultiApi(web3 = web3, etherchain = chain)
+    reproduceTx(tx, evmbin, api)
+
 
 if __name__ == '__main__':
-    test()
+    fetch(argv[1:])
