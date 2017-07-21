@@ -30,7 +30,7 @@ def generateCall(addr, gas = None, value = 0, incode=""):
         p.push(len(incode) / 2)
         p.push(0)
         p.push(0)
-        p._addOp(0x37)
+        p._addOp(c.CALLDATACOPY)
     p.call(gas, addr, value, insize=len(incode)/2)
     p.op(c.POP)
     return p.bytecode()
