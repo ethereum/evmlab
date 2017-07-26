@@ -93,7 +93,7 @@ def reproduceTx(txhash, evmbin, api):
             #genesis.prettyprint()
             g_path = genesis.export_geth()
             print("Executing tx...")
-            output =  vm.execute(code = bootstrap, genesis = g_path, json = True, sender=s, input = tx['input'])
+            output =  vm.execute(code=bootstrap ,genesis= g_path, json = True, sender=s, input = tx['input'], memory=True)
             externalAccounts = findExternalCalls(output)
             print("Externals: %s " % externalAccounts )
             toAdd = externalAccounts
@@ -107,7 +107,8 @@ def reproduceTx(txhash, evmbin, api):
 
 def test():
     evmbin = "evm"
-#    evmbin = "/home/martin/data/workspace/go-ethereum/build/bin/evm"
+    evmbin = "/home/martin/data/workspace/go-ethereum/build/bin/evm"
+    evmbin = "/home/martin/go/src/github.com/ethereum/go-ethereum/build/bin/evm"
     tx = "0x66abc672b9e427447a8a8964c7f4671953fab20571ae42ae6a4879687888c495"
     tx = "0x9dbf0326a03a2a3719c27be4fa69aacc9857fd231a8d9dcaede4bb083def75ec"
     web3 = Web3(RPCProvider(host = 'mainnet.infura.io', port= 443, ssl=True))
@@ -128,4 +129,5 @@ def fetch(args):
 
 
 if __name__ == '__main__':
-    fetch(argv[1:])
+    #fetch(argv[1:])
+    test()
