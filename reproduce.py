@@ -18,6 +18,7 @@ import tempfile, os
 from evmlab import etherchain
 from evmlab import compiler as c
 from evmlab import genesis as gen
+from evmlab import evmtrace
 from web3 import Web3, RPCProvider
 from evmlab import multiapi
 from sys import argv, exit
@@ -65,8 +66,6 @@ def reproduceTx(txhash, evmbin, api):
     genesis = gen.Genesis()
     
 
-
-
     tx = api.getTransaction(txhash)
 
     s = tx['from']
@@ -102,7 +101,21 @@ def reproduceTx(txhash, evmbin, api):
                 f.write("\n".join(output))
             os.close(fd)
             print("Saved trace to %s" % temp_path)
+
+
     print("Genesis complete: %s" % g_path)
+
+    try:
+        annotated_trace = evmtrace.traceEvmOutput(temp_path)
+        fd, a_trace = tempfile.mkstemp(dir='.', prefix=txhash[:8]+'_', suffix=".evmtrace.txt")
+        with open(a_trace, 'w') as f :
+            f.write(str(annotated_trace))
+        os.close(fd)
+        print("Annotated trace: %s" % a_trace)
+    except Exception, e:
+        print("Evmtracing failed")
+        print e
+
 
 
 def test():
@@ -129,5 +142,5 @@ def fetch(args):
 
 
 if __name__ == '__main__':
-    #fetch(argv[1:])
-    test()
+    fetch(argv[1:])
+    #test()
