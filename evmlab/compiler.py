@@ -65,6 +65,7 @@ CALLCODE      = 0xf2 # Pops: 7, Pushes: 1, Gas: 40],
 RETURN        = 0xf3 # Pops: 2, Pushes: 0, Gas: 0],
 DELEGATECALL  = 0xf4 # Pops: 6, Pushes: 0, Gas: 40],
 SUICIDE       = 0xff # Pops: 1, Pushes: 0, Gas: 0],
+SELFDESTRUCT  = 0xff # Pops: 1, Pushes: 0, Gas: 0],
 
 PUSH1         =0x60
 PUSH32        =0x7f

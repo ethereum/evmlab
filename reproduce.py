@@ -18,6 +18,7 @@ import tempfile, os
 from evmlab import etherchain
 from evmlab import compiler as c
 from evmlab import genesis as gen
+from evmlab import evmtrace
 from web3 import Web3, RPCProvider
 from evmlab import multiapi
 from sys import argv, exit
@@ -65,8 +66,6 @@ def reproduceTx(txhash, evmbin, api):
     genesis = gen.Genesis()
     
 
-
-
     tx = api.getTransaction(txhash)
 
     s = tx['from']
@@ -93,7 +92,7 @@ def reproduceTx(txhash, evmbin, api):
             #genesis.prettyprint()
             g_path = genesis.export_geth()
             print("Executing tx...")
-            output =  vm.execute(code = bootstrap, genesis = g_path, json = True, sender=s, input = tx['input'])
+            output =  vm.execute(code=bootstrap ,genesis= g_path, json = True, sender=s, input = tx['input'], memory=True)
             externalAccounts = findExternalCalls(output)
             print("Externals: %s " % externalAccounts )
             toAdd = externalAccounts
@@ -102,12 +101,27 @@ def reproduceTx(txhash, evmbin, api):
                 f.write("\n".join(output))
             os.close(fd)
             print("Saved trace to %s" % temp_path)
+
+
     print("Genesis complete: %s" % g_path)
+
+    try:
+        annotated_trace = evmtrace.traceEvmOutput(temp_path)
+        fd, a_trace = tempfile.mkstemp(dir='.', prefix=txhash[:8]+'_', suffix=".evmtrace.txt")
+        with open(a_trace, 'w') as f :
+            f.write(str(annotated_trace))
+        os.close(fd)
+        print("Annotated trace: %s" % a_trace)
+    except Exception, e:
+        print("Evmtracing failed")
+        print e
+
 
 
 def test():
     evmbin = "evm"
-#    evmbin = "/home/martin/data/workspace/go-ethereum/build/bin/evm"
+    evmbin = "/home/martin/data/workspace/go-ethereum/build/bin/evm"
+    evmbin = "/home/martin/go/src/github.com/ethereum/go-ethereum/build/bin/evm"
     tx = "0x66abc672b9e427447a8a8964c7f4671953fab20571ae42ae6a4879687888c495"
     tx = "0x9dbf0326a03a2a3719c27be4fa69aacc9857fd231a8d9dcaede4bb083def75ec"
     web3 = Web3(RPCProvider(host = 'mainnet.infura.io', port= 443, ssl=True))
@@ -129,3 +143,4 @@ def fetch(args):
 
 if __name__ == '__main__':
     fetch(argv[1:])
+    #test()
