@@ -313,9 +313,16 @@ def trace(web3, txid, compose = True):
  
     return ast
 
+def traceEvmOutput(tracefile, compose = True):
+    result = evmResult(tracefile)
+    ast = TransactionTrace.build(result)
+    findReachings(ast)
+    if compose: 
+        ast = TransactionTrace(composeOperations(ast.ops))
+ 
+    return ast
 
-
-def test():
+def evmResult(tracefile):
     import compiler
     import json
     def isPush(op):
@@ -326,18 +333,26 @@ def test():
     }
     npushes = {0: 0, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 1, 11: 1, 16: 1, 17: 1, 18: 1, 19: 1, 20: 1, 21: 1, 22: 1, 23: 1, 24: 1, 25: 1, 26: 1, 32: 1, 48: 1, 49: 1, 50: 1, 51: 1, 52: 1, 53: 1, 54: 1, 55: 0, 56: 1, 57: 0, 58: 1, 59: 1, 60: 0, 64: 1, 65: 1, 66: 1, 67: 1, 68: 1, 69: 1, 80: 0, 81: 1, 82: 0, 83: 0, 84: 1, 85: 0, 86: 0, 87: 0, 88: 1, 89: 1, 90: 1, 91: 0, 96: 1, 97: 1, 98: 1, 99: 1, 100: 1, 101: 1, 102: 1, 103: 1, 104: 1, 105: 1, 106: 1, 107: 1, 108: 1, 109: 1, 110: 1, 111: 1, 112: 1, 113: 1, 114: 1, 115: 1, 116: 1, 117: 1, 118: 1, 119: 1, 120: 1, 121: 1, 122: 1, 123: 1, 124: 1, 125: 1, 126: 1, 127: 1, 128: 2, 129: 3, 130: 4, 131: 5, 132: 6, 133: 7, 134: 8, 135: 9, 136: 10, 137: 11, 138: 12, 139: 13, 140: 14, 141: 15, 142: 16, 143: 17, 144: 2, 145: 3, 146: 4, 147: 5, 148: 6, 149: 7, 150: 8, 151: 9, 152: 10, 153: 11, 154: 12, 155: 13, 156: 14, 157: 15, 158: 16, 159: 17, 160: 0, 161: 0, 162: 0, 163: 0, 164: 0, 240: 1, 241: 1, 242: 1, 243: 0, 244: 0, 255: 0}
 
-    with open("../example_trace.txt") as f:
+    with open(tracefile) as f:
         for line in f:
         
             log = json.loads(line)
-            print log['error']
+            if 'output' in log.keys():
+                return res['stack'][0]['ops']
+
             def peek(n):
-                return int(log['stack'][-n],16)
+                return int(log['stack'][-1-n],16)
 
             def isOp(op):
                 return log['op'] == op
 
+            d = ' '.ljust(log['depth']*4)
+
+            if log['depth'] != len(res['stack']):
+                res['stack'] = res['stack'][0:-1]
+
             frame = res['stack'][-1]
+
             if log['depth'] == len(res['stack']):
                 opinfo = {
                 "op" : log['op'], 
@@ -347,7 +362,7 @@ def test():
                 if len(frame['ops']) > 0:
                     prevop = frame['ops'][-1]
                     for i in range(0,npushes[prevop['op']]):
-                        prevop['result'].append(peek(i))
+                        prevop['result'].append(hex(peek(i)))
 
                 if isOp(compiler.CALL) or isOp(compiler.CALLCODE) or isOp(compiler.DELEGATECALL):
                     opinfo["error"] = None;
@@ -366,7 +381,7 @@ def test():
 
                     opinfo["input"] = log['memory'][instart: instart + insize];
                     res['stack'].append(opinfo)
-                    print("Going into call")
+
                 elif isOp(compiler.RETURN):
                     out = log['stack'][0]
                     outsize = log['stack'][1]
@@ -380,86 +395,11 @@ def test():
                     opinfo['len'] = log['op'] - 0x5e
 
                 frame['ops'].append(opinfo)
-                
-            else:
-                print "Foo", len(res['stack']), log['depth']
-                print line
-                res['stack'] = res['stack'][0:log['depth']]
+
         
-        print res['stack'][0]['ops']
-
+ 
 if __name__ == '__main__':
-    test()
-    #ast = trace(web3, args.transaction)
-    #print str(ast)
+    testfile = os.path.join(os.path.dirname(__file__), 'example_trace.txt')
+    ast = traceEvmOutput(testfile)
+    print str(ast)
 
-
-""" Based on the following javascript : 
-
-{
-  "stack": [{"ops": []}],
-  "npushes": {0: 0, 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 1, 11: 1, 16: 1, 17: 1, 18: 1, 19: 1, 20: 1, 21: 1, 22: 1, 23: 1, 24: 1, 25: 1, 26: 1, 32: 1, 48: 1, 49: 1, 50: 1, 51: 1, 52: 1, 53: 1, 54: 1, 55: 0, 56: 1, 57: 0, 58: 1, 59: 1, 60: 0, 64: 1, 65: 1, 66: 1, 67: 1, 68: 1, 69: 1, 80: 0, 81: 1, 82: 0, 83: 0, 84: 1, 85: 0, 86: 0, 87: 0, 88: 1, 89: 1, 90: 1, 91: 0, 96: 1, 97: 1, 98: 1, 99: 1, 100: 1, 101: 1, 102: 1, 103: 1, 104: 1, 105: 1, 106: 1, 107: 1, 108: 1, 109: 1, 110: 1, 111: 1, 112: 1, 113: 1, 114: 1, 115: 1, 116: 1, 117: 1, 118: 1, 119: 1, 120: 1, 121: 1, 122: 1, 123: 1, 124: 1, 125: 1, 126: 1, 127: 1, 128: 2, 129: 3, 130: 4, 131: 5, 132: 6, 133: 7, 134: 8, 135: 9, 136: 10, 137: 11, 138: 12, 139: 13, 140: 14, 141: 15, 142: 16, 143: 17, 144: 2, 145: 3, 146: 4, 147: 5, 148: 6, 149: 7, 150: 8, 151: 9, 152: 10, 153: 11, 154: 12, 155: 13, 156: 14, 157: 15, 158: 16, 159: 17, 160: 0, 161: 0, 162: 0, 163: 0, 164: 0, 240: 1, 241: 1, 242: 1, 243: 0, 244: 0, 255: 0},
-  "result": function() { return this.stack[0].ops; },
-  "step": function(log, db) {
-    var frame = this.stack[this.stack.length - 1];
-    if(log.err) {
-      frame["error"] = log.err.toString();
-    } else if(log.depth == this.stack.length) {
-      opinfo = {
-        "op": log.op.toNumber(),
-        "depth" : log.depth,
-        "result": [],
-      };
-      if(frame.ops.length > 0) {
-        var prevop = frame.ops[frame.ops.length - 1];
-        for(var i = 0; i < this.npushes[prevop.op]; i++)
-          prevop.result.push(log.stack.peek(i).Text(16));
-      }
-      switch(log.op.toString()) {
-      case "CALL":
-      case "CALLCODE":
-        var instart = log.stack.peek(3).Int64();
-        var insize = log.stack.peek(4).Int64();
-        opinfo["gas"] = log.stack.peek(0).Int64();
-        opinfo["to"] = log.stack.peek(1).Text(16);
-        opinfo["value"] = log.stack.peek(2).String();
-        opinfo["input"] = log.memory.slice(instart, instart + insize);
-        opinfo["error"] = null;
-        opinfo["return"] = null;
-        opinfo["ops"] = [];
-        this.stack.push(opinfo);
-        break;
-      case "DELEGATECALL":
-        var instart = log.stack.peek(2).Int64();
-        var insize = log.stack.peek(3).Int64();
-        opinfo["op"] =  log.op.toString();
-        opinfo["gas"] =  log.stack.peek(0).Int64();
-        opinfo["to"] =  log.stack.peek(1).Text(16);
-        opinfo["input"] =  log.memory.slice(instart, instart + insize);
-        opinfo["error"] =  null;
-        opinfo["return"] =  null;
-        opinfo["ops"] = [];
-        this.stack.push(opinfo);
-        break;
-      case "RETURN":
-        var out = log.stack.peek(0).Int64();
-        var outsize = log.stack.peek(1).Int64();
-        frame.return = log.memory.slice(out, out + outsize);
-        break;
-      case "STOP":
-      case "SUICIDE":
-        frame.return = log.memory.slice(0, 0);
-        break;
-      case "JUMPDEST":
-        opinfo["pc"] = log.pc;
-      }
-      if(log.op.isPush()) {
-        opinfo["len"] = log.op.toNumber() - 0x5e;
-      } 
-      frame.ops.push(opinfo);
-    } else {
-      this.stack = this.stack.slice(0, log.depth);
-    }
-  }
-}
-"""
