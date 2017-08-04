@@ -42,5 +42,5 @@ class VM(object):
 			cmd.append("--json")
 
 #		cmd.append("run")
-		print " ".join(cmd)
+		print(" ".join(cmd))
 		return subprocess.check_output(cmd).strip().split("\n")

@@ -4,17 +4,21 @@ class Genesis(object):
     
     def __init__(self):
         self.alloc  = {}
+        self.coinbase = "0x0000000000000000000000000000000000000000"
+        self.timestamp = "0x00"
+        self.gasLimit = "0x3D0900"
+        self.difficulty = "0x1"
 
     def geth(self):
         g = {
             "nonce":      "0x0000000000000000",
-            "difficulty": "0x1",
+            "difficulty": self.difficulty,
             "mixhash":    "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "coinbase":   "0x0000000000000000000000000000000000000000",
-            "timestamp":  "0x00",
+            "coinbase": self.coinbase,
+            "timestamp": self.timestamp,
             "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
             "extraData":  "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "gasLimit":   "0x3D0900",
+            "gasLimit": self.gasLimit,
             "alloc": self.alloc,
             "config": {
                 "eip150Block": 0, 
@@ -84,6 +88,29 @@ class Genesis(object):
 
     def has(self, account):
         return account.lower() in self.alloc.keys()
+
+    def setCoinbase(self, coinbase):
+        self.coinbase = coinbase
+
+    def setGasLimit(self, gasLimit):
+        self.gasLimit = gasLimit
+
+    def setTimestamp(self, timestamp):
+        self.timestamp = timestamp
+
+    def setDifficulty(self, difficulty):
+        self.difficulty = difficulty
+
+    def addPrestateAccount(self, account):
+        self.alloc[account['address'].lower()] = {
+            "balance" : account['balance'],
+            "code" : account['code'],
+            "nonce" : account['nonce'],
+        }
+        if 'storage' in account:
+            self.alloc[account['address'].lower()]['storage'] = {}
+            for key in account['storage']:
+                self.alloc[account['address'].lower()]['storage'][key] = account['storage'][key]
 
     def add(self, account): 
             

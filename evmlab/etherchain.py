@@ -21,7 +21,7 @@ def loadjson(fname):
     try:
         with open('%s/datastore/%s' % (here, fname), 'r') as infile:
             return json.loads(infile.read())
-    except Exception, e:
+    except Exception as e:
         print(e)
         return None
 

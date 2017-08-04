@@ -401,5 +401,5 @@ def evmResult(tracefile):
 if __name__ == '__main__':
     testfile = os.path.join(os.path.dirname(__file__), 'example_trace.txt')
     ast = traceEvmOutput(testfile)
-    print str(ast)
+    print(str(ast))
 
