@@ -104,16 +104,22 @@ SWAP14 = 0x9d
 SWAP15 = 0x9e
 SWAP16 = 0x9f
 
+import sys
 
 def bytecode(value):
 
-	if type(value) == str:
-		if value[:2] == "0x":
-			value = value[2:]
+	typ = type(value)
+	if typ == str and value[:2] == "0x":
+		value = value[2:]
 
-	if type(value) == float or \
-		type(value) == int:
+	if typ in [float, int]:
 		value = '{0:02x}'.format(int(value))
+
+	if sys.version_info < (3, 0):
+		if typ == unicode and value[:2] == "0x":
+			value = value[2:]
+		if typ == long:
+			value = '{0:02x}'.format(int(value))
 
 	value = ('0' * (len(value) % 2)) + value
 	return value
