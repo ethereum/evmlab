@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 This is a tool to replicate live on-chain events. It starts with a transaction id
 
@@ -25,7 +25,10 @@ from evmlab import multiapi
 from sys import argv, exit
 
 def generateCall(addr, gas = None, value = 0, incode=""):
-    """ Generates a piece of code which calls the supplies address"""
+    """ Generates a piece of code which calls the supplied address
+    NB: Not needed for geth, since it now has the '--receiver' argument, 
+    but could be useful for evms lacking that option
+    """
 
     p = c.Program()
     if (len(incode)):
@@ -73,11 +76,9 @@ def reproduceTx(txhash, evmbin, api):
     r = tx['to']
     tx['input'] = tx['input'][2:]
 
-    #s = tx['sender']
-    #r = tx['recipient']
     debugdump(tx)
     blnum = int(tx['blockNumber'])
-    bootstrap = generateCall(r, incode=tx['input'])
+    #bootstrap = generateCall(r, incode=tx['input'])
     toAdd  = [s,r]
     done = False
     while not done:    
@@ -93,7 +94,7 @@ def reproduceTx(txhash, evmbin, api):
             #genesis.prettyprint()
             g_path = genesis.export_geth()
             print("Executing tx...")
-            output =  vm.execute(code=bootstrap ,genesis= g_path, json = True, sender=s, input = tx['input'], memory=True)
+            output =  vm.execute(receiver=r ,genesis= g_path, json = True, sender=s, input = tx['input'], memory=True)
             externalAccounts = findExternalCalls(output)
             print("Externals: %s " % externalAccounts )
             toAdd = externalAccounts
@@ -143,5 +144,5 @@ def fetch(args):
 
 
 if __name__ == '__main__':
-    fetch(argv[1:])
-    #test()
+    #fetch(argv[1:])
+    test()
