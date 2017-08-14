@@ -18,6 +18,7 @@ import tempfile, os
 from evmlab import etherchain
 from evmlab import compiler as c
 from evmlab import genesis as gen
+from evmlab import opcodes
 from evmlab import evmtrace
 from web3 import Web3, RPCProvider
 from evmlab import multiapi
@@ -112,9 +113,9 @@ def reproduceTx(txhash, evmbin, api):
             f.write(str(annotated_trace))
         os.close(fd)
         print("Annotated trace: %s" % a_trace)
-    except Exception, e:
+    except Exception as e:
         print("Evmtracing failed")
-        print e
+        print(e)
 
 
 

@@ -1,6 +1,7 @@
 import os
-from opcodes import opcodes
-
+import json
+from .opcodes import opcodes
+from . import compiler
 
 #tracer = open(os.path.join(os.path.dirname(__file__), 'tracefunc.js')).read()
 
@@ -167,7 +168,7 @@ class ReachesDefinitions(list):
     """Encapsulates a list of the consumers of an operation's output."""
 
 
-class VariableName(unicode):
+class VariableName(str):
     """Annotation for variable name assignments."""
 
 
@@ -268,7 +269,7 @@ def nameIterator():
     while True:
         for i in "abcdefghijklmnopqrstuvwxyz":
             yield prefix + i
-        prefix = prefixIterator.next()
+        prefix = next(prefixIterator)
 
 
 def buildExpression(op):
@@ -298,7 +299,7 @@ def composeOperations(ops):
             if len(reaches) == 0:
                 statements.append(ExpressionStatement(op.depth, op.pc, buildExpression(op)))
             elif len(reaches) > 1 or isinstance(op, CallNode):
-                varname = varnames.next()
+                varname = next(varnames)
                 op.setAnnotation(VariableName(varname))
                 statements.append(AssignmentStatement(op.depth, op.pc, varname, buildExpression(op)))
     return statements
@@ -323,8 +324,7 @@ def traceEvmOutput(tracefile, compose = True):
     return ast
 
 def evmResult(tracefile):
-    import compiler
-    import json
+
     def isPush(op):
         return op >= compiler.PUSH1 and op <= compiler.PUSH32 
 
