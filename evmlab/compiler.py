@@ -107,15 +107,13 @@ SWAP16 = 0x9f
 
 def bytecode(value):
 
-	if type(value) == str or \
-		type(value) == unicode:
+	if type(value) == str:
 		if value[:2] == "0x":
 			value = value[2:]
 
 	if type(value) == float or \
-		type(value) == int or \
-		type(value) == long:
-		value = format(value, '02x')
+		type(value) == int:
+		value = '{0:02x}'.format(int(value))
 
 	value = ('0' * (len(value) % 2)) + value
 	return value

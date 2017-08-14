@@ -31,12 +31,16 @@ class MultiApi(object):
 
         if self.web3 : 
             obj = self.web3.eth.getTransaction(h)
+            obj_dict = {}
+            for a in obj:
+              obj_dict[a] = obj[a]
             for (a,b) in translations:
-                obj[a] = obj[b]
+                obj_dict[a] = obj_dict[b]
 
         else:
             obj = self.etherchain.getTransaction(h)
+            obj_dict = {key: value for (key, value) in obj}
             for (a,b) in translations:
-                obj[b] = obj[a]
+                obj_dict[b] = obj_dict[a]
 
-        return obj
+        return obj_dict
