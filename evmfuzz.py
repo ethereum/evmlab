@@ -4,48 +4,12 @@ import string
 import subprocess
 import json
 
-def cmdGeth(genesis = None, code = "", gas = 0):
-    """evm --debug --gas 1048575 --code ""  --json run  
-    """
-    cmd = [G_VM, "--code", code ,"--json"]
-    if gas > 0: 
-        cmd.append("--gas")
-        cmd.append("%d" % gas)
-    cmd.append("run")
-
-    return cmd
-
-
-def cmdParity(genesis = None, code = "", gas = 0):
-    """parity-evm --code 732a50613a76a4c2c58d052d5ebf3b03ed3227eae9316001600155  --json --gas fffff
-    """
-    cmd = [P_VM, "--code", code , "--json"]
-    if gas > 0: 
-        cmd.append("--gas")
-        cmd.append("%s" % hex(gas)[2:])
-
-    return cmd
 
 def json_ops(output):
-
     for line in output:
         if len(line) > 0 and line[0] == "{":
             yield json.loads(line)
 
-def outputs(json_generators):
-    for g in json_generators:   
-        outp = stdout.readline()
-        if outp == "":
-            items.append({})
-            finished = True
-        else:
-            outp = outp.strip()
-            try:
-                items.append(json.loads(outp))
-            except ValueError:
-                print("Invalid json: %s" % outp)
-                items.append({})
-    yield items
 
 def canon(str):
     if str in [None, "0x", ""]:
@@ -94,8 +58,6 @@ def execute(code, gas = 0xFFFF, verbose = False):
             p = outp2_json[o]
         else: 
             p = {}
-
-        p = outp2_json[o]
     
         a = toText(g)
         b = toText(p)
