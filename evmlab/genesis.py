@@ -145,7 +145,6 @@ class Genesis(object):
         with open(temp_path, 'w') as f :
             json.dump(self.geth(),f)
         os.close(fd)
-        print("Temp file %s " % temp_path)
         return temp_path
 
     def export_parity(self):
@@ -154,7 +153,6 @@ class Genesis(object):
         with open(temp_path, 'w') as f :
             json.dump(self.parity(),f)
         os.close(fd)
-        print("Temp file %s " % temp_path)
         return temp_path
 
     def prettyprint(self):
