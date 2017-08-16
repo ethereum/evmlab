@@ -9,7 +9,7 @@ RUN \
   binutils pkg-config openssl libssl-dev libudev-dev       && \
   curl -sSf https://static.rust-lang.org/rustup.sh         |  \
   sh -s -- --disable-sudo
-RUN  git clone --depth 1 https://github.com/paritytech/parity
+RUN  git clone --depth 1 --branch evmbin-tests https://github.com/paritytech/parity
 RUN cd parity && cargo build --release -p evmbin
 RUN cd parity && echo "{}"                                                      \
   | jq ".+ {\"repo\":\"$(git config --get remote.origin.url)\"}" \
@@ -24,4 +24,5 @@ RUN cd parity && echo "{}"                                                      
 
 ADD . /
 ENTRYPOINT ["/parity-evm"]
-RUN cat README.md
+RUN cat version.json && cat README.md
+

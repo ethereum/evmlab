@@ -8,8 +8,9 @@ class Genesis(object):
         self.timestamp = "0x00"
         self.gasLimit = "0x3D0900"
         self.difficulty = "0x1"
-
+        
     def geth(self):
+
         g = {
             "nonce":      "0x0000000000000000",
             "difficulty": self.difficulty,
@@ -45,17 +46,17 @@ class Genesis(object):
             "engine": {
                "Ethash": {
                   "params": {
-                    "gasLimitBoundDivisor": "0x0400",
                     "minimumDifficulty": "0x020000",
                     "difficultyBoundDivisor": "0x0800",
                     "durationLimit": "0x0d",
                     "blockReward": "0x4563918244F40000",
                     "registrar": "",
                     "frontierCompatibilityModeLimit": "0x0",
-                    "eip155Transition" : "0x0",
-                    "eip160Transition" : "0x0",
-                    "eip161abcTransition" : "0x0",
-                    "eip161dTransition" : "0x0",
+                    "eip150Transition"   : 0,
+                    "eip155Transition"   : 0,
+                    "eip160Transition"   : 0,
+                    "eip161abcTransition": 0,
+                    "eip161dTransition"  : 0,
 
                     }
                 }
@@ -75,6 +76,7 @@ class Genesis(object):
                 "gasLimit": "0x8000000",
             },
             "params": {
+                "gasLimitBoundDivisor": "0x0400",
                 "accountStartNonce": "0x0",
                 "maximumExtraDataSize": "0x20",
                 "minGasLimit": "0x1388",
@@ -142,6 +144,15 @@ class Genesis(object):
         fd, temp_path = tempfile.mkstemp(suffix=".json")
         with open(temp_path, 'w') as f :
             json.dump(self.geth(),f)
+        os.close(fd)
+        print("Temp file %s " % temp_path)
+        return temp_path
+
+    def export_parity(self):
+        import tempfile, os
+        fd, temp_path = tempfile.mkstemp(suffix=".json")
+        with open(temp_path, 'w') as f :
+            json.dump(self.parity(),f)
         os.close(fd)
         print("Temp file %s " % temp_path)
         return temp_path

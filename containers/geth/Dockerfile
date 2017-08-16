@@ -23,4 +23,4 @@ RUN cd go-ethereum                                             && \
 
 ADD . /
 ENTRYPOINT ["/evm"]
-RUN cat README.md
+RUN cat version.json && cat README.md

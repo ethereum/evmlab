@@ -18,7 +18,7 @@ Here's some code we want to execute (on the host)
 
 Here's how to mount and run it 
 
-	$docker run -v /tmp/tempcode:/code parityvm --json --codefile /code run
+	$docker run -v /tmp/tempcode:/code holiman/parityvm --json --codefile /code run
 
 
 	{"pc":0,"op":96,"gas":"0x2540be400","gasCost":"0x3","memory":"0x","memSize":0,"stack":[],"depth":1,"error":null,"opName":"PUSH1"}

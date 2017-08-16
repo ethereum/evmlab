@@ -4,7 +4,7 @@ This is the Parity EVM docker image.
 
 To execute the parity `evm`: 
 
-	$docker run holiman/parityvm --code "6040" --json run
+	$docker run holiman/parityvm --code "6040" --json
 
 	{"pc":0,"op":96,"opName":"PUSH1","gas":"0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","gasCost":"0x3","memory":"0x","stack":[],"storage":{},"depth":1}
 	{"pc":0,"op":96,"opName":"PUSH1","gas":"0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc","gasCost":"0x0","memory":"0x","stack":["0x40"],"storage":{},"depth":1}
