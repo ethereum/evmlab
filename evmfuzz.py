@@ -19,10 +19,16 @@ def toText(op):
         return "END"
     if 'pc' in op.keys():
         return "pc {pc:>5} op {op:>3} {opName} gas {gas:>8} cost {gasCost:>8} depth {depth:>2} stack {stack}".format(**op)
-    elif 'output' in op.keys():
+    elif 'time' in op.keys():# Final one
+        
+        if 'output' not in op.keys():
+           op['output'] = ""
+           
         op['output'] = canon(op['output'])
-
-        return "output {output} gasUsed {gasUsed} error {error}".format(**op)
+        fmt = "output {output} gasUsed {gasUsed}"
+        if 'error' in op.keys():
+         fmt = fmt +  " error {error}"
+        return fmt.format(**op)
     return "N/A"
 
 
@@ -42,14 +48,15 @@ def execute(code, gas = 0xFFFF, verbose = False):
         for line in o:
             if len(line) > 0 and line[0] == "{":
                 yield json.loads(line)
-        yield {}
 
     g_out_json = json_gen(g_out)
     p_out_json = json_gen(p_out)
     num_fin = 0
+
+    prev_parity_pc = 0
     while True:
-        g = next(g_out_json)
-        p = next(p_out_json)
+        g = next(g_out_json, {})
+        p = next(p_out_json, {})
         
         if g == p and g == {}:
             break
@@ -60,10 +67,26 @@ def execute(code, gas = 0xFFFF, verbose = False):
         if a == b:
             print("[👍] %s" % a)
         else:
-
-            print ("Diff: ")
-            print("[G] %s " % (a))
-            print("[P] %s " % (b))
+            # Parity repeats the last instruction, which makes sense, since 
+            # otherwise it wouldn't be possible to see what effect the last op
+            # had on the stack. Geth, however, ends on a 'STOP', which is semantically
+            # nicer, as if the code is surrounded by a space of zeroes.  
+            # One way to detect this is to look at the 'PC'. 
+            #  * Parity will report the same PC as the last op, 
+            #  * Geth will increment the PC by one, going outside the actual code length
+            
+            if 'pc' in p.keys():
+                parity_pc = p['pc']
+                if prev_parity_pc == parity_pc and g['op'] == 0:
+                    # Now we can safely ignore it
+                    print("[👍] END")
+            else:
+                print ("Diff: ")
+                print("[G] %s " % (a))
+                print("[P] %s " % (b))
+        
+        if 'pc' in p.keys():
+            prev_parity_pc = p['pc']
 
 
     return
