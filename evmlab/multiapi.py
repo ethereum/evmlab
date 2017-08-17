@@ -44,3 +44,15 @@ class MultiApi(object):
                 obj_dict[b] = obj_dict[a]
 
         return obj_dict
+
+    def getStorageSlot(self, addr, key, blnum = None):
+        if self.web3:
+            try:
+              return self.web3.eth.getStorageAt(addr, key, blnum)
+            except Exception as e:
+                    print(e)
+                    return ""
+            
+        else:
+            print("getStorageSlot not implemented for etherchain api")
+            return ""

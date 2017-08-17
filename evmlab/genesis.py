@@ -139,6 +139,15 @@ class Genesis(object):
             "nonce" : hex(n), 
         }
 
+    def addStorage(self, account, key, value):
+        ac = self.alloc[account.lower()]
+        key = "0x{:02x}".format(int(key,16))
+
+        if 'storage' not in ac.keys():
+            ac['storage'] = {}
+        ac['storage'][key]=value
+
+
     def export_geth(self):
         import tempfile, os
         fd, temp_path = tempfile.mkstemp(suffix=".json")
