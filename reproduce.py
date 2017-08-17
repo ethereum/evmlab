@@ -116,7 +116,6 @@ def reproduceTx(txhash, evmbin, api):
     vm = gethvm.VM(evmbin)
     genesis = gen.Genesis()
     
-
     tx = api.getTransaction(txhash)
 
     s = tx['from']
@@ -142,12 +141,15 @@ def reproduceTx(txhash, evmbin, api):
             genesis.add(acc)
             debugdump(acc)
             done = False
+        
+        externals_fetched.add(externals_tofetch)
 
         for (addr,key) in list(slots_to_fetch):
             val = api.getStorageSlot( addr, key, blnum)
             genesis.addStorage(addr, key, val)
             done = False
-
+        storage_slots_fetched.add(slots_to_fetch)
+        
         if not done:
             g_path = genesis.export_geth()
             print("Executing tx...")
@@ -215,6 +217,6 @@ def fetch(args):
 
 
 if __name__ == '__main__':
-    fetch(argv[1:])
-    #test()
+    #fetch(argv[1:])
+    test()
     #testStoreLookup()
