@@ -23,11 +23,14 @@ def toText(op):
         
         if 'output' not in op.keys():
            op['output'] = ""
-           
+
         op['output'] = canon(op['output'])
         fmt = "output {output} gasUsed {gasUsed}"
         if 'error' in op.keys():
-         fmt = fmt +  " error {error}"
+            e = op['error']
+            if e.lower().find("out of gas") > -1:
+                e = "OOG"
+            fmt = fmt + " err: OOG"
         return fmt.format(**op)
     return "N/A"
 
