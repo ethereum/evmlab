@@ -24,6 +24,7 @@ from web3 import Web3, RPCProvider
 from evmlab import multiapi
 from sys import argv, exit
 
+
 def generateCall(addr, gas = None, value = 0, incode=""):
     """ Generates a piece of code which calls the supplied address
     NB: Not needed for geth, since it now has the '--receiver' argument, 
@@ -51,6 +52,9 @@ def findExternalCalls(list_of_output):
                 }
     accounts = set()
     for l in list_of_output:
+        if len(l) == 0 or l[0] != "{":
+            print("Odd line: %s" % l)
+            continue
         o = json.loads(l.strip())
         if 'opName' in o and o['opName'] in externals.keys():
             accounts.add(externals[o['opName']](o))
@@ -76,6 +80,9 @@ def findStorageLookups(list_of_output, original_context):
     cur_address = original_context
 
     for l in list_of_output:
+        if len(l) == 0 or l[0] != "{":
+            continue
+
         o = json.loads(l.strip())
         if not 'depth' in o.keys():
             #We're done here
@@ -108,7 +115,17 @@ def debugdump(obj):
     import pprint
     pprint.PrettyPrinter().pprint(obj)
 
-
+def saveFiles(artefacts):
+    import shutil
+    print("Saving files")
+    destination = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
+    for desc, path in artefacts.items():
+        if os.path.isfile(path):
+            fname = os.path.basename(path)
+            shutil.copy(path, destination)
+            print("* %s -> %s%s" % (desc, destination, fname) )
+        else:
+            print("Failed to save %s - not a file" % path)
 
 def reproduceTx(txhash, evmbin, api):
 
@@ -142,20 +159,20 @@ def reproduceTx(txhash, evmbin, api):
             debugdump(acc)
             done = False
         
-        externals_fetched.add(externals_tofetch)
+        externals_fetched.update(externals_tofetch)
 
         for (addr,key) in list(slots_to_fetch):
             val = api.getStorageSlot( addr, key, blnum)
             genesis.addStorage(addr, key, val)
             done = False
-        storage_slots_fetched.add(slots_to_fetch)
+        storage_slots_fetched.update(slots_to_fetch)
         
         if not done:
             g_path = genesis.export_geth()
             print("Executing tx...")
             output =  vm.execute(receiver=r ,genesis= g_path, json = True, sender=s, input = tx['input'], memory=True)
 
-            fd, temp_path = tempfile.mkstemp(dir='.', prefix=txhash+'_', suffix=".txt")
+            fd, temp_path = tempfile.mkstemp( prefix=txhash+'_', suffix=".txt")
             with open(temp_path, 'w') as f :
                 f.write("\n".join(output))
                 print("Saved trace to %s" % temp_path)
@@ -172,18 +189,23 @@ def reproduceTx(txhash, evmbin, api):
             print("Sloads: %s " % slots_to_fetch)
 
   
-    print("Genesis complete: %s" % g_path)
 
+    artefacts = {'genesis' : g_path, 
+        'json-trace': temp_path}
     try:
         annotated_trace = evmtrace.traceEvmOutput(temp_path)
         fd, a_trace = tempfile.mkstemp(dir='.', prefix=txhash[:8]+'_', suffix=".evmtrace.txt")
         with open(a_trace, 'w') as f :
             f.write(str(annotated_trace))
         os.close(fd)
-        print("Annotated trace: %s" % a_trace)
+        artefacts['annotated trace'] = a_trace
+
     except Exception as e:
         print("Evmtracing failed")
         print(e)
+
+    saveFiles(artefacts)
+        
 
 def testStoreLookup():
     tr = "/data/workspace/evmlab/0xd6d519043d40691a36c9e718e47110309590e6f47084ac0ec00b53718e449fd3_der80goh.txt"
