@@ -116,6 +116,12 @@ def debugdump(obj):
     pprint.PrettyPrinter().pprint(obj)
 
 def saveFiles(artefacts):
+    """ 
+    Copies the supplied artefacts to the right folder
+
+    TODO: Add option to save files into a zip file for download instead
+    """
+
     import shutil
     print("Saving files")
     destination = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
