@@ -15,31 +15,16 @@ This is a tool to replicate live on-chain events. It starts with a transaction i
 
 import json
 import tempfile, os
-from evmlab import etherchain
-from evmlab import compiler as c
-from evmlab import genesis as gen
-from evmlab import opcodes
-from evmlab import evmtrace
 from web3 import Web3, RPCProvider
-from evmlab import multiapi
 from sys import argv, exit
 
+from . import etherchain
+from . import compiler as c
+from . import genesis as gen
+from . import opcodes
+from . import evmtrace
+from . import multiapi
 
-def generateCall(addr, gas = None, value = 0, incode=""):
-    """ Generates a piece of code which calls the supplied address
-    NB: Not needed for geth, since it now has the '--receiver' argument, 
-    but could be useful for evms lacking that option
-    """
-
-    p = c.Program()
-    if (len(incode)):
-        p.push(len(incode) / 2)
-        p.push(0)
-        p.push(0)
-        p._addOp(c.CALLDATACOPY)
-    p.call(gas, addr, value, insize=len(incode)/2)
-    p.op(c.POP)
-    return p.bytecode()
 
 def findExternalCalls(list_of_output):
     externals = {
@@ -115,28 +100,9 @@ def debugdump(obj):
     import pprint
     pprint.PrettyPrinter().pprint(obj)
 
-def saveFiles(artefacts):
-    """ 
-    Copies the supplied artefacts to the right folder
 
-    TODO: Add option to save files into a zip file for download instead
-    """
+def reproduceTx(txhash, vm, api):
 
-    import shutil
-    print("Saving files")
-    destination = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
-    for desc, path in artefacts.items():
-        if os.path.isfile(path):
-            fname = os.path.basename(path)
-            shutil.copy(path, destination)
-            print("* %s -> %s%s" % (desc, destination, fname) )
-        else:
-            print("Failed to save %s - not a file" % path)
-
-def reproduceTx(txhash, evmbin, api):
-
-    from evmlab import gethvm
-    vm = gethvm.VM(evmbin)
     genesis = gen.Genesis()
     
     tx = api.getTransaction(txhash)
@@ -174,11 +140,15 @@ def reproduceTx(txhash, evmbin, api):
         storage_slots_fetched.update(slots_to_fetch)
         
         if not done:
-            g_path = genesis.export_geth()
-            print("Executing tx...")
-            output =  vm.execute(receiver=r ,genesis= g_path, json = True, sender=s, input = tx['input'], memory=True)
+            (g_path, p_path) = genesis.export(txhash[:8])
+            genesis_path = g_path
+            if vm.genesis_format == 'parity':
+                genesis_path = p_path
 
-            fd, temp_path = tempfile.mkstemp( prefix=txhash+'_', suffix=".txt")
+            print("Executing tx...")
+            output =  vm.execute(receiver=r ,genesis= genesis_path, json = True, sender=s, input = tx['input'], memory=True)
+
+            fd, temp_path = tempfile.mkstemp( prefix=txhash[:8]+'_', suffix=".txt")
             with open(temp_path, 'w') as f :
                 f.write("\n".join(output))
                 print("Saved trace to %s" % temp_path)
@@ -194,23 +164,26 @@ def reproduceTx(txhash, evmbin, api):
             slots_to_fetch = slots_found.difference(storage_slots_fetched)
             print("Sloads: %s " % slots_to_fetch)
 
-  
 
-    artefacts = {'genesis' : g_path, 
+    artefacts = {
+        'geth genesis'   : g_path, 
+        'parity genesis' : p_path, 
         'json-trace': temp_path}
+
     try:
         annotated_trace = evmtrace.traceEvmOutput(temp_path)
-        fd, a_trace = tempfile.mkstemp(dir='.', prefix=txhash[:8]+'_', suffix=".evmtrace.txt")
+        fd, a_trace = tempfile.mkstemp( prefix=txhash[:8]+'_', suffix=".evmtrace.txt")
         with open(a_trace, 'w') as f :
             f.write(str(annotated_trace))
         os.close(fd)
+        
         artefacts['annotated trace'] = a_trace
 
     except Exception as e:
         print("Evmtracing failed")
         print(e)
 
-    saveFiles(artefacts)
+    return artefacts
         
 
 def testStoreLookup():
@@ -219,18 +192,6 @@ def testStoreLookup():
         l = findStorageLookups(f,"recipient")
         debugdump(l)
 
-def test():
-
-    evmbin = "/home/martin/go/src/github.com/ethereum/go-ethereum/build/bin/evm"
-    tx = "0x66abc672b9e427447a8a8964c7f4671953fab20571ae42ae6a4879687888c495"
-    tx = "0x9dbf0326a03a2a3719c27be4fa69aacc9857fd231a8d9dcaede4bb083def75ec"
-
-    # tenx token transfer (should include SLOADS)
-    tx = "0xd6d519043d40691a36c9e718e47110309590e6f47084ac0ec00b53718e449fd3"
-    web3 = Web3(RPCProvider(host = 'mainnet.infura.io', port= 443, ssl=True))
-    chain = etherchain.EtherChainAPI()
-    api = multiapi.MultiApi(web3 = web3, etherchain = chain)
-    reproduceTx(tx, evmbin, api)
 
 def fetch(args):
     if len(args) < 1:

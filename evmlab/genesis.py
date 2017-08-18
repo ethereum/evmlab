@@ -148,17 +148,23 @@ class Genesis(object):
         ac['storage'][key]=value
 
 
-    def export_geth(self):
+    def export(self,prefix="genesis"):
+        geth_genesis = self.export_geth(prefix="%s-geth_" % prefix)
+        parity_genesis = self.export_parity(prefix="%s-parity_" % prefix)
+        
+        return (geth_genesis, parity_genesis)
+
+    def export_geth(self, prefix = None):
         import tempfile, os
-        fd, temp_path = tempfile.mkstemp(suffix=".json")
+        fd, temp_path = tempfile.mkstemp(prefix = prefix, suffix=".json")
         with open(temp_path, 'w') as f :
             json.dump(self.geth(),f)
         os.close(fd)
         return temp_path
 
-    def export_parity(self):
+    def export_parity(self, prefix = None):
         import tempfile, os
-        fd, temp_path = tempfile.mkstemp(suffix=".json")
+        fd, temp_path = tempfile.mkstemp(prefix = prefix, suffix=".json")
         with open(temp_path, 'w') as f :
             json.dump(self.parity(),f)
         os.close(fd)

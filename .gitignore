@@ -1,1 +1,3 @@
 *.pyc
+output/*.txt
+output/*.json

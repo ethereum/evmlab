@@ -10,6 +10,7 @@ class VM(object):
     def __init__(self,executable="evm", docker=False):
         self.executable = executable
         self.docker = docker
+        self.genesis_format = "geth"
 
     def execute(self, code = None, codeFile = None, genesis = None, 
         gas = 4700000, price = None, json = False, statdump = False, 

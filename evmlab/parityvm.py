@@ -4,12 +4,26 @@ from subprocess import Popen, PIPE, TimeoutExpired
 
 FNULL = open(os.devnull, 'w')
 
+def add_0x(str):
+    if str in [None, "0x", ""]:
+        return ""
+    if str[:2] == "0x":
+        return str
+    return "0x" + str
+
+def strip_0x(txt):
+    if len(txt) >= 2 and txt[:2] == '0x':
+        return txt[2:]
+    return txt
+
 class VM(object):
     """Utility to execute geth `evm` """
 
     def __init__(self,executable="evmbin", docker = False):
         self.executable = executable
         self.docker = docker
+        self.genesis_format = "parity"
+
 
     def execute(self, code = None, codeFile = None, genesis = None, 
         gas = 4700000, price = None, json = False, statdump=True, 
@@ -51,11 +65,11 @@ class VM(object):
 
         if sender is not None: 
             cmd.append("--from")
-            cmd.append(sender)
+            cmd.append(strip_0x(sender))
 
         if receiver is not None:
             cmd.append("--to")
-            cmd.append(receiver)
+            cmd.append(strip_0x(receiver))
 
         if input is not None:
             cmd.append("--input")
