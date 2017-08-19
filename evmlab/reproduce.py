@@ -111,7 +111,7 @@ def reproduceTx(txhash, vm, api):
     r = tx['to']
     tx['input'] = tx['input'][2:]
 
-    debugdump(tx)
+    #debugdump(tx)
     blnum = int(tx['blockNumber'])
 
 
@@ -128,7 +128,7 @@ def reproduceTx(txhash, vm, api):
         for addr in list(externals_tofetch):
             acc = api.getAccountInfo( addr , blnum)
             genesis.add(acc)
-            debugdump(acc)
+            #debugdump(acc)
             done = False
         
         externals_fetched.update(externals_tofetch)
@@ -148,8 +148,15 @@ def reproduceTx(txhash, vm, api):
             print("Executing tx...")
             # We could use the following to set the code for parity:
             #receivercode = genesis.codeAt(r)
-            output =  vm.execute(receiver=r ,genesis= genesis_path, json = True, sender=s, input = tx['input'], memory=True)
-            command = vm.lastCommand
+            vm_args = {
+                "receiver"  : r,
+                "sender"    : s,
+                "genesis"   : genesis_path, 
+                "json"      : True, 
+                "input"     : tx['input'], 
+                "memory"    : True,
+            }
+            output =  vm.execute(**vm_args)
 
             fd, temp_path = tempfile.mkstemp( prefix=txhash[:8]+'_', suffix=".txt")
             with open(temp_path, 'w') as f :
@@ -160,12 +167,14 @@ def reproduceTx(txhash, vm, api):
             # External accounts to lookup
             externals_found = findExternalCalls(output)
             externals_tofetch = externals_found.difference(externals_fetched)
-            print("Externals: %s " % externals_tofetch )
+            if len(externals_tofetch) > 0:
+                print("External accounts to fetch: %s " % externals_tofetch )
   
             # Storage slots to lookup
             slots_found = findStorageLookups(output, r)
             slots_to_fetch = slots_found.difference(storage_slots_fetched)
-            print("Sloads: %s " % slots_to_fetch)
+            if len(slots_to_fetch) > 0:
+                print("SLOTS to fetch: %s " % slots_to_fetch)
 
 
     artefacts = {
@@ -186,7 +195,7 @@ def reproduceTx(txhash, vm, api):
         print("Evmtracing failed")
         print(e)
 
-    return artefacts, command
+    return artefacts, vm_args
         
 
 def testStoreLookup():

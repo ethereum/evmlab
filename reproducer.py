@@ -2,7 +2,7 @@
 import sys,os, shutil
 import argparse
 from web3 import Web3, RPCProvider, HTTPProvider
-
+import re
 from evmlab import reproduce
 from evmlab import etherchain
 from evmlab import multiapi
@@ -34,6 +34,7 @@ Unfinished:
 try:
     import flask
     app = flask.Flask(__name__)
+    hash_regexp = re.compile("0x[0-9a-f]{64}")
 except: 
     print("Flask not installed, disabling web mode")
     app = None
@@ -79,18 +80,38 @@ web3settings.add_argument("--web3-ssl" ,  action="store_true", default=True,
 parser
 
 escape = lambda a: lib_escape(str(a), quote=True)
+OUTPUT_DIR = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
 
 if app:
     @app.route("/")
     def test():
-        return "<html>Hello world</html>"
+        return flask.render_template("index.html")
+
 
     @app.route('/reproduce/<txhash>')
     def reproduce_tx(txhash):
-        artefacts = reproduce.reproduceTx(txhash, app.vm, app.api)
-        files = saveFiles(artefacts)
-        return flask.jsonify(files)
+        # Verify input
+        if not hash_regexp.match(txhash):
+            return flask.render_template("index.html", message="Invalid tx hash")
+        
+        artefacts, vm_args = reproduce.reproduceTx(txhash, app.vm, app.api)
+        saved_files = saveFiles(artefacts)
 
+        #Some tricks to get the right command for local replay
+        p_gen = saved_files['parity genesis']['name']
+        g_gen = saved_files['geth genesis']['name']
+        vm_args['genesis'] = g_gen
+        vm_args['dontExecuteButReturnCommand'] = True
+        command = app.vm.execute(**vm_args)
+        
+        outp = "Transaction tracing seems to have been successfull. Use the following command to execute locally" 
+        (path, zipfilename) = zipFiles(saved_files, txhash[:8])
+        
+        return flask.render_template("index.html", files=saved_files, zipfile = zipfilename, message=outp, code=" \\\n\t".join(command))
+
+    @app.route('/download/<path:filename>')
+    def download_file(filename):
+        return flask.send_from_directory(OUTPUT_DIR,filename, as_attachment=True)
 
 def saveFiles(artefacts):
     """ 
@@ -100,10 +121,10 @@ def saveFiles(artefacts):
     """
 
     print("Saving files") 
-
+    print("")
     saved = {}
 
-    destination = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
+    destination = OUTPUT_DIR
 
     for desc, path in artefacts.items():
         if os.path.isfile(path):
@@ -113,8 +134,6 @@ def saveFiles(artefacts):
             print("* %s -> %s%s" % (desc, destination, fname) )
         else:
             print("Failed to save %s - not a file" % path)
-
-
 
     return saved
 
@@ -127,15 +146,15 @@ def zipFiles(artefacts, fname):
     """
     import zipfile
 
-    destination = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
-    zipfilepath = '%s%s.zip' %(destination, fname)
 
-    zipf = zipfile.ZipFile(zipfilepath, 'w', zipfile.ZIP_DEFLATED)
+    zf_name = '%s.zip' % fname
+    zf_path = OUTPUT_DIR
+    fullpath = "%s%s" % (zf_path, zf_name)
+    zipf = zipfile.ZipFile(fullpath, 'w', zipfile.ZIP_DEFLATED)
     for k,v in artefacts.items():
         zipf.write(os.path.join(v['path'], v['name']), v['name'])
     zipf.close()
-
-    print("Zipped files into %s" % zipfilepath)
+    return (zf_path, zf_name)
 
 def test(vm,api):
 
@@ -173,9 +192,24 @@ def main(args):
         app.vm = vm
         app.run(host=args.www)
     elif args.hash:
-        artefacts, command = reproduce.reproduceTx(args.hash, vm, api)
+        artefacts, vm_args = reproduce.reproduceTx(args.hash, vm, api)
         saved_files = saveFiles(artefacts)
-        zipfile = zipFiles(saved_files, args.hash[:8])
+
+        #Some tricks to get the right command for local replay
+        p_gen = saved_files['parity genesis']['name']
+        g_gen = saved_files['geth genesis']['name']
+        vm_args['genesis'] = g_gen
+        vm_args['dontExecuteButReturnCommand'] = True
+        command = vm.execute(**vm_args)
+        print("")
+        print("Command to execute locally (geth):")
+        print("")
+        print("\t %s" % " ".join(command))
+        print("")
+        (zipfilepath, zipfilename) = zipFiles(saved_files, args.hash[:8])
+        print("Zipped files into %s%s" % (zipfilepath, zipfilename))
+
+
 
     else:
         parser.print_usage()

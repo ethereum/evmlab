@@ -1,0 +1,79 @@
+<html>
+<head>
+<!-- Lovingly crafted by MH Swende 2017 -->
+<!-- Google Fonts -->
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+
+<!-- CSS Reset -->
+<link rel="stylesheet" href="//cdn.rawgit.com/necolas/normalize.css/master/normalize.css">
+
+<!-- Milligram CSS minified -->
+<link rel="stylesheet" href="//cdn.rawgit.com/milligram/milligram/master/dist/milligram.min.css">
+
+</head>
+<body>
+	<div class="container">
+
+		<h1>EVM reproducer</h1>
+
+		{% if message %}
+			{{ message }}
+		{% endif %}
+		{% if code %}
+			<pre><code>{{ code }} </code></pre>
+		{% endif %}
+		{% if files  %}
+		Files generated: 
+		<ul>
+			{% for k,v in files.items()  %}
+			<li>{{ k }} - <a href="/download/{{ v['name'] }}">{{ v['name'] }}</a>
+			{%  endfor %}
+		</ul>
+		{%  endif %}
+		{% if zipfile %}
+		<a href="/download/{{ zipfile }}">Download zip-file</a>
+		<hr/>
+		{%  endif %}
+		</ul>
+		<h2>Enter hash</h2>
+		<input type="text" id="hash">
+		<a class="button" href="#" onclick="javascript:submithash()">Reproduce</a>
+		<p>Try <code>0xd6d519043d40691a36c9e718e47110309590e6f47084ac0ec00b53718e449fd3</code> for example   
+
+		<h2>What is this</h2>
+		<p>
+			This is a tool to take any on-chain live Ethereum transaction, and reproduce it on a fully local evm instance. 
+		</p>
+		<p>
+			The reproducer fetches transaction info from a node, and then runs the transaction inside a standalone EVM. The transaction trace is then analysed, and if there were any external accesses (other accounts, or SLOAD from other accounts), the required information is fetched and put into the genesis.
+		</p>
+		<p>
+			This process is repeated, until the genesis contains all necessary information to replicate the transaction. At that point, the following artefacts are gathered: 
+			<ul>
+				<li>Genesis to use with Geth <code>evm</code>
+				<li>Genesis to use with Parity <code>evm-bin</code>
+				<li>Transaction trace in <code>json</code> format
+				<li>Annotated trace
+				<li>Instructions about how to run the transaction locally
+			</ul>
+			The resulting files are zipped for download.  
+		</p>
+
+
+	</div>
+</body>
+</html>
+<script type="text/javascript">
+function submithash(){
+
+	hash = document.getElementById('hash').value.toLowerCase();
+	if (hash.length == 64){
+		hash = "0x"+hash;
+	}
+	if (! /0x[0-9a-f]{64}/.test(hash)){
+		alert("Not a valid hash: '" + hash+"'");
+		return false;
+	}
+	window.location.pathname="reproduce/"+hash;
+}
+</script>

@@ -11,12 +11,12 @@ class VM(object):
         self.executable = executable
         self.docker = docker
         self.genesis_format = "geth"
-        self.lastCommand = []
+
 
     def execute(self, code = None, codeFile = None, genesis = None, 
         gas = 4700000, price = None, json = False, statdump = False, 
         sender = None, receiver = None, memory = False, input = None, 
-        value = None):
+        value = None, dontExecuteButReturnCommand = False):
 
         if self.docker: 
             cmd = ['docker', 'run']
@@ -81,7 +81,11 @@ class VM(object):
             cmd.append("--json")
 
         cmd.append("run")
-        self.lastCommand = cmd
+
+
+        if dontExecuteButReturnCommand:
+            return cmd
+
         print(" ".join(cmd))
         with Popen(cmd, stdout=PIPE, preexec_fn=os.setsid) as process:
             try:
