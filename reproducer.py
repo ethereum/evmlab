@@ -69,7 +69,7 @@ parser.add_argument('-t','--test' , action="store_true", default=False,
     help ="Dont run webapp, only local tests")
 
 
-web3settings = parser.add_argument_group('Web3', 'Settings about where to fetch information from')
+web3settings = parser.add_argument_group('Web3', 'Settings about where to fetch information from (default infura)')
 web3settings.add_argument("--web3-host",  type=str, default="mainnet.infura.io", 
     help="Web3 API host", )
 web3settings.add_argument("--web3-port",  type=int, default=443, 
@@ -104,6 +104,7 @@ def saveFiles(artefacts):
     saved = {}
 
     destination = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
+
     for desc, path in artefacts.items():
         if os.path.isfile(path):
             fname = os.path.basename(path)
@@ -113,8 +114,28 @@ def saveFiles(artefacts):
         else:
             print("Failed to save %s - not a file" % path)
 
+
+
     return saved
 
+def zipFiles(artefacts, fname):
+    """ 
+    Bundles artefacts into a zip-file
+    
+    @param artefacts - map of files to save
+    @param fname prefix to zip-file name
+    """
+    import zipfile
+
+    destination = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
+    zipfilepath = '%s%s.zip' %(destination, fname)
+
+    zipf = zipfile.ZipFile(zipfilepath, 'w', zipfile.ZIP_DEFLATED)
+    for k,v in artefacts.items():
+        zipf.write(os.path.join(v['path'], v['name']), v['name'])
+    zipf.close()
+
+    print("Zipped files into %s" % zipfilepath)
 
 def test(vm,api):
 
@@ -152,8 +173,12 @@ def main(args):
         app.vm = vm
         app.run(host=args.www)
     elif args.hash:
-        artefacts = reproduce.reproduceTx(args.hash, vm, api)
-        saveFiles(artefacts)
+        artefacts, command = reproduce.reproduceTx(args.hash, vm, api)
+        saved_files = saveFiles(artefacts)
+        zipfile = zipFiles(saved_files, args.hash[:8])
+
+    else:
+        parser.print_usage()
 
 if __name__ == '__main__':
     options = parser.parse_args()

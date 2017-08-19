@@ -139,6 +139,14 @@ class Genesis(object):
             "nonce" : hex(n), 
         }
 
+    def codeAt(self,addr):
+        addr = addr.lower()
+        if addr in self.alloc.keys():
+            acc = self.alloc[addr]
+            if 'code' in acc:
+                return acc['code']
+        return ""
+
     def addStorage(self, account, key, value):
         ac = self.alloc[account.lower()]
         key = "0x{:02x}".format(int(key,16))
@@ -149,8 +157,8 @@ class Genesis(object):
 
 
     def export(self,prefix="genesis"):
-        geth_genesis = self.export_geth(prefix="%s-geth_" % prefix)
-        parity_genesis = self.export_parity(prefix="%s-parity_" % prefix)
+        geth_genesis = self.export_geth(prefix="%s-genesis-geth_" % prefix)
+        parity_genesis = self.export_parity(prefix="%s-genesis-parity_" % prefix)
         
         return (geth_genesis, parity_genesis)
 

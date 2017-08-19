@@ -23,6 +23,7 @@ class VM(object):
         self.executable = executable
         self.docker = docker
         self.genesis_format = "parity"
+        self.lastCommand = []
 
 
     def execute(self, code = None, codeFile = None, genesis = None, 
@@ -47,7 +48,7 @@ class VM(object):
 
         if code is not None : 
             cmd.append("--code")
-            cmd.append(code)
+            cmd.append(strip_0x(code))
 
 
         if genesis is not None : 

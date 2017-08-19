@@ -120,7 +120,7 @@ def reproduceTx(txhash, vm, api):
 
     storage_slots_fetched = set()
     slots_to_fetch = set()
-
+    receivercode = ""
     done = False
     while not done:
         done = True
@@ -146,7 +146,10 @@ def reproduceTx(txhash, vm, api):
                 genesis_path = p_path
 
             print("Executing tx...")
+            # We could use the following to set the code for parity:
+            #receivercode = genesis.codeAt(r)
             output =  vm.execute(receiver=r ,genesis= genesis_path, json = True, sender=s, input = tx['input'], memory=True)
+            command = vm.lastCommand
 
             fd, temp_path = tempfile.mkstemp( prefix=txhash[:8]+'_', suffix=".txt")
             with open(temp_path, 'w') as f :
@@ -183,7 +186,7 @@ def reproduceTx(txhash, vm, api):
         print("Evmtracing failed")
         print(e)
 
-    return artefacts
+    return artefacts, command
         
 
 def testStoreLookup():

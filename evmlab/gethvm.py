@@ -11,6 +11,7 @@ class VM(object):
         self.executable = executable
         self.docker = docker
         self.genesis_format = "geth"
+        self.lastCommand = []
 
     def execute(self, code = None, codeFile = None, genesis = None, 
         gas = 4700000, price = None, json = False, statdump = False, 
@@ -80,6 +81,7 @@ class VM(object):
             cmd.append("--json")
 
         cmd.append("run")
+        self.lastCommand = cmd
         print(" ".join(cmd))
         with Popen(cmd, stdout=PIPE, preexec_fn=os.setsid) as process:
             try:
@@ -88,3 +90,5 @@ class VM(object):
                 os.killpg(process.pid, signal.SIGINT) # send signal to the process group
                 output = process.communicate()[0]
         return output.decode().strip().split("\n")
+
+
