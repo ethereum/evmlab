@@ -94,7 +94,11 @@ if app:
         if not hash_regexp.match(txhash):
             return flask.render_template("index.html", message="Invalid tx hash")
         
-        artefacts, vm_args = reproduce.reproduceTx(txhash, app.vm, app.api)
+        try:
+            artefacts, vm_args = reproduce.reproduceTx(txhash, app.vm, app.api)
+        except Exception as e:
+            return flask.render_template("index.html", message=str(e))
+
         saved_files = saveFiles(artefacts)
 
         #Some tricks to get the right command for local replay
