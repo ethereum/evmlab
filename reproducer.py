@@ -16,7 +16,7 @@ examples = """
 Examples
 
 # Reproduce a tx with a local evm binary
-python3 reproducer.py --docker false -g ~/go/src/github.com/ethereum/go-ethereum/build/bin/evm --hash 0xd6d519043d40691a36c9e718e47110309590e6f47084ac0ec00b53718e449fd3 
+python3 reproducer.py --no-docker -g ~/go/src/github.com/ethereum/go-ethereum/build/bin/evm --hash 0xd6d519043d40691a36c9e718e47110309590e6f47084ac0ec00b53718e449fd3 
 
 # Reproduce a tx with a docker evm
 python3 reproducer.py -g holiman/gethvm --hash 0xd6d519043d40691a36c9e718e47110309590e6f47084ac0ec00b53718e449fd3
@@ -52,7 +52,7 @@ evmchoice.add_argument('-g','--geth-evm', type=str,
 evmchoice.add_argument('-p','--parity-evm',  type=str, default=None, 
     help="Parity EVM binary or docker image name")
 
-parser.add_argument("--docker", action="store_true", default=True,
+parser.add_argument("--no-docker", action="store_true",
     help="Set to true if using a docker image instead of a local binary")
 
 
@@ -176,9 +176,9 @@ def test(vm,api):
 def main(args):
 
     if args.parity_evm:
-        vm = parityvm.VM(args.parity_evm, args.docker)
+        vm = parityvm.VM(args.parity_evm, not args.no_docker)
     else:
-        vm = gethvm.VM(args.geth_evm, args.docker)
+        vm = gethvm.VM(args.geth_evm, not args.no_docker)
 
     web3 = Web3(RPCProvider(host = args.web3_host,port= args.web3_port,ssl= args.web3_ssl)) 
     api = multiapi.MultiApi(web3 = web3, etherchain = etherchain.EtherChainAPI())
