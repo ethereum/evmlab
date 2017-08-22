@@ -383,8 +383,10 @@ def evmResult(tracefile):
                     res['stack'].append(opinfo)
 
                 elif isOp(compiler.RETURN):
-                    out = log['stack'][0]
-                    outsize = log['stack'][1]
+                    out = peek(0)
+                    outsize = peek(1)
+                    print("Out" , out)
+                    print("Outsize", outsize)
                     frame['return'] = log['memory'][out:out+outsize]
                 elif isOp(compiler.STOP) or isOp(compiler.SELFDESTRUCT):
                     frame['return'] = None
