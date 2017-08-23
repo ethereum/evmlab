@@ -11,7 +11,7 @@ class VM(object):
         self.executable = executable
         self.docker = docker
         self.genesis_format = "geth"
-
+        self.lastCommand = ""
 
     def execute(self, code = None, codeFile = None, genesis = None, 
         gas = 4700000, price = None, json = False, statdump = False, 
@@ -85,8 +85,9 @@ class VM(object):
 
         if dontExecuteButReturnCommand:
             return cmd
+        
+        self.lastCommand = " ".join(cmd)
 
-        print(" ".join(cmd))
         with Popen(cmd, stdout=PIPE, preexec_fn=os.setsid) as process:
             try:
                 output = process.communicate(timeout=15)[0]
