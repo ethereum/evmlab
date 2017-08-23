@@ -8,6 +8,7 @@ class Genesis(object):
         self.timestamp = "0x00"
         self.gasLimit = "0x3D0900"
         self.difficulty = "0x1"
+        self.metropolisBlock = 2000
         
     def geth(self):
 
@@ -27,7 +28,7 @@ class Genesis(object):
                 "eip155Block": 0, 
                 "homesteadBlock": 0, 
                 "daoForkBlock": 0,
-                "metropolisBlock": 2000,
+                "metropolisBlock": self.metropolisBlock,
             }
         }
         return g
@@ -102,6 +103,9 @@ class Genesis(object):
 
     def setDifficulty(self, difficulty):
         self.difficulty = difficulty
+
+    def setMetropolisActivation(self, activationBlock):
+        self.metropolisBlock = activationBlock
 
     def addPrestateAccount(self, account):
         self.alloc[account['address'].lower()] = {
