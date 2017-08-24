@@ -206,7 +206,7 @@ def doParity(test_file):
 	logger.info("running state test in parity.")
 	testfile_path = os.path.abspath(test_file)
 	mount_testfile = testfile_path + ":" + "/mounted_testfile"
-	parity_docker_cmd = ["docker", "run", "-i", "-t", "-v", mount_testfile, PARITY_DOCKER_NAME, "--json", "--statetest", "/mounted_testfile"]
+	parity_docker_cmd = ["docker", "run", "--rm", "-i", "-t", "-v", mount_testfile, PARITY_DOCKER_NAME, "--json", "--statetest", "/mounted_testfile"]
 	logger.info(" ".join(parity_docker_cmd))
 	
 	parity_process = subprocess.Popen(" ".join(parity_docker_cmd), shell=True, stdout=subprocess.PIPE, close_fds=True)
@@ -250,7 +250,7 @@ def doParity(test_file):
 def doCpp(test_subfolder, test_name, test_dgv):
 	logger.info("running state test in cpp-ethereum.")
 	cpp_mount_tests = TESTS_PATH + ":" + "/mounted_tests"
-	cpp_docker_cmd = ["docker", "run", "-i", "-t", "-v", cpp_mount_tests, CPP_DOCKER_NAME]
+	cpp_docker_cmd = ["docker", "run", "--rm", "-i", "-t", "-v", cpp_mount_tests, CPP_DOCKER_NAME]
 	cpp_cmd = " ".join(cpp_docker_cmd)
 	
 	cpp_cmd += " -t StateTestsGeneral/" + test_subfolder + " --"
@@ -421,7 +421,7 @@ def doPython(test_file, test_tx):
 	
 	prestate_path = os.path.abspath(test_file)
 	mount_flag = prestate_path + ":" + "/mounted_prestate"
-	pyeth_docker_cmd = ["docker", "run", "-i", "-t", "-v", mount_flag, PYETH_DOCKER_NAME, "run_statetest.py", "/mounted_prestate", tx_double_encoded]
+	pyeth_docker_cmd = ["docker", "run", "--rm", "-i", "-t", "-v", mount_flag, PYETH_DOCKER_NAME, "run_statetest.py", "/mounted_prestate", tx_double_encoded]
 	logger.info(" ".join(pyeth_docker_cmd))
 	
 	# passing a list to Popen doesn't work. Can't read stdout from docker container when shell=False
@@ -435,7 +435,6 @@ def doPython(test_file, test_tx):
 	pyout = []
 	for line in pyeth_process.stdout:
 		line = line.decode()
-		#print(line, end='')
 		logger.info(line.rstrip() + "\r")
 		if line.startswith("test_tx:"):
 			continue
