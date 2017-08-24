@@ -227,6 +227,9 @@ def doParity(test_file):
 		if p_step['op'] == 0:
 			# skip STOPs
 			continue
+		if p_step['opName'] == "":
+			# invalid opcode
+			continue
 		trace_step['op'] = p_step['op']
 		trace_step['depth'] = p_step['depth'] - 1 # parity depth starts at 1, but we want a 0-based depth
 		trace_step['stack'] = p_step['stack']
