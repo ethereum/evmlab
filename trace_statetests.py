@@ -505,6 +505,7 @@ DO_TESTS = []
 
 
 SKIP_LIST = [
+#'modexp_*', # regex example
 'POP_Bounds',
 'POP_BoundsOOG',
 'MLOAD_Bounds',
@@ -588,8 +589,8 @@ def main():
 			if test_name in SKIP_LIST and test_name not in DO_TESTS:
 				print("skipping test:", test_name)
 				continue
-			if re.search('|'.join(regex_skip), test_name) and test_name not in DO_TESTS:
-				print("skipping test:", test_name)
+			if regex_skip and re.search('|'.join(regex_skip), test_name) and test_name not in DO_TESTS:
+				print("skipping test (regex match):", test_name)
 				continue
 		print("file:", f)
 		print("test_name:", test_name + ".")
