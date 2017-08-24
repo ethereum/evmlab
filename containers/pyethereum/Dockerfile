@@ -6,11 +6,8 @@ RUN \
          bsd-compat-headers g++ autoconf automake pkgconfig libtool libffi-dev gmp-dev && \
   curl -sSf https://bootstrap.pypa.io/get-pip.py -o get-pip.py              && \
   python3 get-pip.py                                                         && \
-  pip3 install pycryptodome                                                 && \
-  git clone --depth 1 https://github.com/cdetrio/pyethereum                  && \
-  cd pyethereum                                                             && \
-  git fetch origin 'metro-trace':'metro-trace'                              && \
-  git checkout metro-trace                                                  && \
+  git clone --depth 1 https://github.com/cdetrio/pyethereum --branch evmlab-trace --single-branch && \
+  cd pyethereum                                                              && \
   python3 setup.py install                                                   && \
   echo "{}"                                                                    \
       | jq ".+ {\"repo\":\"$(git config --get remote.origin.url)\"}"           \

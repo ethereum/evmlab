@@ -66,6 +66,10 @@ def convertGeneralTest(test_file):
 			prestate = {}
 			prestate['env'] = general_test[test_name]['env']
 			prestate['pre'] = general_test[test_name]['pre']
+			prestate['config'] = {} # for pyeth run_statetest.py
+			prestate['config']['metropolisBlock'] = 2000 # same default as evmlab/genesis.py
+			if FORK_CONFIG == 'Byzantium':
+				prestate['config']['metropolisBlock'] = 0
 			#print("prestate:", prestate)
 			general_tx = general_test[test_name]['transaction']
 			transactions = []
@@ -373,16 +377,15 @@ def doGeth(test_case, test_tx):
 	
 	g_output = g_output[:-1] # last one is {"output":"","gasUsed":"0x34a48","time":4787059}
 	g_steps = []
-	for step_txt in g_output:
+	for step_line in g_output:
 		try:
-			step = json.loads(step_txt)
+			step = json.loads(step_line)
 			step['depth'] -= 1 # geth trace starts depth at 1 (standard is 0-based)
 			if step['op'] == 0:
-				print("skipping STOP step")
 				# skip STOP since they don't appear in python trace
 				continue
 			if step['opName'].startswith("Missing opcode"):
-				print("skipping Missing opcode step.")
+				# invalid opcodes aren't logged in standard trace
 				continue
 			del step['memory']
 			del step['memSize']
@@ -390,7 +393,7 @@ def doGeth(test_case, test_tx):
 			g_steps.append(step)
 			print(step)
 		except Exception as e:
-			print("exception e:", e)
+			print("exception e:", e, " when parsing step_line:", step_line)
 	
 	g_canon_trace = []
 	for g_step in g_steps:
@@ -556,6 +559,9 @@ SKIP_LIST = [
 'TransactionDataCosts652'
 ]
 
+regex_skip = [skip.replace('*', '') for skip in SKIP_LIST if '*' in skip]
+
+
 
 # to resume running after interruptions
 START_I = 0
@@ -582,8 +588,11 @@ def main():
 			if test_name in SKIP_LIST and test_name not in DO_TESTS:
 				print("skipping test:", test_name)
 				continue
-			print("f:", f)
-			print("test_name:", test_name + ".")
+			if re.search('|'.join(regex_skip), test_name) and test_name not in DO_TESTS:
+				print("skipping test:", test_name)
+				continue
+		print("file:", f)
+		print("test_name:", test_name + ".")
 		try:
 			prestate, txs_dgv = convertGeneralTest(f)
 		except Exception as e:
@@ -604,7 +613,7 @@ def main():
 				continue
 			tx = tx_and_dgv[0]
 			tx_dgv = tx_and_dgv[1]
-			print("f:", f)
+			print("file:", f)
 			print("test_name:", test_name + ".", "tx_i:", tx_i)
 			single_statetest = selectSingleFromGeneral(tx_i, f)
 			with open(SINGLE_TEST_TMP_FILE, 'w') as outfile:
@@ -631,20 +640,22 @@ def main():
 					print("[*] %s %s" % (blank_name, step[0]))
 				else:
 					equivalent = False
+					print("\n")
 					if len(wrong_clients) == (len(step) - 1):
 						# no clients match
 						for i in range(0, len(step)):
 							client_name = (" " * (4 - len(DO_CLIENTS[i]))) + DO_CLIENTS[i]
-							print("[!!] %s:>> %s \n" % (client_name, step[i]))
+							print("[!!] %s:>> %s" % (client_name, step[i]))
 					else:
 						# some clients match
 						for i in range(0, len(step)):
 							if i not in wrong_clients:
 								client_name = (" " * (5 - len(DO_CLIENTS[i]))) + DO_CLIENTS[i]
-								print("[*] %s:>> %s \n" % (client_name, step[i]))
+								print("[*] %s:>> %s" % (client_name, step[i]))
 							else:
 								client_name = (" " * (4 - len(DO_CLIENTS[i]))) + DO_CLIENTS[i]
-								print("[!!] %s:>> %s \n" % (client_name, step[i]))
+								print("[!!] %s:>> %s" % (client_name, step[i]))
+					print("\n")
 			
 			if equivalent is False:
 				fail_count += 1
