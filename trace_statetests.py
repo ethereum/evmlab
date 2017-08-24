@@ -5,6 +5,7 @@ Executes state tests on multiple clients, checking for EVM trace equivalence
 """
 import json, sys, re, os, subprocess, io, itertools
 from contextlib import redirect_stderr, redirect_stdout
+import logging
 
 import ethereum.transactions as transactions
 from ethereum.utils import decode_hex, parse_int_or_hex, sha3, to_string, \
@@ -37,6 +38,14 @@ PRESTATE_TMP_FILE = 'prestate.json' # used by python
 SINGLE_TEST_TMP_FILE = 'single_test_tmp.json' # used by parity
 
 
+LOGS_PATH = 'tracerLogs'
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+console_handler = logging.StreamHandler(sys.stdout)
+logger.addHandler(console_handler)
+
+logger.info('info message')
 
 
 # used to check for unknown opcode names in traces
@@ -92,7 +101,7 @@ def selectSingleFromGeneral(single_i, general_testfile):
 	# each element of the array specifies (d,g,v) indexes in the transaction
 	with open(general_testfile) as json_data:
 		general_test = json.load(json_data)
-		print("general_test:", general_test)
+		logger.info("general_test: %s", general_test)
 		for test_name in general_test:
 			# should only be one test_name per file
 			single_test = general_test
@@ -151,7 +160,7 @@ def outputs(stdouts):
 				try:
 					items.append(json.loads(outp))
 				except ValueError:
-					print("Invalid json: %s" % outp)
+					logger.info("Invalid json: %s", outp)
 					items.append({})
 		yield items
 
@@ -194,29 +203,21 @@ def toHexQuantities(vals):
 
 
 def doParity(test_file):
-	print("running state test in parity.")
-	"""
-	parity_cmd = []
-	parity_cmd.append(PARITY_PATH)
-	parity_cmd.append("--json")
-	parity_cmd.append("--statetest")
-	parity_cmd.append(test_file)
-	print("parity_cmd:")
-	print(" ".join(parity_cmd))
-	parity_process = subprocess.Popen(parity_cmd, shell=False, stdout=subprocess.PIPE, close_fds=True)
-	"""
+	logger.info("running state test in parity.")
 	testfile_path = os.path.abspath(test_file)
 	mount_testfile = testfile_path + ":" + "/mounted_testfile"
 	parity_docker_cmd = ["docker", "run", "-i", "-t", "-v", mount_testfile, PARITY_DOCKER_NAME, "--json", "--statetest", "/mounted_testfile"]
-	print(" ".join(parity_docker_cmd))
+	logger.info(" ".join(parity_docker_cmd))
 	
 	parity_process = subprocess.Popen(" ".join(parity_docker_cmd), shell=True, stdout=subprocess.PIPE, close_fds=True)
 	
 	parity_out = []
 	for parity_line in parity_process.stdout:
 		parity_out.append(parity_line.decode())
-		print(parity_line.decode(), end='')
-	print("end of parity trace. processing...")
+	
+	for line in parity_out:
+		logger.info(line.rstrip())
+	logger.info("end of parity trace. processing...")
 	
 	parity_steps = []
 	for p_line in parity_out:
@@ -239,15 +240,15 @@ def doParity(test_file):
 		trace_step['stack'] = p_step['stack']
 		canon_steps.append(toText(trace_step))
 	
-	print("done processing parity trace, returning in canonical format.")
-	print("----------\n")
+	logger.info("done processing parity trace, returning in canonical format.")
+	logger.info("----------\n")
 	return canon_steps
 
 
 
 
 def doCpp(test_subfolder, test_name, test_dgv):
-	print("running state test in cpp-ethereum.")
+	logger.info("running state test in cpp-ethereum.")
 	cpp_mount_tests = TESTS_PATH + ":" + "/mounted_tests"
 	cpp_docker_cmd = ["docker", "run", "-i", "-t", "-v", cpp_mount_tests, CPP_DOCKER_NAME]
 	cpp_cmd = " ".join(cpp_docker_cmd)
@@ -259,8 +260,8 @@ def doCpp(test_subfolder, test_name, test_dgv):
 	cpp_cmd += " --singlenet " + FORK_CONFIG
 	cpp_cmd += " -d " + str(test_dgv[0]) + " -g " + str(test_dgv[1]) + " -v " + str(test_dgv[2])
 	cpp_cmd += " --testpath \"" + "/mounted_tests" + "\""
-	print("cpp_cmd:")
-	print(cpp_cmd)
+	logger.info("cpp_cmd:")
+	logger.info(cpp_cmd)
 	cpp_process = subprocess.Popen(cpp_cmd, shell=True, stdout=subprocess.PIPE, close_fds=True)
 
 	cpp_out = []
@@ -272,11 +273,11 @@ def doCpp(test_subfolder, test_name, test_dgv):
 		if c_line[0:2] == '[{': # detect line with json trace
 			cpp_steps = json.loads(c_line)
 			for step in cpp_steps:
-				print(step)
+				logger.info(step)
 		else:
-			print(c_line)
+			logger.info(c_line)
 	
-	print("end of cpp trace. processing...")
+	logger.info("end of cpp trace. processing...")
 	canon_steps = []
 	prev_step = {}
 	for c_step in cpp_steps:
@@ -286,8 +287,8 @@ def doCpp(test_subfolder, test_name, test_dgv):
 		if c_step['op'] == 'INVALID':
 			continue
 		if c_step['op'] not in OPCODES:
-			print("got cpp step for an unknown opcode:")
-			print(c_step)
+			logger.info("got cpp step for an unknown opcode:")
+			logger.info(c_step)
 			continue
 		trace_step['op'] = OPCODES[c_step['op']]
 		c_step['gas'] = int(c_step['gas'])
@@ -299,15 +300,15 @@ def doCpp(test_subfolder, test_name, test_dgv):
 		prev_step = c_step
 		canon_steps.append(toText(trace_step))
 
-	print("done processing cpp trace, returning in canonical format.")
-	print("----------\n")
+	logger.info("done processing cpp trace, returning in canonical format.")
+	logger.info("----------\n")
 	return canon_steps
 
 
 
 
 def doGeth(test_case, test_tx):
-	print("running state test in geth.")
+	logger.info("running state test in geth.")
 	genesis = gen.Genesis()
 	for account_key in test_case['pre']:
 		account = test_case['pre'][account_key]
@@ -337,7 +338,7 @@ def doGeth(test_case, test_tx):
 	block_gaslimit = parse_int_or_hex(test_case['env']['currentGasLimit'])
 	
 	if gas_limit > block_gaslimit:
-		print("Tx gas limit exceeds block gas limit. not calling geth")
+		logger.info("Tx gas limit exceeds block gas limit. not calling geth")
 		return []
 	
 	sender = '0x' + getTxSender(test_tx)
@@ -345,7 +346,7 @@ def doGeth(test_case, test_tx):
 	balance_required = (gas_price * gas_limit) + tx_value
 	
 	if balance_required > sender_balance:
-		print("Insufficient balance. not calling geth")
+		logger.info("Insufficient balance. not calling geth")
 		return []
 	
 	intrinsic_gas = getIntrinsicGas(test_tx)
@@ -354,26 +355,26 @@ def doGeth(test_case, test_tx):
 		intrinsic_gas += 32000
 	
 	if gas_limit < intrinsic_gas:
-		print("Insufficient startgas. not calling geth")
+		logger.info("Insufficient startgas. not calling geth")
 		return []
 	
 	if tx_to == "" and input_data == "":
-		print("no init code. not calling geth")
+		logger.info("no init code. not calling geth")
 		return []
 	
 	if tx_to in test_case['pre']:
 		if 'code' in test_case['pre'][tx_to]:
 			if test_case['pre'][tx_to]['code'] == '':
-				print("To account in prestate has no code. not calling geth")
+				logger.info("To account in prestate has no code. not calling geth")
 				return []
 	
 	vm = gethvm.VM(executable = GETH_DOCKER_NAME, docker = True)
-	print("executing geth vm.")
+	logger.info("executing geth vm.")
 	g_output = vm.execute(genesis = g_path, gas = gas_limit, price = gas_price, json = True, sender = sender, receiver = tx_to, input = input_data, value = tx_value)
-	print("geth vm executed. printing output:")
+	logger.info("geth vm executed. printing output:")
 	for g_step in g_output:
-		print(g_step)
-	print("end of geth output. processing...")
+		logger.info(g_step)
+	logger.info("end of geth output. processing...")
 	
 	g_output = g_output[:-1] # last one is {"output":"","gasUsed":"0x34a48","time":4787059}
 	g_steps = []
@@ -391,24 +392,24 @@ def doGeth(test_case, test_tx):
 			del step['memSize']
 			del step['error']
 			g_steps.append(step)
-			print(step)
+			logger.info(step)
 		except Exception as e:
-			print("exception e:", e, " when parsing step_line:", step_line)
+			logger.info("exception e: %s when parsing step_line: %s", e, step_line)
 	
 	g_canon_trace = []
 	for g_step in g_steps:
 		g_canon = toText(g_step)
 		g_canon_trace.append(g_canon)
 	
-	print("done processing geth trace, returning in canonical format.")
-	print("----------\n")
+	logger.info("done processing geth trace, returning in canonical format.")
+	logger.info("----------\n")
 	return g_canon_trace
 
 
 
 
 def doPython(test_file, test_tx):
-	print("running state test in pyeth.")
+	logger.info("running state test in pyeth.")
 	tx_encoded = json.dumps(test_tx)
 	tx_double_encoded = json.dumps(tx_encoded) # double encode to escape chars for command line
 	
@@ -421,20 +422,21 @@ def doPython(test_file, test_tx):
 	prestate_path = os.path.abspath(test_file)
 	mount_flag = prestate_path + ":" + "/mounted_prestate"
 	pyeth_docker_cmd = ["docker", "run", "-i", "-t", "-v", mount_flag, PYETH_DOCKER_NAME, "run_statetest.py", "/mounted_prestate", tx_double_encoded]
-	print(" ".join(pyeth_docker_cmd))
+	logger.info(" ".join(pyeth_docker_cmd))
 	
 	# passing a list to Popen doesn't work. Can't read stdout from docker container when shell=False
 	#pyeth_process = subprocess.Popen(pyeth_docker_cmd, shell=False, stdout=subprocess.PIPE, close_fds=True)
 	
 	# need to pass a string to Popen and shell=True to get stdout from docker container
 	pyeth_process = subprocess.Popen(" ".join(pyeth_docker_cmd), shell=True, stdout=subprocess.PIPE, close_fds=True)
-	print("pyeth vm executed. printing output")
+	logger.info("pyeth vm executed. printing output")
 	
 	# TODO: try using better pyethereum output https://github.com/ethereum/pyethereum/pull/746
 	pyout = []
 	for line in pyeth_process.stdout:
 		line = line.decode()
-		print(line, end='')
+		#print(line, end='')
+		logger.info(line.rstrip() + "\r")
 		if line.startswith("test_tx:"):
 			continue
 		if line.startswith("tx_decoded:"):
@@ -443,8 +445,7 @@ def doPython(test_file, test_tx):
 		if json_pos >= 0:
 			op_json = json.loads(line[json_pos:])
 			pyout.append(op_json)
-	print("pyout:", pyout)
-	print("processing pyeth output...")
+	logger.info("processing pyeth output...")
 	py_trace = []
 	for py_step in pyout:
 		trace_step = {}
@@ -473,8 +474,8 @@ def doPython(test_file, test_tx):
 		py_canon_step = toText(step)
 		py_canon_trace.append(py_canon_step)
 	
-	print("done processing pyeth trace, returning in canonical format.")
-	print("----------\n")
+	logger.info("done processing pyeth trace, returning in canonical format.")
+	logger.info("----------\n")
 	return py_canon_trace
 
 
@@ -490,7 +491,7 @@ def doClient(client_name, single_test_tmp_file, prestate_tmp_file, tx, test_subf
 	if client_name == 'PAR':
 		return doParity(single_test_tmp_file)
 	
-	print("ERROR! client not supported:", client_name)
+	logger.info("ERROR! client not supported:", client_name)
 	return []
 
 
@@ -570,6 +571,7 @@ START_I = 0
 
 def main():
 	all_files = getAllFiles()
+	LoggingFileHandler = None
 	fail_count = 0
 	pass_count = 0
 	failing_files = []
@@ -594,13 +596,22 @@ def main():
 				continue
 		print("file:", f)
 		print("test_name:", test_name + ".")
+		# set up logging to file
+		log_filename = LOGS_PATH + '/' + test_name + '.log'
+		if LoggingFileHandler:
+			LoggingFileHandler.close()
+			LoggingFileHandler.baseFilename = os.path.abspath(log_filename)
+		else:
+			LoggingFileHandler = logging.FileHandler(os.path.abspath(log_filename))
+			logger.addHandler(LoggingFileHandler)
+		
 		try:
 			prestate, txs_dgv = convertGeneralTest(f)
 		except Exception as e:
 			print("problem with test file, skipping.")
 			continue
-		print("prestate:", prestate)
-		print("txs:", txs_dgv)
+		logger.info("prestate: %s", prestate)
+		logger.info("txs: %s", txs_dgv)
 		with open(PRESTATE_TMP_FILE, 'w') as outfile:
 			json.dump(prestate, outfile)
 			
@@ -614,8 +625,8 @@ def main():
 				continue
 			tx = tx_and_dgv[0]
 			tx_dgv = tx_and_dgv[1]
-			print("file:", f)
-			print("test_name:", test_name + ".", "tx_i:", tx_i)
+			logger.info("file: %s", f)
+			logger.info("test_name: %s. tx_i: %s", test_name, tx_i)
 			single_statetest = selectSingleFromGeneral(tx_i, f)
 			with open(SINGLE_TEST_TMP_FILE, 'w') as outfile:
 				json.dump(single_statetest, outfile)
@@ -638,35 +649,34 @@ def main():
 						wrong_clients.append(i)
 				if step_equiv == True:
 					blank_name = " " * 7 # spacing to align columns of equivalent steps and wrong steps
-					print("[*] %s %s" % (blank_name, step[0]))
+					logger.info("[*] %s %s" % (blank_name, step[0]))
 				else:
 					equivalent = False
-					print("\n")
+					logger.info("\n")
 					if len(wrong_clients) == (len(step) - 1):
 						# no clients match
 						for i in range(0, len(step)):
 							client_name = (" " * (4 - len(DO_CLIENTS[i]))) + DO_CLIENTS[i]
-							print("[!!] %s:>> %s" % (client_name, step[i]))
+							logger.info("[!!] %s:>> %s" % (client_name, step[i]))
 					else:
 						# some clients match
 						for i in range(0, len(step)):
 							if i not in wrong_clients:
 								client_name = (" " * (5 - len(DO_CLIENTS[i]))) + DO_CLIENTS[i]
-								print("[*] %s:>> %s" % (client_name, step[i]))
+								logger.info("[*] %s:>> %s" % (client_name, step[i]))
 							else:
 								client_name = (" " * (4 - len(DO_CLIENTS[i]))) + DO_CLIENTS[i]
-								print("[!!] %s:>> %s" % (client_name, step[i]))
-					print("\n")
+								logger.info("[!!] %s:>> %s" % (client_name, step[i]))
 			
 			if equivalent is False:
 				fail_count += 1
-				print("CONSENSUS BUG!!!\a")
+				logger.info("CONSENSUS BUG!!!\a")
 				failing_files.append(test_name)
 			else:
 				pass_count += 1
-				print("equivalent.")
-			print("f/p/t:", fail_count, pass_count, (fail_count + pass_count))
-			print("failures:", failing_files)
+				logger.info("equivalent.")
+			logger.info("f/p/t: %s %s %s", fail_count, pass_count, (fail_count + pass_count))
+			logger.info("failures: %s", failing_files)
 	
 	
 	# done with all tests. print totals
