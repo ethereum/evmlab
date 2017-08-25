@@ -52,8 +52,12 @@ logger.info('info message')
 OPCODES = {}
 op_keys = opcodes.opcodes.keys()
 for op_key in op_keys:
+	if op_key in opcodes.opcodesMetropolis and FORK_CONFIG != 'Byzantium':
+		continue
 	name = opcodes.opcodes[op_key][0]
+	# allow opcode lookups by either name or number assignment
 	OPCODES[name] = op_key
+	OPCODES[op_key] = name
 
 
 
@@ -232,7 +236,7 @@ def doParity(test_file):
 		if p_step['op'] == 0:
 			# skip STOPs
 			continue
-		if p_step['opName'] == "":
+		if p_step['opName'] == "" or p_step['op'] not in OPCODES:
 			# invalid opcode
 			continue
 		trace_step['op'] = p_step['op']
@@ -385,7 +389,7 @@ def doGeth(test_case, test_tx):
 			if step['op'] == 0:
 				# skip STOP since they don't appear in python trace
 				continue
-			if step['opName'].startswith("Missing opcode"):
+			if step['opName'].startswith("Missing opcode") or step['op'] not in OPCODES:
 				# invalid opcodes aren't logged in standard trace
 				continue
 			del step['memory']
