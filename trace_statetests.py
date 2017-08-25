@@ -101,7 +101,7 @@ def selectSingleFromGeneral(single_i, general_testfile):
 	# each element of the array specifies (d,g,v) indexes in the transaction
 	with open(general_testfile) as json_data:
 		general_test = json.load(json_data)
-		logger.info("general_test: %s", general_test)
+		#logger.info("general_test: %s", general_test)
 		for test_name in general_test:
 			# should only be one test_name per file
 			single_test = general_test
@@ -638,7 +638,7 @@ def main():
 				clients_canon_traces.append(canon_trace)
 			
 			canon_traces = list(itertools.zip_longest(*clients_canon_traces))
-			
+			logger.info("comparing traces.")
 			for step in canon_traces:
 				wrong_clients = []
 				step_equiv = True
@@ -651,7 +651,7 @@ def main():
 					logger.info("[*] %s %s" % (blank_name, step[0]))
 				else:
 					equivalent = False
-					logger.info("\n")
+					logger.info("")
 					if len(wrong_clients) == (len(step) - 1):
 						# no clients match
 						for i in range(0, len(step)):
@@ -670,12 +670,19 @@ def main():
 			if equivalent is False:
 				fail_count += 1
 				logger.info("CONSENSUS BUG!!!\a")
+				passfail = 'FAIL'
 				failing_files.append(test_name)
 			else:
 				pass_count += 1
+				passfail = 'PASS'
 				logger.info("equivalent.")
-			logger.info("f/p/t: %s %s %s", fail_count, pass_count, (fail_count + pass_count))
-			logger.info("failures: %s", failing_files)
+			LoggingFileHandler.close()
+			trace_file = os.path.abspath(log_filename)
+			passfail_log_filename = LOGS_PATH + '/' + test_subfolder + '-' +  test_name + '-' + str(tx_i) + '-' + passfail + '.log'
+			renamed_trace = os.path.abspath(passfail_log_filename)
+			os.rename(trace_file, renamed_trace)
+			print("f/p/t:", fail_count, pass_count, (fail_count + pass_count))
+			print("failures:", failing_files)
 	
 	
 	# done with all tests. print totals

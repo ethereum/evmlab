@@ -19,7 +19,7 @@ class VM(object):
         value = None, dontExecuteButReturnCommand = False):
 
         if self.docker: 
-            cmd = ['docker', 'run']
+            cmd = ['docker', 'run', '--rm']
             # If any files are referenced, they need to be mounted
             if genesis is not None:
                 cmd.append('-v')
@@ -90,7 +90,7 @@ class VM(object):
 
         with Popen(cmd, stdout=PIPE, preexec_fn=os.setsid) as process:
             try:
-                output = process.communicate(timeout=15)[0]
+                output = process.communicate(timeout=120)[0]
             except TimeoutExpired:
                 os.killpg(process.pid, signal.SIGINT) # send signal to the process group
                 output = process.communicate()[0]

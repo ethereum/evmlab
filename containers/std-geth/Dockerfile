@@ -9,7 +9,7 @@ FROM alpine:latest
 RUN \
   apk add --update bash jq go git make gcc musl-dev              \
   	  ca-certificates linux-headers                           
-RUN git clone --depth 1 --branch evm-standard-trace https://github.com/cdetrio/go-ethereum
+RUN git clone --depth 1 --branch evmlab-trace https://github.com/cdetrio/go-ethereum
 RUN (cd go-ethereum && build/env.sh go run build/ci.go install ./cmd/evm)
 RUN cp /go-ethereum/build/bin/evm /evm
 RUN cd go-ethereum                                             && \
