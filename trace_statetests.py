@@ -63,7 +63,7 @@ for op_key in op_keys:
 
 def getAllFiles():
 	all_files = []
-	for subdir, dirs, files in os.walk(TESTS_PATH + '/GeneralStateTests'):
+	for subdir, dirs, files in sorted(os.walk(TESTS_PATH + '/GeneralStateTests')):
 		for file in files:
 			test_file = os.path.join(subdir, file)
 			if test_file.endswith('.json'):
