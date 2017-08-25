@@ -322,6 +322,7 @@ def doGeth(test_case, test_tx):
 	genesis.setTimestamp(test_case['env']['currentTimestamp'])
 	genesis.setGasLimit(test_case['env']['currentGasLimit'])
 	genesis.setDifficulty(test_case['env']['currentDifficulty'])
+	genesis.setBlockNumber(test_case['env']['currentNumber'])
 	if FORK_CONFIG == 'Metropolis' or FORK_CONFIG == 'Byzantium':
 		genesis.setMetropolisActivation(0)
 	
@@ -374,7 +375,10 @@ def doGeth(test_case, test_tx):
 	
 	vm = gethvm.VM(executable = GETH_DOCKER_NAME, docker = True)
 	logger.info("executing geth vm.")
+	geth_cmd = vm.execute(genesis = g_path, gas = gas_limit, price = gas_price, json = True, sender = sender, receiver = tx_to, input = input_data, value = tx_value, dontExecuteButReturnCommand = True)
+	logger.info(geth_cmd)
 	g_output = vm.execute(genesis = g_path, gas = gas_limit, price = gas_price, json = True, sender = sender, receiver = tx_to, input = input_data, value = tx_value)
+	#logger.info(vm.lastCommand)
 	logger.info("geth vm executed. printing output:")
 	for g_step in g_output:
 		logger.info(g_step)
@@ -682,7 +686,7 @@ def main():
 				logger.info("equivalent.")
 			LoggingFileHandler.close()
 			trace_file = os.path.abspath(log_filename)
-			passfail_log_filename = LOGS_PATH + '/' + test_subfolder + '-' +  test_name + '-' + str(tx_i) + '-' + passfail + '.log'
+			passfail_log_filename = LOGS_PATH + '/' + str(test_i).zfill(4) + '-' + passfail + '-' + test_subfolder + '-' +  test_name + '-' + str(tx_i) + '.log.txt'
 			renamed_trace = os.path.abspath(passfail_log_filename)
 			os.rename(trace_file, renamed_trace)
 			print("f/p/t:", fail_count, pass_count, (fail_count + pass_count))
