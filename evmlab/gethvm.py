@@ -19,7 +19,7 @@ class VM(object):
         value = None, dontExecuteButReturnCommand = False):
 
         if self.docker: 
-            cmd = ['docker', 'run']
+            cmd = ['docker', 'run', '--rm']
             # If any files are referenced, they need to be mounted
             if genesis is not None:
                 cmd.append('-v')
