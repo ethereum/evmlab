@@ -201,13 +201,6 @@ def toText(op):
 	return "N/A"
 
 
-def bstrToInt(b_str):
-	b_str = b_str.replace("b", "")
-	b_str = b_str.replace("'", "")
-	return int(b_str)
-
-def bstrToHex(b_str):
-	return '0x{0:01x}'.format(bstrToInt(b_str))
 
 def doParity(test_file):
 	logger.info("running state test in parity.")
@@ -377,46 +370,10 @@ def doPython(test_file, test_tx):
 	
 	# TODO: try using better pyethereum output https://github.com/ethereum/pyethereum/pull/746
 	pyout = []
-	for line in pyeth_process.stdout:
-		line = line.decode()
-		logger.info(line.rstrip() + "\r")
-		if line.startswith("test_tx:"):
-			continue
-		if line.startswith("tx_decoded:"):
-			continue
-		json_pos = line.find('{')
-		if json_pos >= 0:
-			op_json = json.loads(line[json_pos:])
-			pyout.append(op_json)
-	logger.info("processing pyeth output...")
-	py_trace = []
-	for py_step in pyout:
-		trace_step = {}
-		if py_step['event'] == 'eth.vm.op.vm':
-			trace_step['pc'] = bstrToInt(py_step['pc'])
-			trace_step['opName'] = py_step['op']
-			trace_step['op'] = py_step['inst']
-			trace_step['gas'] = bstrToHex(py_step['gas'])
-			trace_step['depth'] = py_step['depth']
-			if trace_step['opName'] == 'STOP':
-				# geth logs code-out-of-range as a STOP, and we can't distinguish them from actual STOPs (that pyeth logs)
-				continue
-			hex_stack = []
-			for el in py_step['stack']:
-				el = el.replace("b", "")
-				el = el.replace("'", "")
-				el = int(el)
-				hex_stack.append('0x{0:01x}'.format(el))
-			trace_step['stack'] = hex_stack
-			py_trace.append(trace_step)
-		#else: # non-opcode python trace events (exits etc.)
-		#	print(py_step)
-	
-	py_canon_trace = []
-	for step in py_trace:
-		py_canon_step = toText(step)
-		py_canon_trace.append(py_canon_step)
-	
+	output = [line.decode() for line in pyeth_process.stdout]
+	py_trace = VMUtils.PyVM.canonicalized(output)
+	py_canon_trace = [toText(x) for x in py_trace]
+
 	logger.info("done processing pyeth trace, returning in canonical format.")
 	logger.info("----------\n")
 	return py_canon_trace

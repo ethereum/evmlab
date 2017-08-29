@@ -26,6 +26,9 @@ def toHexQuantities(vals):
         quantities.append('0x{0:01x}'.format(val_int))
     return quantities
 
+bstrToInt = lambda b_str: int(b_str.replace("b", "").replace("'", ""))
+bstrToHex = lambda b_str: '0x{0:01x}'.format(bstrToInt(b_str))
+
 
 class VM(object):
 
@@ -79,6 +82,48 @@ class CppVM(VM):
                 'stack' : toHexQuantities(step['stack']),
             }
             canon_steps.append(trace_step)
+
+        return canon_steps
+
+class PyVM(VM):
+
+    @staticmethod
+    def canonicalized(output):
+        from . import opcodes
+
+        def formatStackItem(el):
+            return '0x{0:01x}'.format(int(el.replace("b", "").replace("'", "")))
+
+        def json_steps():
+            for line in output:
+                logger.info(line.rstrip() + "\r")
+                if line.startswith("test_tx:"):
+                    continue
+                if line.startswith("tx_decoded:"):
+                    continue
+                json_index = line.find("{")
+                if json_index >= 0:
+                    yield(json.loads(line[json_index:]))
+
+        canon_steps = []
+        for step in json_steps():
+ 
+            # geth logs code-out-of-range as a STOP, and we 
+            # can't distinguish them from actual STOPs (that pyeth logs)
+            if step['event'] == 'eth.vm.op.vm':
+                if step['inst'] == 'STOP':
+                    continue
+                
+                trace_step = {
+                    'opName' : step['op'],
+                    'op'     : step['inst'],
+                    'depth'  : step['depth'],
+                    'pc'     : bstrToInt(step['pc']),
+                    'gas'    : bstrToHex(step['gas']),
+                }
+
+                trace_step['stack'] = [formatStackItem(el) for el in step['stack']]
+                canon_steps.append(trace_step)
 
         return canon_steps
 
