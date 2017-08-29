@@ -209,17 +209,6 @@ def bstrToInt(b_str):
 def bstrToHex(b_str):
 	return '0x{0:01x}'.format(bstrToInt(b_str))
 
-def toHexQuantities(vals):
-	quantities = []
-	for val in vals:
-		val_int = parse_int_or_hex(val)
-		quantities.append('0x{0:01x}'.format(val_int))
-	return quantities
-
-
-
-
-
 def doParity(test_file):
 	logger.info("running state test in parity.")
 	testfile_path = os.path.abspath(test_file)
@@ -263,42 +252,18 @@ def doCpp(test_subfolder, test_name, test_dgv):
 	logger.info(cpp_cmd)
 	cpp_process = subprocess.Popen(cpp_cmd, shell=True, stdout=subprocess.PIPE, close_fds=True)
 
+
 	cpp_steps = [] # if no output
 
-	for c_line in [cpp_line.decode() for cpp_line in cpp_process.stdout]:
-		if c_line[0:2] == '[{': # detect line with json trace
-			cpp_steps = json.loads(c_line)
-			for step in cpp_steps:
-				logger.info(step)
-		else:
-			logger.info(c_line)
-	
 	logger.info("end of cpp trace. processing...")
-	canon_steps = []
-	prev_step = {}
-	for c_step in cpp_steps:
-		trace_step = {}
-		trace_step['pc'] = c_step['pc']
-		c_step['opName'] = c_step['op']
-		if c_step['op'] == 'INVALID':
-			continue
-		if c_step['op'] not in OPCODES:
-			logger.info("got cpp step for an unknown opcode:")
-			logger.info(c_step)
-			continue
-		trace_step['op'] = OPCODES[c_step['op']]
-		c_step['gas'] = int(c_step['gas'])
-		if c_step['op'] == 'STOP':
-			continue
-		trace_step['gas'] = '0x{0:01x}'.format(c_step['gas'])
-		trace_step['depth'] = c_step['depth']
-		trace_step['stack'] = toHexQuantities(c_step['stack'])
-		prev_step = c_step
-		canon_steps.append(toText(trace_step))
+
+
+	canon_steps = VMUtils.CppVM.canonicalized([cpp_line.decode() for cpp_line in cpp_process.stdout])
+	canon_text = [toText(x) for x in canon_steps]
 
 	logger.info("done processing cpp trace, returning in canonical format.")
 	logger.info("----------\n")
-	return canon_steps
+	return canon_text
 
 
 
@@ -657,7 +622,7 @@ def perform_test(f, test_name, loghandler = None, test_number = 0):
 				if len(wrong_clients) == (len(step) - 1):
 					# no clients match
 					for i in range(0, len(step)):
-						client_name = (" " * (4 - len(clients[i]))) + cclients[i]
+						client_name = (" " * (4 - len(clients[i]))) + clients[i]
 						logger.info("[!!] %s:>> %s" % (client_name, step[i]))
 				else:
 					# some clients match
