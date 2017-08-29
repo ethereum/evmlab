@@ -10,7 +10,7 @@ from ethereum.utils import decode_hex, parse_int_or_hex, sha3, to_string, \
 	remove_0x_head, encode_hex, big_endian_to_int
 
 from evmlab import genesis as gen
-from evmlab import gethvm
+from evmlab import vm as VMUtils
 from evmlab import opcodes
 
 import logging
@@ -194,7 +194,6 @@ def toText(op):
 	if len(op.keys()) == 0:
 		return "END"
 	if 'pc' in op.keys():
-		#return "pc {pc} op {op} gas {gas} cost {gasCost} depth {depth} stack {stack}".format(**op)
 		return "pc {pc} op {op} gas {gas} depth {depth} stack {stack}".format(**op)
 	elif 'output' in op.keys():
 		op['output'] = canon(op['output'])
@@ -238,31 +237,13 @@ def doParity(test_file):
 	for line in parity_out:
 		logger.info(line.rstrip())
 	logger.info("end of parity trace. processing...")
-	
-	parity_steps = []
-	for p_line in parity_out:
-		if p_line[0:1] == '{': # detect lines with a json trace step
-			parity_steps.append(json.loads(p_line))
-	
-	canon_steps = []
-	for p_step in parity_steps:
-		trace_step = {}
-		trace_step['pc'] = p_step['pc']
-		trace_step['gas'] = p_step['gas']
-		if p_step['op'] == 0:
-			# skip STOPs
-			continue
-		if p_step['opName'] == "" or p_step['op'] not in OPCODES:
-			# invalid opcode
-			continue
-		trace_step['op'] = p_step['op']
-		trace_step['depth'] = p_step['depth'] - 1 # parity depth starts at 1, but we want a 0-based depth
-		trace_step['stack'] = p_step['stack']
-		canon_steps.append(toText(trace_step))
+
+	canon_steps = VMUtils.ParityVM.canonicalized(parity_out)
+	text_steps = [toText(step) for step in canon_steps]
 	
 	logger.info("done processing parity trace, returning in canonical format.")
 	logger.info("----------\n")
-	return canon_steps
+	return text_steps
 
 
 def doCpp(test_subfolder, test_name, test_dgv):
@@ -282,12 +263,9 @@ def doCpp(test_subfolder, test_name, test_dgv):
 	logger.info(cpp_cmd)
 	cpp_process = subprocess.Popen(cpp_cmd, shell=True, stdout=subprocess.PIPE, close_fds=True)
 
-	cpp_out = []
-	for cpp_line in cpp_process.stdout:
-		cpp_out.append(cpp_line.decode())
-	
 	cpp_steps = [] # if no output
-	for c_line in cpp_out:
+
+	for c_line in [cpp_line.decode() for cpp_line in cpp_process.stdout]:
 		if c_line[0:2] == '[{': # detect line with json trace
 			cpp_steps = json.loads(c_line)
 			for step in cpp_steps:
@@ -387,41 +365,20 @@ def doGeth(test_case, test_tx):
 				logger.info("To account in prestate has no code. not calling geth")
 				return []
 	
-	vm = gethvm.VM(executable = cfg['GETH_DOCKER_NAME'], docker = True)
+	vm = VMUtils.GethVM(executable = cfg['GETH_DOCKER_NAME'], docker = True)
+
 	logger.info("executing geth vm.")
 	geth_cmd = vm.execute(genesis = g_path, gas = gas_limit, price = gas_price, json = True, sender = sender, receiver = tx_to, input = input_data, value = tx_value, dontExecuteButReturnCommand = True)
 	logger.info(geth_cmd)
 	g_output = vm.execute(genesis = g_path, gas = gas_limit, price = gas_price, json = True, sender = sender, receiver = tx_to, input = input_data, value = tx_value)
-	#logger.info(vm.lastCommand)
+
 	logger.info("geth vm executed. printing output:")
 	for g_step in g_output:
 		logger.info(g_step)
 	logger.info("end of geth output. processing...")
 	
-	g_output = g_output[:-1] # last one is {"output":"","gasUsed":"0x34a48","time":4787059}
-	g_steps = []
-	for step_line in g_output:
-		try:
-			step = json.loads(step_line)
-			step['depth'] -= 1 # geth trace starts depth at 1 (standard is 0-based)
-			if step['op'] == 0:
-				# skip STOP since they don't appear in python trace
-				continue
-			if step['opName'].startswith("Missing opcode") or step['op'] not in OPCODES:
-				# invalid opcodes aren't logged in standard trace
-				continue
-			del step['memory']
-			del step['memSize']
-			del step['error']
-			g_steps.append(step)
-			logger.info(step)
-		except Exception as e:
-			logger.info("exception e: %s when parsing step_line: %s", e, step_line)
-	
-	g_canon_trace = []
-	for g_step in g_steps:
-		g_canon = toText(g_step)
-		g_canon_trace.append(g_canon)
+	canon_steps = VMUtils.GethVM.canonicalized(g_output)
+	g_canon_trace = [toText(x) for x in canon_steps]
 	
 	logger.info("done processing geth trace, returning in canonical format.")
 	logger.info("----------\n")
