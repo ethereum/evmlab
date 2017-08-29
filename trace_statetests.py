@@ -5,8 +5,6 @@ Executes state tests on multiple clients, checking for EVM trace equivalence
 """
 import json, sys, re, os, subprocess, io, itertools
 from contextlib import redirect_stderr, redirect_stdout
-import logging
-
 import ethereum.transactions as transactions
 from ethereum.utils import decode_hex, parse_int_or_hex, sha3, to_string, \
 	remove_0x_head, encode_hex, big_endian_to_int
@@ -15,44 +13,60 @@ from evmlab import genesis as gen
 from evmlab import gethvm
 from evmlab import opcodes
 
-
-
-DO_CLIENTS = ['CPP', 'GETH', 'PAR', 'PY']
-
-
-FORK_CONFIG = 'EIP158'
-#FORK_CONFIG = 'Byzantium'
-
-
-# path to https://github.com/ethereum/tests
-TESTS_PATH = '/ethereum/tests'
-
-
-PYETH_DOCKER_NAME = 'cdetrio/pyethereum'
-CPP_DOCKER_NAME = 'cdetrio/cpp-ethereum'
-PARITY_DOCKER_NAME = 'cdetrio/parity'
-GETH_DOCKER_NAME = 'cdetrio/geth'
-
-
-PRESTATE_TMP_FILE = 'prestate.json' # used by python
-SINGLE_TEST_TMP_FILE = 'single_test_tmp.json' # used by parity
-
-
-LOGS_PATH = 'tracerLogs'
-
+import logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 console_handler = logging.StreamHandler(sys.stdout)
 logger.addHandler(console_handler)
 
-logger.info('info message')
+
+cfg ={}
+
+def parse_config():
+	"""Parses 'statetests.ini'-file, which 
+	may contain user-specific configuration
+	"""
+
+	import configparser
+	config = configparser.ConfigParser()
+	config.read('statetests.ini')
+	import getpass
+	uname = getpass.getuser()
+	if uname not in config.sections():
+		uname = "DEFAULT"
+
+	cfg['DO_CLIENTS']  = config[uname]['clients'].split(",")
+	cfg['FORK_CONFIG'] = config[uname]['fork_config']
+	cfg['TESTS_PATH']  = config[uname]['tests_path']
+	cfg['PYETH_DOCKER_NAME'] = config[uname]['pyeth_docker_name']
+	cfg['CPP_DOCKER_NAME'] = config[uname]['cpp_docker_name']
+	cfg['PARITY_DOCKER_NAME'] = config[uname]['parity_docker_name']
+	cfg['GETH_DOCKER_NAME'] = config[uname]['geth_docker_name']
+	cfg['PRESTATE_TMP_FILE']=config[uname]['prestate_tmp_file']
+	cfg['SINGLE_TEST_TMP_FILE']=config[uname]['single_test_tmp_file']
+	cfg['LOGS_PATH'] = config[uname]['logs_path']
+	logger.info("Config")
+	logger.info("\tActive clients: %s",      cfg['DO_CLIENTS'])
+	logger.info("\tFork config: %s",         cfg['FORK_CONFIG'])
+	logger.info("\tTests path: %s",          cfg['TESTS_PATH'])
+	logger.info("\tPyeth: %s",               cfg['PYETH_DOCKER_NAME'])
+	logger.info("\tCpp: %s",                 cfg['CPP_DOCKER_NAME'])
+	logger.info("\tParity: %s",              cfg['PARITY_DOCKER_NAME'])
+	logger.info("\tGeth: %s",                cfg['GETH_DOCKER_NAME'])
+	logger.info("\tPrestate tempfile: %s",   cfg['PRESTATE_TMP_FILE'])
+	logger.info("\tSingle test tempfile: %s",cfg['SINGLE_TEST_TMP_FILE'])
+	logger.info("\tLog path: %s",            cfg['LOGS_PATH'])
+
+
+
+parse_config()
 
 
 # used to check for unknown opcode names in traces
 OPCODES = {}
 op_keys = opcodes.opcodes.keys()
 for op_key in op_keys:
-	if op_key in opcodes.opcodesMetropolis and FORK_CONFIG != 'Byzantium':
+	if op_key in opcodes.opcodesMetropolis and cfg['FORK_CONFIG'] != 'Byzantium':
 		continue
 	name = opcodes.opcodes[op_key][0]
 	# allow opcode lookups by either name or number assignment
@@ -61,14 +75,15 @@ for op_key in op_keys:
 
 
 
-def getAllFiles():
-	all_files = []
-	for subdir, dirs, files in sorted(os.walk(TESTS_PATH + '/GeneralStateTests')):
-		for file in files:
-			test_file = os.path.join(subdir, file)
-			if test_file.endswith('.json'):
-				all_files.append(test_file)
-	return all_files
+def iterate_tests(path = '/GeneralStateTests/', ignore = []):
+	print (cfg['TESTS_PATH'] + path)
+	for subdir, dirs, files in sorted(os.walk(cfg['TESTS_PATH'] + path)):
+		for f in files:
+			if f.endswith('json'):
+				for ignore_name in ignore:
+					if f.find(ignore_name) != -1:
+						continue
+					yield os.path.join(subdir, f)
 
 
 def convertGeneralTest(test_file):
@@ -81,12 +96,12 @@ def convertGeneralTest(test_file):
 			prestate['pre'] = general_test[test_name]['pre']
 			prestate['config'] = {} # for pyeth run_statetest.py
 			prestate['config']['metropolisBlock'] = 2000 # same default as evmlab/genesis.py
-			if FORK_CONFIG == 'Byzantium':
+			if cfg['FORK_CONFIG'] == 'Byzantium':
 				prestate['config']['metropolisBlock'] = 0
 			#print("prestate:", prestate)
 			general_tx = general_test[test_name]['transaction']
 			transactions = []
-			for test_i in general_test[test_name]['post'][FORK_CONFIG]:
+			for test_i in general_test[test_name]['post'][cfg['FORK_CONFIG']]:
 				test_tx = general_tx.copy()
 				d_i = test_i['indexes']['data']
 				g_i = test_i['indexes']['gas']
@@ -111,7 +126,7 @@ def selectSingleFromGeneral(single_i, general_testfile):
 			single_test = general_test
 			single_tx = single_test[test_name]['transaction']
 			general_tx = single_test[test_name]['transaction']
-			selected_case = general_test[test_name]['post'][FORK_CONFIG][single_i]
+			selected_case = general_test[test_name]['post'][cfg['FORK_CONFIG']][single_i]
 			single_tx['data'] = [ general_tx['data'][selected_case['indexes']['data']] ]
 			single_tx['gasLimit'] = [ general_tx['gasLimit'][selected_case['indexes']['gas']] ]
 			single_tx['value'] = [ general_tx['value'][selected_case['indexes']['value']] ]
@@ -119,8 +134,8 @@ def selectSingleFromGeneral(single_i, general_testfile):
 			selected_case['indexes']['gas'] = 0
 			selected_case['indexes']['value'] = 0
 			single_test[test_name]['post'] = {}
-			single_test[test_name]['post'][FORK_CONFIG] = []
-			single_test[test_name]['post'][FORK_CONFIG].append(selected_case)
+			single_test[test_name]['post'][cfg['FORK_CONFIG']] = []
+			single_test[test_name]['post'][cfg['FORK_CONFIG']].append(selected_case)
 			return single_test
 
 
@@ -210,7 +225,8 @@ def doParity(test_file):
 	logger.info("running state test in parity.")
 	testfile_path = os.path.abspath(test_file)
 	mount_testfile = testfile_path + ":" + "/mounted_testfile"
-	parity_docker_cmd = ["docker", "run", "--rm", "-i", "-t", "-v", mount_testfile, PARITY_DOCKER_NAME, "--json", "--statetest", "/mounted_testfile"]
+
+	parity_docker_cmd = ["docker", "run", "--rm", "-i", "-t", "-v", mount_testfile, cfg['PARITY_DOCKER_NAME'], "--json", "--statetest", "/mounted_testfile"]
 	logger.info(" ".join(parity_docker_cmd))
 	
 	parity_process = subprocess.Popen(" ".join(parity_docker_cmd), shell=True, stdout=subprocess.PIPE, close_fds=True)
@@ -249,21 +265,19 @@ def doParity(test_file):
 	return canon_steps
 
 
-
-
 def doCpp(test_subfolder, test_name, test_dgv):
 	logger.info("running state test in cpp-ethereum.")
-	cpp_mount_tests = TESTS_PATH + ":" + "/mounted_tests"
-	cpp_docker_cmd = ["docker", "run", "--rm", "-i", "-t", "-v", cpp_mount_tests, CPP_DOCKER_NAME]
-	cpp_cmd = " ".join(cpp_docker_cmd)
-	
-	cpp_cmd += " -t StateTestsGeneral/" + test_subfolder + " --"
-	cpp_cmd += " --singletest " + test_name
-	#cpp_cmd += " --jsontrace '{ \"disableStorage\":true, \"disableMemory\":true }'"
-	cpp_cmd += " --jsontrace '{ \"disableStorage\":true }'"
-	cpp_cmd += " --singlenet " + FORK_CONFIG
-	cpp_cmd += " -d " + str(test_dgv[0]) + " -g " + str(test_dgv[1]) + " -v " + str(test_dgv[2])
-	cpp_cmd += " --testpath \"" + "/mounted_tests" + "\""
+	[d,g,v] = test_dgv
+
+	cpp_mount_tests = cfg['TESTS_PATH'] + ":" + "/mounted_tests"
+	cmd = ["docker", "run", "--rm", "-i", "-t", "-v", cpp_mount_tests, cfg['CPP_DOCKER_NAME']]
+	cmd.extend(['-t',"StateTestsGeneral/%s" %  test_subfolder,' --'])
+	cmd.extend(['--singletest', test_name])
+	cmd.extend(['--jsontrace',"'{ \"disableStorage\":true }'" ])
+	cmd.extend(['--singlenet',cfg['FORK_CONFIG']])
+	cmd.extend(['-d',str(d),'-g',str(g), '-v', str(v) ])
+	cmd.extend(['--testpath', '"/mounted_tests"'])
+	cpp_cmd = " ".join(cmd)
 	logger.info("cpp_cmd:")
 	logger.info(cpp_cmd)
 	cpp_process = subprocess.Popen(cpp_cmd, shell=True, stdout=subprocess.PIPE, close_fds=True)
@@ -323,7 +337,7 @@ def doGeth(test_case, test_tx):
 	genesis.setGasLimit(test_case['env']['currentGasLimit'])
 	genesis.setDifficulty(test_case['env']['currentDifficulty'])
 	genesis.setBlockNumber(test_case['env']['currentNumber'])
-	if FORK_CONFIG == 'Metropolis' or FORK_CONFIG == 'Byzantium':
+	if cfg['FORK_CONFIG'] == 'Metropolis' or cfg['FORK_CONFIG'] == 'Byzantium':
 		genesis.setMetropolisActivation(0)
 	
 	geth_genesis = genesis.geth()
@@ -373,7 +387,7 @@ def doGeth(test_case, test_tx):
 				logger.info("To account in prestate has no code. not calling geth")
 				return []
 	
-	vm = gethvm.VM(executable = GETH_DOCKER_NAME, docker = True)
+	vm = gethvm.VM(executable = cfg['GETH_DOCKER_NAME'], docker = True)
 	logger.info("executing geth vm.")
 	geth_cmd = vm.execute(genesis = g_path, gas = gas_limit, price = gas_price, json = True, sender = sender, receiver = tx_to, input = input_data, value = tx_value, dontExecuteButReturnCommand = True)
 	logger.info(geth_cmd)
@@ -429,7 +443,7 @@ def doPython(test_file, test_tx):
 	
 	prestate_path = os.path.abspath(test_file)
 	mount_flag = prestate_path + ":" + "/mounted_prestate"
-	pyeth_docker_cmd = ["docker", "run", "--rm", "-i", "-t", "-v", mount_flag, PYETH_DOCKER_NAME, "run_statetest.py", "/mounted_prestate", tx_double_encoded]
+	pyeth_docker_cmd = ["docker", "run", "--rm", "-i", "-t", "-v", mount_flag, cfg['PYETH_DOCKER_NAME'], "run_statetest.py", "/mounted_prestate", tx_double_encoded]
 	logger.info(" ".join(pyeth_docker_cmd))
 	
 	# passing a list to Popen doesn't work. Can't read stdout from docker container when shell=False
@@ -504,12 +518,12 @@ def doClient(client_name, single_test_tmp_file, prestate_tmp_file, tx, test_subf
 
 
 
-DO_TESTS = []
+TEST_WHITELIST = []
 
-#DO_TESTS = ['callcall_00']
-#DO_TESTS = ['CALL_BoundsOOG']
-#DO_TESTS = ['shallowStack']
-#DO_TESTS = ['RevertOpcodeInCreateReturns']
+#TEST_WHITELIST = ['callcall_00']
+#TEST_WHITELIST = ['CALL_BoundsOOG']
+#TEST_WHITELIST = ['shallowStack']
+#TEST_WHITELIST = ['RevertOpcodeInCreateReturns']
 
 
 SKIP_LIST = [
@@ -577,126 +591,151 @@ START_I = 0
 
 
 def main():
-	all_files = getAllFiles()
-	LoggingFileHandler = None
 	fail_count = 0
 	pass_count = 0
 	failing_files = []
-	test_i = 0
-	for f in all_files:
-		if f.find("stMemoryTest") != -1:
-			continue
-		if f.find("stMemoryStressTest") != -1:
-			continue
-		if f.find("stQuadraticComplexityTest") != -1:
-			continue
+	file_logger = logging.FileHandler(os.path.abspath(cfg['LOGS_PATH'] + '/ignoreme'))
+	file_logger.close()
+	logger.addHandler(file_logger)
+	test_number = 0
+	for f in iterate_tests(ignore=['stMemoryTest','stMemoryTest','stMemoryTest']):
 		with open(f) as json_data:
 			general_test = json.load(json_data)
 			test_name = list(general_test.keys())[0]
-			if DO_TESTS and test_name not in DO_TESTS:
+			if TEST_WHITELIST and test_name not in TEST_WHITELIST:
 				continue
-			if test_name in SKIP_LIST and test_name not in DO_TESTS:
+			if test_name in SKIP_LIST and test_name not in TEST_WHITELIST:
 				print("skipping test:", test_name)
 				continue
-			if regex_skip and re.search('|'.join(regex_skip), test_name) and test_name not in DO_TESTS:
+			if regex_skip and re.search('|'.join(regex_skip), test_name) and test_name not in TEST_WHITELIST:
 				print("skipping test (regex match):", test_name)
 				continue
-		print("file:", f)
-		print("test_name:", test_name + ".")
-		# set up logging to file
-		log_filename = LOGS_PATH + '/' + test_name + '.log'
-		if LoggingFileHandler:
-			LoggingFileHandler.close()
-			LoggingFileHandler.baseFilename = os.path.abspath(log_filename)
-		else:
-			LoggingFileHandler = logging.FileHandler(os.path.abspath(log_filename))
-			logger.addHandler(LoggingFileHandler)
-		
-		try:
-			prestate, txs_dgv = convertGeneralTest(f)
-		except Exception as e:
-			print("problem with test file, skipping.")
-			continue
-		logger.info("prestate: %s", prestate)
-		logger.info("txs: %s", txs_dgv)
-		with open(PRESTATE_TMP_FILE, 'w') as outfile:
-			json.dump(prestate, outfile)
-			
-		with open(PRESTATE_TMP_FILE) as json_data:
-			test_case = json.load(json_data)
-		
-		test_subfolder = f.split(os.sep)[-2]
-		for tx_i, tx_and_dgv in enumerate(txs_dgv):
-			test_i += 1
-			if test_i < START_I and not DO_TESTS:
-				continue
-			tx = tx_and_dgv[0]
-			tx_dgv = tx_and_dgv[1]
-			logger.info("file: %s", f)
-			logger.info("test_name: %s. tx_i: %s", test_name, tx_i)
-			single_statetest = selectSingleFromGeneral(tx_i, f)
-			with open(SINGLE_TEST_TMP_FILE, 'w') as outfile:
-				json.dump(single_statetest, outfile)
-			
-			equivalent = True
-			
-			clients_canon_traces = []
-			for client_name in DO_CLIENTS:
-				canon_trace = doClient(client_name, SINGLE_TEST_TMP_FILE, PRESTATE_TMP_FILE, tx, test_subfolder, test_name, tx_dgv, test_case)
-				clients_canon_traces.append(canon_trace)
-			
-			canon_traces = list(itertools.zip_longest(*clients_canon_traces))
-			logger.info("comparing traces.")
-			for step in canon_traces:
-				wrong_clients = []
-				step_equiv = True
-				for i in range(1, len(step)):
-					if step[i] != step[0]:
-						step_equiv = False
-						wrong_clients.append(i)
-				if step_equiv == True:
-					blank_name = " " * 7 # spacing to align columns of equivalent steps and wrong steps
-					logger.info("[*] %s %s" % (blank_name, step[0]))
-				else:
-					equivalent = False
-					logger.info("")
-					if len(wrong_clients) == (len(step) - 1):
-						# no clients match
-						for i in range(0, len(step)):
-							client_name = (" " * (4 - len(DO_CLIENTS[i]))) + DO_CLIENTS[i]
-							logger.info("[!!] %s:>> %s" % (client_name, step[i]))
-					else:
-						# some clients match
-						for i in range(0, len(step)):
-							if i not in wrong_clients:
-								client_name = (" " * (5 - len(DO_CLIENTS[i]))) + DO_CLIENTS[i]
-								logger.info("[*] %s:>> %s" % (client_name, step[i]))
-							else:
-								client_name = (" " * (4 - len(DO_CLIENTS[i]))) + DO_CLIENTS[i]
-								logger.info("[!!] %s:>> %s" % (client_name, step[i]))
-			
-			if equivalent is False:
-				fail_count += 1
-				logger.info("CONSENSUS BUG!!!\a")
-				passfail = 'FAIL'
-				failing_files.append(test_name)
-			else:
-				pass_count += 1
-				passfail = 'PASS'
-				logger.info("equivalent.")
-			LoggingFileHandler.close()
-			trace_file = os.path.abspath(log_filename)
-			passfail_log_filename = LOGS_PATH + '/' + str(test_i).zfill(4) + '-' + passfail + '-' + test_subfolder + '-' +  test_name + '-' + str(tx_i) + '.log.txt'
-			renamed_trace = os.path.abspath(passfail_log_filename)
-			os.rename(trace_file, renamed_trace)
-			print("f/p/t:", fail_count, pass_count, (fail_count + pass_count))
-			print("failures:", failing_files)
-	
-	
+
+
+		(test_number, num_fails, num_passes,failures) = perform_test(f, test_name, file_logger, test_number)
+
+		print("f/p/t:", num_fails, num_passes, (num_fails + num_passes))
+		print("failures:", failing_files)
+
+		fail_count = fail_count + num_fails
+		pass_count = pass_count + num_passes
+		failing_files.extend(failures)
+		file_logger.close()
+		break
 	# done with all tests. print totals
 	print("fail_count:", fail_count)
 	print("pass_count:", pass_count)
 	print("total:", fail_count + pass_count)
+
+
+def perform_test(f, test_name, loghandler = None, test_number = 0):
+
+	print("file:", f)
+	print("test_name:", test_name + ".")
+
+	fail_count = 0
+	pass_count = 0
+	failures = []
+
+	try:
+		prestate, txs_dgv = convertGeneralTest(f)
+	except Exception as e:
+		print("problem with test file, skipping.")
+		return (test_number, fail_count, pass_count, failures)
+
+	clients = cfg['DO_CLIENTS']
+	test_tmpfile = cfg['SINGLE_TEST_TMP_FILE']
+	prestate_tmpfile = cfg['PRESTATE_TMP_FILE']
+
+
+	# set up logging to file
+	log_filename =  os.path.abspath(cfg['LOGS_PATH'] + '/' + test_name + '.log')
+	if loghandler:
+		loghandler.baseFilename = log_filename
+	
+	logger.info("prestate: %s", prestate)
+	logger.info("txs: %s", txs_dgv)
+
+	with open(prestate_tmpfile, 'w') as outfile:
+		json.dump(prestate, outfile)
+		
+	test_case = prestate
+	test_subfolder = f.split(os.sep)[-2]
+
+	for tx_i, tx_and_dgv in enumerate(txs_dgv):
+		test_number += 1
+		if test_number < START_I and not TEST_WHITELIST:
+			continue
+		tx = tx_and_dgv[0]
+		tx_dgv = tx_and_dgv[1]
+		logger.info("file: %s", f)
+		logger.info("test_name: %s. tx_i: %s", test_name, tx_i)
+		single_statetest = selectSingleFromGeneral(tx_i, f)
+		with open(test_tmpfile, 'w') as outfile:
+			json.dump(single_statetest, outfile)
+		
+		equivalent = True
+		
+		clients_canon_traces = []
+
+		for client_name in clients:
+			canon_trace = doClient(client_name, test_tmpfile, prestate_tmpfile, tx, test_subfolder, test_name, tx_dgv, test_case)
+			clients_canon_traces.append(canon_trace)
+		
+		canon_traces = list(itertools.zip_longest(*clients_canon_traces))
+		logger.info("comparing traces.")
+		for step in canon_traces:
+			wrong_clients = []
+			step_equiv = True
+			for i in range(1, len(step)):
+				if step[i] != step[0]:
+					step_equiv = False
+					wrong_clients.append(i)
+			if step_equiv == True:
+				blank_name = " " * 7 # spacing to align columns of equivalent steps and wrong steps
+				logger.info("[*] %s %s" % (blank_name, step[0]))
+			else:
+				equivalent = False
+				logger.info("")
+				if len(wrong_clients) == (len(step) - 1):
+					# no clients match
+					for i in range(0, len(step)):
+						client_name = (" " * (4 - len(clients[i]))) + cclients[i]
+						logger.info("[!!] %s:>> %s" % (client_name, step[i]))
+				else:
+					# some clients match
+					for i in range(0, len(step)):
+						if i not in wrong_clients:
+							client_name = (" " * (5 - len(clients[i]))) + clients[i]
+							logger.info("[*] %s:>> %s" % (client_name, step[i]))
+						else:
+							client_name = (" " * (4 - len(clients[i]))) + clients[i]
+							logger.info("[!!] %s:>> %s" % (client_name, step[i]))
+		
+
+		loghandler.close()
+
+
+		if equivalent is False:
+			logger.info("CONSENSUS BUG!!!\a")
+			fail_count += 1
+			passfail = 'FAIL'
+			failures.append(test_name)
+		else:
+			pass_count += 1
+			passfail = 'PASS'
+			logger.info("equivalent.")
+
+		# Rename file if it passed or not
+		trace_file = os.path.abspath(log_filename)
+		passfail_log_filename = cfg['LOGS_PATH'] + '/' + str(test_number).zfill(4) + '-' + passfail + '-' + test_subfolder + '-' +  test_name + '-' + str(tx_i) + '.log.txt'
+		renamed_trace = os.path.abspath(passfail_log_filename)
+		os.rename(trace_file, renamed_trace)
+
+	return (test_number, fail_count, pass_count, failures)
+
+	
+	
 
 
 
@@ -722,7 +761,4 @@ def runStateTest(test_case):
 
 
 if __name__ == '__main__':
-	print("main.")
-	#import afl
-	#afl.start()
 	main()
