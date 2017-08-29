@@ -37,12 +37,12 @@ def toText(op):
 
 def execute(code, gas = 0xFFFF, verbose = False):
 
-    from evmlab import gethvm, parityvm
+    from evmlab import vm
     from evmlab.genesis import Genesis
 
 
-    gvm =  gethvm.VM("holiman/gethvm", docker = True)
-    pvm =  parityvm.VM("holiman/parityvm", docker = True)
+    gvm =  vm.GethVM("holiman/gethvm", docker = True)
+    pvm =  vm.ParityVM("holiman/parityvm", docker = True)
 
     g_out = gvm.execute(code = code, gas = gas,json=True, genesis = Genesis().export_geth())
     p_out = pvm.execute(code = code, gas = gas,json=True, genesis = Genesis().export_parity())

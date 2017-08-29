@@ -7,8 +7,9 @@ class Genesis(object):
         self.coinbase = "0x0000000000000000000000000000000000000000"
         self.timestamp = "0x00"
         self.gasLimit = "0x3D0900"
-        self.difficulty = "0x1"
+        self.difficulty = "0x01"
         self.metropolisBlock = 2000
+        self.blockNumber = 0
         
     def geth(self):
 
@@ -18,6 +19,7 @@ class Genesis(object):
             "mixhash":    "0x0000000000000000000000000000000000000000000000000000000000000000",
             "coinbase": self.coinbase,
             "timestamp": self.timestamp,
+            "number":    "0x{:02x}".format(self.blockNumber),
             "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
             "extraData":  "0x0000000000000000000000000000000000000000000000000000000000000000",
             "gasLimit": self.gasLimit,
@@ -103,6 +105,9 @@ class Genesis(object):
 
     def setDifficulty(self, difficulty):
         self.difficulty = difficulty
+
+    def setBlockNumber(self, blockNumber):
+        self.blockNumber = int(blockNumber, 16)
 
     def setMetropolisActivation(self, activationBlock):
         self.metropolisBlock = activationBlock

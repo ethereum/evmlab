@@ -61,7 +61,10 @@ def runStateTest(test_case, test_transaction):
     print("running stateTest")
     pre_state = init_state(test_case['env'], test_case['pre'])
     #print("inited state:", _state.to_dict())
-    computed = compute_state_test_unit(pre_state, test_transaction, config_metropolis)
+    test_config = config_spurious
+    if test_case['config']['metropolisBlock'] == 0:
+        test_config = config_metropolis
+    computed = compute_state_test_unit(pre_state, test_transaction, test_config)
     #print("computed:", computed)
 
 
