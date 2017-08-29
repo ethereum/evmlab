@@ -391,7 +391,7 @@ def doClient(client_name, single_test_tmp_file, prestate_tmp_file, tx, test_subf
 	if client_name == 'PAR':
 		return doParity(single_test_tmp_file)
 	
-	logger.info("ERROR! client not supported:", client_name)
+	logger.error("ERROR! client not supported:", client_name)
 	return []
 
 
@@ -500,7 +500,7 @@ def main():
 		pass_count = pass_count + num_passes
 		failing_files.extend(failures)
 		file_logger.close()
-		break
+		#break
 	# done with all tests. print totals
 	print("fail_count:", fail_count)
 	print("pass_count:", pass_count)
@@ -512,7 +512,6 @@ def perform_test(f, test_name, loghandler = None, test_number = 0):
 	print("file:", f)
 	print("test_name:", test_name + ".")
 
-	fail_count = 0
 	pass_count = 0
 	failures = []
 
@@ -525,7 +524,6 @@ def perform_test(f, test_name, loghandler = None, test_number = 0):
 	clients = cfg['DO_CLIENTS']
 	test_tmpfile = cfg['SINGLE_TEST_TMP_FILE']
 	prestate_tmpfile = cfg['PRESTATE_TMP_FILE']
-
 
 	# set up logging to file
 	log_filename =  os.path.abspath(cfg['LOGS_PATH'] + '/' + test_name + '.log')
@@ -552,58 +550,26 @@ def perform_test(f, test_name, loghandler = None, test_number = 0):
 		single_statetest = selectSingleFromGeneral(tx_i, f)
 		with open(test_tmpfile, 'w') as outfile:
 			json.dump(single_statetest, outfile)
-		
-		equivalent = True
-		
+				
 		clients_canon_traces = []
+		console_handler.setLevel(logging.WARNING)
 
 		for client_name in clients:
 			canon_trace = doClient(client_name, test_tmpfile, prestate_tmpfile, tx, test_subfolder, test_name, tx_dgv, test_case)
 			clients_canon_traces.append(canon_trace)
-		
-		canon_traces = list(itertools.zip_longest(*clients_canon_traces))
-		logger.info("comparing traces.")
-		for step in canon_traces:
-			wrong_clients = []
-			step_equiv = True
-			for i in range(1, len(step)):
-				if step[i] != step[0]:
-					step_equiv = False
-					wrong_clients.append(i)
-			if step_equiv == True:
-				blank_name = " " * 7 # spacing to align columns of equivalent steps and wrong steps
-				logger.info("[*] %s %s" % (blank_name, step[0]))
-			else:
-				equivalent = False
-				logger.info("")
-				if len(wrong_clients) == (len(step) - 1):
-					# no clients match
-					for i in range(0, len(step)):
-						client_name = (" " * (4 - len(clients[i]))) + clients[i]
-						logger.info("[!!] %s:>> %s" % (client_name, step[i]))
-				else:
-					# some clients match
-					for i in range(0, len(step)):
-						if i not in wrong_clients:
-							client_name = (" " * (5 - len(clients[i]))) + clients[i]
-							logger.info("[*] %s:>> %s" % (client_name, step[i]))
-						else:
-							client_name = (" " * (4 - len(clients[i]))) + clients[i]
-							logger.info("[!!] %s:>> %s" % (client_name, step[i]))
-		
 
-		loghandler.close()
+		console_handler.setLevel(logging.INFO)
 
-
-		if equivalent is False:
-			logger.info("CONSENSUS BUG!!!\a")
-			fail_count += 1
-			passfail = 'FAIL'
-			failures.append(test_name)
-		else:
+		if VMUtils.compare_traces(clients_canon_traces, clients):
+			logger.info("equivalent.")
 			pass_count += 1
 			passfail = 'PASS'
-			logger.info("equivalent.")
+		else:
+			logger.info("CONSENSUS BUG!!!\a")
+			passfail = 'FAIL'
+			failures.append(test_name)
+
+		loghandler.close()
 
 		# Rename file if it passed or not
 		trace_file = os.path.abspath(log_filename)
@@ -611,13 +577,7 @@ def perform_test(f, test_name, loghandler = None, test_number = 0):
 		renamed_trace = os.path.abspath(passfail_log_filename)
 		os.rename(trace_file, renamed_trace)
 
-	return (test_number, fail_count, pass_count, failures)
-
-	
-	
-
-
-
+	return (test_number, len(failures), pass_count, failures)
 
 """
 ## need to get redirect_stdout working for the python-afl fuzzer

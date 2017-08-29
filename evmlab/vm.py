@@ -1,4 +1,4 @@
-import os, signal, json
+import os, signal, json, itertools
 from subprocess import Popen, PIPE, TimeoutExpired
 from ethereum.utils import parse_int_or_hex
 import logging
@@ -28,6 +28,35 @@ def toHexQuantities(vals):
 
 bstrToInt = lambda b_str: int(b_str.replace("b", "").replace("'", ""))
 bstrToHex = lambda b_str: '0x{0:01x}'.format(bstrToInt(b_str))
+
+def compare_traces(clients_canon_traces, names):
+
+    """ Compare 'canonical' traces from the clients"""
+
+    canon_traces = list(itertools.zip_longest(*clients_canon_traces))
+    logger.info("Comparing traces")
+    num_clients = len(names)
+    equivalent = True
+    for step in canon_traces:
+        wrong_clients = []
+        step_equiv = True
+        for i in range(1, num_clients):
+            if step[i] != step[0]:
+                step_equiv = False
+                wrong_clients.append(i)
+
+        if step_equiv == True:
+            logger.info('[*]       {}'.format(step[0]))
+        else:
+            equivalent = False
+            logger.info("")
+            for i in range(0, num_clients):
+                if i in wrong_clients or len(wrong_clients) == num_clients-1:
+                    logger.info('[!!] {:>4} {}'.format(names[i], step[i]))
+                else:
+                    logger.info('[*] {:>5} {}'.format(names[i], step[i]))
+
+    return equivalent
 
 
 class VM(object):
