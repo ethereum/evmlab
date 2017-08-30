@@ -192,14 +192,7 @@ def canon(str):
 	return "0x" + str
 
 def toText(op):
-	if len(op.keys()) == 0:
-		return "END"
-	if 'pc' in op.keys():
-		return "pc {pc} op {op} gas {gas} depth {depth} stack {stack}".format(**op)
-	elif 'output' in op.keys():
-		op['output'] = canon(op['output'])
-		return "output {output} gasUsed {gasUsed}".format(**op)
-	return "N/A"
+	return VMUtils.toText(op)
 
 
 

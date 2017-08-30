@@ -1,10 +1,16 @@
 #!/bin/env python3
 import random
 import string
-import subprocess
+import sys, subprocess
 import json
+from evmlab import vm as VMUtils
 
-
+import logging
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+logger.addHandler(console_handler)
 
 
 def canon(str):
@@ -15,25 +21,7 @@ def canon(str):
     return "0x" + str
 
 def toText(op):
-    if len(op.keys()) == 0:
-        return "END"
-    if 'pc' in op.keys():
-        return "pc {pc:>5} op {op:>3} {opName} gas {gas:>8} cost {gasCost:>8} depth {depth:>2} stack {stack}".format(**op)
-    elif 'time' in op.keys():# Final one
-        
-        if 'output' not in op.keys():
-           op['output'] = ""
-
-        op['output'] = canon(op['output'])
-        fmt = "output {output} gasUsed {gasUsed}"
-        if 'error' in op.keys():
-            e = op['error']
-            if e.lower().find("out of gas") > -1:   
-                e = "OOG"
-            fmt = fmt + " err: OOG"
-        return fmt.format(**op)
-    return "N/A"
-
+    return VMUtils.toText(op)
 
 def execute(code, gas = 0xFFFF, verbose = False):
 
@@ -41,90 +29,107 @@ def execute(code, gas = 0xFFFF, verbose = False):
     from evmlab.genesis import Genesis
 
 
-    gvm =  vm.GethVM("holiman/gethvm", docker = True)
-    pvm =  vm.ParityVM("holiman/parityvm", docker = True)
+    gvm =  VMUtils.GethVM("holiman/std-gethvm", docker = True)
+    pvm =  VMUtils.ParityVM("holiman/std-parityvm", docker = True)
 
+    intrinsic_geth_gas = VMUtils.getIntrinsicGas(code)
+    print("Intrinsic gas: %s" % str(intrinsic_geth_gas) )
+    sys.exit(0)
     g_out = gvm.execute(code = code, gas = gas,json=True, genesis = Genesis().export_geth())
     p_out = pvm.execute(code = code, gas = gas,json=True, genesis = Genesis().export_parity())
 
+    g_canon = VMUtils.GethVM.canonicalized(g_out)
+    p_canon = VMUtils.ParityVM.canonicalized(p_out)
 
-    def json_gen(o):
-        for line in o:
-            if len(line) > 0 and line[0] == "{":
-                yield json.loads(line)
-                #parity doesn't support --no-memory
-                #obj.pop('memory', None)
-                #yield obj
+    g_txt = [toText(x) for x in g_canon]
+    p_txt = [toText(x) for x in p_canon]
 
-    g_out_json = json_gen(g_out)
-    p_out_json = json_gen(p_out)
-    num_fin = 0
+    import logging
+    logger = logging.getLogger()
 
-    prev_parity_pc = 0
-    diff_found = False
-    difftrace = []
+    diff_found = vm.compare_traces([g_txt, p_txt],['Geth', 'Par'])
 
-    def save(text):
-        difftrace.append(text)
+    return (diff_found , [], gvm.lastCommand, pvm.lastCommand)
 
-    while True:
-        g = next(g_out_json, {})
-        p = next(p_out_json, {})
-        
-        if g == p and g == {}:
-            break
-
-        a = toText(g)
-        b = toText(p)
-
-        if a == b:
-            save("[👍] %s" % a)
-        else:
-            # Parity repeats the last instruction, which makes sense, since 
-            # otherwise it wouldn't be possible to see what effect the last op
-            # had on the stack. Geth, however, ends on a 'STOP', which is semantically
-            # nicer, as if the code is surrounded by a space of zeroes.  
-            # One way to detect this is to look at the 'PC'. 
-            #  * Parity will report the same PC as the last op, 
-            #  * Geth will increment the PC by one, going outside the actual code length
-            
-            if 'pc' in p.keys():
-                parity_pc = p['pc']
-                if prev_parity_pc == parity_pc:
-                    if 'op' in g.keys() and g['op'] == 0:
-                        # Now we can safely ignore it
-                        save("[👍] END")
-                    elif 'output' in g.keys():
-                        #Now geth is one step ahead. Tricky. 
-                        p = next(p_out_json, {})
-                        b = toText(p)
-                        if a == b:
-                            save("[👍] %s" % a)
-                        else:
-                            save ("Diff: ")
-                            save("[G] %s " % (a))
-                            save("[P] %s " % (b))
-                            diff_found = True
-                    else:
-                        save ("Diff: ")
-                        save("[G] %s " % (a))
-                        save("[P] %s " % (b))
-                        diff_found = True
-
-                elif prev_parity_pc == parity_pc and g['op'] == 0:
-                    # Now we can safely ignore it
-                    save("[👍] END")
-            else:
-                save ("Diff: ")
-                save("[G] %s " % (a))
-                save("[P] %s " % (b))
-                diff_found = True
-            
-        if 'pc' in p.keys():
-            prev_parity_pc = p['pc']
-
-
-    return (diff_found , difftrace, gvm.lastCommand, pvm.lastCommand)
+#    def json_gen(o):
+#        for line in o:
+#            if len(line) > 0 and line[0] == "{":
+#                yield json.loads(line)
+#                #parity doesn't support --no-memory
+#                #obj.pop('memory', None)
+#                #yield obj
+#
+#    g_out_json = json_gen(g_out)
+#    p_out_json = json_gen(p_out)
+#    num_fin = 0
+#
+#    prev_parity_pc = 0
+#    diff_found = False
+#    
+#
+#    difftrace = []
+#
+#    def save(text):
+#        difftrace.append(text)
+#
+#    while True:
+#        g = next(g_out_json, {})
+#        p = next(p_out_json, {})
+#        
+#        if g == p and g == {}:
+#            break
+#
+#        a = toText(g)
+#        b = toText(p)
+#
+#        if a == b:
+#            save("[👍] %s" % a)
+#        else:
+#            # Parity repeats the last instruction, which makes sense, since 
+#            # otherwise it wouldn't be possible to see what effect the last op
+#            # had on the stack. Geth, however, ends on a 'STOP', which is semantically
+#            # nicer, as if the code is surrounded by a space of zeroes.  
+#            # One way to detect this is to look at the 'PC'. 
+#            #  * Parity will report the same PC as the last op, 
+#            #  * Geth will increment the PC by one, going outside the actual code length
+#            
+#            if 'pc' in p.keys():
+#                parity_pc = p['pc']
+#                if prev_parity_pc == parity_pc:
+#                    if 'op' in g.keys() and g['op'] == 0:
+#                        # Now we can safely ignore it
+#                        save("[👍] END")
+#                    elif 'output' in g.keys():
+#                        #Now geth is one step ahead. Tricky. 
+#                        p = next(p_out_json, {})
+#                        b = toText(p)
+#                        if a == b:
+#                            save("[👍] %s" % a)
+#                        else:
+#                            save ("Diff: ")
+#                            save("[G] %s " % (a))
+#                            save("[P] %s " % (b))
+#                            diff_found = True
+#                    else:
+#                        save ("Diff: ")
+#                        save("[G] %s " % (a))
+#                        save("[P] %s " % (b))
+#                        diff_found = True
+#
+#                elif prev_parity_pc == parity_pc and g['op'] == 0:
+#                    # Now we can safely ignore it
+#                    save("[👍] END")
+#            else:
+#                save ("Diff: ")
+#                save("[G] %s " % (a))
+#                save("[P] %s " % (b))
+#                diff_found = True
+#            
+#        if 'pc' in p.keys():
+#            prev_parity_pc = p['pc']
+#
+#
+#    return (diff_found , difftrace, gvm.lastCommand, pvm.lastCommand)
 
 def getRandomCode():
     cmd = ["docker", "run","holiman/testeth","--randomcode","100"]

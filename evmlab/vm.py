@@ -1,6 +1,6 @@
 import os, signal, json, itertools
 from subprocess import Popen, PIPE, TimeoutExpired
-from ethereum.utils import parse_int_or_hex
+from ethereum.utils import parse_int_or_hex,decode_hex,remove_0x_head
 import logging
 logger = logging.getLogger()
 
@@ -28,6 +28,39 @@ def toHexQuantities(vals):
 
 bstrToInt = lambda b_str: int(b_str.replace("b", "").replace("'", ""))
 bstrToHex = lambda b_str: '0x{0:01x}'.format(bstrToInt(b_str))
+
+
+def toText(op):
+    if len(op.keys()) == 0:
+        return "END"
+    if 'pc' in op.keys():
+        return "pc {pc:>5} op {op:>3} gas {gas:>8} depth {depth:>2} stack {stack}".format(**op)
+    elif 'time' in op.keys():# Final one
+        
+        if 'output' not in op.keys():
+           op['output'] = ""
+
+        op['output'] = canon(op['output'])
+        fmt = "output {output} gasUsed {gasUsed}"
+        if 'error' in op.keys():
+            e = op['error']
+            if e.lower().find("out of gas") > -1:   
+                e = "OOG"
+            fmt = fmt + " err: OOG"
+        return fmt.format(**op)
+    return "N/A"
+
+def getIntrinsicGas(data):
+    import ethereum.transactions as transactions
+    tx = transactions.Transaction(
+        nonce=0,
+        gasprice=0,
+        startgas=0,
+        to=b"",
+        value=0,
+        data=decode_hex(remove_0x_head(data)))
+    
+    return tx.intrinsic_gas_used
 
 def compare_traces(clients_canon_traces, names):
 
@@ -125,8 +158,8 @@ class PyVM(VM):
 
         def json_steps():
             for line in output:
-                logger.debug(line.rstrip() + "\r")
-                if line.startswith("test_tx:"):
+                logger.debug(line.rstrip() + "\n")
+                if line.startswith("tx:"):
                     continue
                 if line.startswith("tx_decoded:"):
                     continue
@@ -224,7 +257,7 @@ class GethVM(VM):
         # last one is {"output":"","gasUsed":"0x34a48","time":4787059}
         output = output[:-1] 
 
-        steps = [json.loads(x) for x in output if x[0] == "{"]
+        steps = [json.loads(x) for x in output if len(x)>0 and x[0] == "{"]
 
         canon_steps = []
         for step in steps:
@@ -297,10 +330,15 @@ class ParityVM(VM):
     @staticmethod
     def canonicalized(output):
         from . import opcodes
-        steps = [json.loads(x) for x in output if x[0] == "{"]
+        steps = [json.loads(x) for x in output if len(x) > 0 and x[0] == "{"]
 
         canon_steps = []
         for p_step in steps:
+            
+            # Ignored for now
+            if 'error' in p_step.keys() or 'output' in p_step.keys():
+                continue
+            print (p_step)
             if p_step['op'] == 0:
                 # skip STOPs
                 continue
