@@ -2,11 +2,12 @@
 import sys,os, shutil
 import argparse
 from web3 import Web3, RPCProvider, HTTPProvider
+from urllib.parse import urlparse
 import re
 from evmlab import reproduce
 from evmlab import etherchain
 from evmlab import multiapi
-from evmlab import gethvm,parityvm
+from evmlab import vm as VMUtils
 
 description= """
 Tool to reproduce on-chain events locally. 
@@ -71,14 +72,8 @@ parser.add_argument('-t','--test' , action="store_true", default=False,
 
 
 web3settings = parser.add_argument_group('Web3', 'Settings about where to fetch information from (default infura)')
-web3settings.add_argument("--web3-host",  type=str, default="mainnet.infura.io", 
-    help="Web3 API host", )
-web3settings.add_argument("--web3-port",  type=int, default=443, 
-    help="Web3 API port", )
-web3settings.add_argument("--web3-ssl" ,  action="store_true", default=True, 
-    help="Web3 API ssl" )
-parser
-
+web3settings.add_argument("--web3",  type=str, default="https://mainnet.infura.io/", 
+    help="Web3 API url to fetch info from (default 'https://mainnet.infura.io/'" )
 escape = lambda a: lib_escape(str(a), quote=True)
 OUTPUT_DIR = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
 
@@ -176,12 +171,28 @@ def test(vm,api):
 def main(args):
 
     if args.parity_evm:
-        vm = parityvm.VM(args.parity_evm, not args.no_docker)
+        vm = VMUtils.ParityVM(args.parity_evm, not args.no_docker)
     else:
-        vm = gethvm.VM(args.geth_evm, not args.no_docker)
+        vm = VMUtils.GethVM(args.geth_evm, not args.no_docker)
 
-    web3 = Web3(RPCProvider(host = args.web3_host,port= args.web3_port,ssl= args.web3_ssl)) 
+    parsed_web3 = urlparse(args.web3)
+    if not parsed_web3.hostname:
+        #User probably omitted 'http://'
+        parsed_web3 = urlparse("http://%s" % args.web3)
+
+    ssl = (parsed_web3.scheme == 'https')
+    port = parsed_web3.port
+
+    if not port:
+        #Not explicitly defined
+        if ssl:
+            port = 443
+        else:
+            port = 80
+    web3 = Web3(RPCProvider(host = parsed_web3.hostname,port= port ,ssl= ssl)) 
     api = multiapi.MultiApi(web3 = web3, etherchain = etherchain.EtherChainAPI())
+
+
 
     if args.test:
         artefacts = test(vm, api)

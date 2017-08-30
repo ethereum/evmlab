@@ -76,7 +76,7 @@ def findStorageLookups(list_of_output, original_context):
         cur_depth = o['depth']
         if cur_depth > prev_depth:
             #Made it into a call
-            callstack.append[cur_address]
+            callstack.append(cur_address)
             # All call-lookalikes are 'gas,address,value' on stack, 
             # so address is second item of prev line
             cur_address = prev_op['stack'][-2]
@@ -154,7 +154,7 @@ def reproduceTx(txhash, vm, api):
                 "genesis"   : genesis_path, 
                 "json"      : True, 
                 "input"     : tx['input'], 
-                "memory"    : True,
+                "memory"    : False,
             }
             output =  vm.execute(**vm_args)
 
