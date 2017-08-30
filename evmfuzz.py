@@ -34,7 +34,7 @@ def execute(code, gas = 0xFFFF, verbose = False):
 
     intrinsic_geth_gas = VMUtils.getIntrinsicGas(code)
     print("Intrinsic gas: %s" % str(intrinsic_geth_gas) )
-    sys.exit(0)
+#    sys.exit(0)
     g_out = gvm.execute(code = code, gas = gas,json=True, genesis = Genesis().export_geth())
     p_out = pvm.execute(code = code, gas = gas,json=True, genesis = Genesis().export_parity())
 
