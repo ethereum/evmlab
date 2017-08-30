@@ -46,7 +46,7 @@ def compare_traces(clients_canon_traces, names):
                 wrong_clients.append(i)
 
         if step_equiv == True:
-            logger.info('[*]       {}'.format(step[0]))
+            logger.debug('[*]       {}'.format(step[0]))
         else:
             equivalent = False
             logger.info("")
@@ -89,12 +89,12 @@ class CppVM(VM):
         for x in output:
             if x[0:2] == "[{":
                 steps = json.loads(x)
-            logger.info(output)
+            logger.debug(output)
 
         canon_steps = []
 
         for step in steps:
-            logger.info(step)
+            logger.debug(step)
             if step['op'] in ['INVALID', 'STOP'] :
                 # skip STOPs
                 continue
@@ -125,7 +125,7 @@ class PyVM(VM):
 
         def json_steps():
             for line in output:
-                logger.info(line.rstrip() + "\r")
+                logger.debug(line.rstrip() + "\r")
                 if line.startswith("test_tx:"):
                     continue
                 if line.startswith("tx_decoded:"):

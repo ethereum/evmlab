@@ -15,8 +15,9 @@ from evmlab import opcodes
 
 import logging
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
 logger.addHandler(console_handler)
 
 
@@ -217,7 +218,7 @@ def doParity(test_file):
 		parity_out.append(parity_line.decode())
 	
 	for line in parity_out:
-		logger.info(line.rstrip())
+		logger.debug(line.rstrip())
 	logger.info("end of parity trace. processing...")
 
 	canon_steps = VMUtils.ParityVM.canonicalized(parity_out)
@@ -332,7 +333,7 @@ def doGeth(test_case, test_tx):
 
 	logger.info("geth vm executed. printing output:")
 	for g_step in g_output:
-		logger.info(g_step)
+		logger.debug(g_step)
 	logger.info("end of geth output. processing...")
 	
 	canon_steps = VMUtils.GethVM.canonicalized(g_output)
@@ -552,13 +553,11 @@ def perform_test(f, test_name, loghandler = None, test_number = 0):
 			json.dump(single_statetest, outfile)
 				
 		clients_canon_traces = []
-		console_handler.setLevel(logging.WARNING)
 
 		for client_name in clients:
 			canon_trace = doClient(client_name, test_tmpfile, prestate_tmpfile, tx, test_subfolder, test_name, tx_dgv, test_case)
 			clients_canon_traces.append(canon_trace)
 
-		console_handler.setLevel(logging.INFO)
 
 		if VMUtils.compare_traces(clients_canon_traces, clients):
 			logger.info("equivalent.")
