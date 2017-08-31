@@ -356,66 +356,56 @@ def startClient(client, single_test_tmp_file, prestate_tmp_file, tx, test_subfol
 
 TEST_WHITELIST = []
 
-#TEST_WHITELIST = ['callcall_00']
-#TEST_WHITELIST = ['CALL_BoundsOOG']
-#TEST_WHITELIST = ['shallowStack']
-#TEST_WHITELIST = ['RevertOpcodeInCreateReturns']
-
 
 SKIP_LIST = [
-#'modexp_*', # regex example
-'POP_Bounds',
-'POP_BoundsOOG',
-'MLOAD_Bounds',
-'Call1024PreCalls', # Call1024PreCalls does produce a trace difference, worth fixing that trace
-'createInitFailStackSizeLargerThan1024',
-'createJS_ExampleContract',
-'CALL_Bounds',
-'mload32bitBound_Msize ',
-'mload32bitBound_return2',
-'Call1MB1024Calldepth ',
-'shallowStackOK',
-'stackOverflowM1PUSH', # slow
-'static_Call1MB1024Calldepth', # slow
-'static_Call1024BalanceTooLow',
-'static_Call1024BalanceTooLow2',
-'static_Call1024OOG',
-'static_Call1024PreCalls',
-'static_Call1024PreCalls2', # slow
-'static_Call1024PreCalls3', #slow
-'static_Call50000',
-#'static_Call50000_ecrec',
-#'static_Call50000_identity',
-#'static_Call50000_identity2',
-#'static_Call50000_rip160',
-#'static_Call50000_sha256',
-'static_Call50000',
-'static_Call50000bytesContract50_1',
-'static_Call50000bytesContract50_2',
-'static_Call50000bytesContract50_3',
-'static_CallToNameRegistratorAddressTooBigLeft',
-'static_log3_MaxTopic',
-'static_log4_Caller',
-'static_RawCallGas',
-'static_RawCallGasValueTransfer',
-'static_RawCallGasValueTransferAsk',
-'static_RawCallGasValueTransferMemory',
-'static_RawCallGasValueTransferMemoryAsk',
-'static_refund_CallA_notEnoughGasInCall',
-'HighGasLimit', # geth doesn't run
-'zeroSigTransacrionCreate', # geth fails this one
-'zeroSigTransacrionCreatePrice0', # geth fails
-'zeroSigTransaction', # geth fails
-'zeroSigTransaction0Price', # geth fails
-'zeroSigTransactionInvChainID',
-'zeroSigTransactionInvNonce',
-'zeroSigTransactionInvNonce2',
-'zeroSigTransactionOOG',
-'zeroSigTransactionOrigin',
-'zeroSigTransactionToZero',
-'zeroSigTransactionToZero2',
-'OverflowGasRequire2',
-'TransactionDataCosts652'
+    #'modexp_*', # regex example
+    'POP_Bounds',
+    'POP_BoundsOOG',
+    'MLOAD_Bounds',
+    'Call1024PreCalls', # Call1024PreCalls does produce a trace difference, worth fixing that trace
+    'createInitFailStackSizeLargerThan1024',
+    'createJS_ExampleContract',
+    'CALL_Bounds',
+    'mload32bitBound_Msize ',
+    'mload32bitBound_return2',
+    'Call1MB1024Calldepth ',
+    'shallowStackOK',
+    'stackOverflowM1PUSH', # slow
+    'static_Call1MB1024Calldepth', # slow
+    'static_Call1024BalanceTooLow',
+    'static_Call1024BalanceTooLow2',
+    'static_Call1024OOG',
+    'static_Call1024PreCalls',
+    'static_Call1024PreCalls2', # slow
+    'static_Call1024PreCalls3', #slow
+    'static_Call50000',
+    'static_Call50000',
+    'static_Call50000bytesContract50_1',
+    'static_Call50000bytesContract50_2',
+    'static_Call50000bytesContract50_3',
+    'static_CallToNameRegistratorAddressTooBigLeft',
+    'static_log3_MaxTopic',
+    'static_log4_Caller',
+    'static_RawCallGas',
+    'static_RawCallGasValueTransfer',
+    'static_RawCallGasValueTransferAsk',
+    'static_RawCallGasValueTransferMemory',
+    'static_RawCallGasValueTransferMemoryAsk',
+    'static_refund_CallA_notEnoughGasInCall',
+    'HighGasLimit', # geth doesn't run
+    'zeroSigTransacrionCreate', # geth fails this one
+    'zeroSigTransacrionCreatePrice0', # geth fails
+    'zeroSigTransaction', # geth fails
+    'zeroSigTransaction0Price', # geth fails
+    'zeroSigTransactionInvChainID',
+    'zeroSigTransactionInvNonce',
+    'zeroSigTransactionInvNonce2',
+    'zeroSigTransactionOOG',
+    'zeroSigTransactionOrigin',
+    'zeroSigTransactionToZero',
+    'zeroSigTransactionToZero2',
+    'OverflowGasRequire2',
+    'TransactionDataCosts652'
 ]
 
 regex_skip = [skip.replace('*', '') for skip in SKIP_LIST if '*' in skip]
@@ -438,26 +428,26 @@ def main():
             if TEST_WHITELIST and test_name not in TEST_WHITELIST:
                 continue
             if test_name in SKIP_LIST and test_name not in TEST_WHITELIST:
-                print("skipping test:", test_name)
+                logger.info("skipping test:", test_name)
                 continue
             if regex_skip and re.search('|'.join(regex_skip), test_name) and test_name not in TEST_WHITELIST:
-                print("skipping test (regex match):", test_name)
+                logger.info("skipping test (regex match):", test_name)
                 continue
 
 
         (test_number, num_fails, num_passes,failures) = perform_test(f, test_name, test_number)
 
-        print("f/p/t:", num_fails, num_passes, (num_fails + num_passes))
-        print("failures:", failing_files)
+        logger.info("f/p/t: %d,%d,%d" % ( num_fails, num_passes, (num_fails + num_passes)))
+        logger.info("failures: %s" % str(failing_files))
 
         fail_count = fail_count + num_fails
         pass_count = pass_count + num_passes
         failing_files.extend(failures)
         #break
     # done with all tests. print totals
-    print("fail_count:", fail_count)
-    print("pass_count:", pass_count)
-    print("total:", fail_count + pass_count)
+    logger.info("fail_count: %d" % fail_count)
+    logger.info("pass_count: %d" % pass_count)
+    logger.info("total:      %d" % (fail_count + pass_count))
 
 def setupLogToFile(filename):
     
@@ -473,9 +463,7 @@ def setupLogToFile(filename):
 
 def perform_test(f, test_name, test_number = 0):
 
-    print("file:", f)
-    print("test_name:", test_name + ".")
-
+    logger.info("file: %s, test name %s " % (f,test_name))
 
     pass_count = 0
     failures = []
@@ -483,7 +471,7 @@ def perform_test(f, test_name, test_number = 0):
     try:
         prestate, txs_dgv = convertGeneralTest(f)
     except Exception as e:
-        print("problem with test file, skipping.")
+        logger.warn("problem with test file, skipping.")
         return (test_number, fail_count, pass_count, failures)
 
     clients = cfg['DO_CLIENTS']
@@ -492,7 +480,7 @@ def perform_test(f, test_name, test_number = 0):
 
     
     logger.info("prestate: %s", prestate)
-    logger.info("txs: %s", txs_dgv)
+    logger.debug("txs: %s", txs_dgv)
 
     with open(prestate_tmpfile, 'w') as outfile:
         json.dump(prestate, outfile)
