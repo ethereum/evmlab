@@ -207,21 +207,6 @@ def startParity(test_file):
     
     return VMUtils.startProc(parity_docker_cmd)
 
-def finishParity(process):
-    parity_out = VMUtils.finishProc(process)
-
-#   for line in parity_out:
-#       logger.debug(line.rstrip())
-
-    logging.info("end of parity trace. processing...")
-
-    canon_steps = VMUtils.ParityVM.canonicalized(parity_out)
-    text_steps = [toText(   step) for step in canon_steps]
-    
-    logger.info("done processing parity trace, returning in canonical format.")
-    logger.info("----------\n")
-    return text_steps
-
 
 def startCpp(test_subfolder, test_name, test_dgv):
     logger.info("running state test in cpp-ethereum.")
@@ -239,24 +224,6 @@ def startCpp(test_subfolder, test_name, test_dgv):
     logger.info("cpp_cmd: %s " % " ".join(cmd))
 
     return VMUtils.startProc(cmd)
-
-def finishCpp(process):
-
-    cpp_out = VMUtils.finishProc(process)
-
-    cpp_steps = [] # if no output
-
-    logger.info("end of cpp trace. processing...")
-
-    canon_steps = VMUtils.CppVM.canonicalized(cpp_out)
-    canon_text = [toText(x) for x in canon_steps]
-
-    logger.info("done processing cpp trace, returning in canonical format.")
-    logger.info("----------\n")
-    return canon_text
-
-
-
 
 def startGeth(test_case, test_tx):
     logger.info("running state test in geth.")
@@ -326,23 +293,6 @@ def startGeth(test_case, test_tx):
 
     return vm.start(genesis = g_path, gas = gas_limit, price = gas_price, json = True, sender = sender, receiver = tx_to, input = input_data, value = tx_value)
 
-def finishGeth(process):
-
-    g_output = VMUtils.finishProc(process)
-
-    logger.info("geth vm executed. printing output:")
-#   for g_step in g_output:
-#       logger.debug(g_step)
-    logger.info("end of geth output. processing...")
-    
-    canon_steps = VMUtils.GethVM.canonicalized(g_output)
-    g_canon_trace = [toText(x) for x in canon_steps]
-    
-    logger.info("done processing geth trace, returning in canonical format.")
-    logger.info("----------\n")
-    return g_canon_trace
-
-
 
 
 def startPython(test_file, test_tx):
@@ -364,21 +314,26 @@ def startPython(test_file, test_tx):
 
     return VMUtils.startProc(pyeth_docker_cmd)
 
+def finishProc(name, process, canonicalizer):
 
+    outp = VMUtils.finishProc(process)
+    logging.info("End of %s trace, processing..." % name)
+    canon_steps = canonicalizer(outp)
+    canon_text = [toText(step) for step in canon_steps]
+    logging.info("Done processing %s trace (%d steps), returning in canon format" % (name, len(canon_text)))
+    return canon_text
+
+def finishParity(process):
+    return finishProc("parity", process, VMUtils.ParityVM.canonicalized)
+
+def finishCpp(process):
+    return finishProc("cpp", process, VMUtils.CppVM.canonicalized)
+
+def finishGeth(process):
+    return finishProc("geth", process, VMUtils.GethVM.canonicalized)
 
 def finishPython(process):
-
-    # TODO: try using better pyethereum output https://github.com/ethereum/pyethereum/pull/746
-    logger.info("pyeth vm executed. printing output")
-    
-    output = VMUtils.finishProc(process)
-
-    py_trace = VMUtils.PyVM.canonicalized(output)
-    py_canon_trace = [toText(x) for x in py_trace]
-
-    logger.info("done processing pyeth trace, returning in canonical format.")
-    logger.info("----------\n")
-    return py_canon_trace
+    return finishProc("python", process, VMUtils.PyVM.canonicalized)
 
 
 def startClient(client, single_test_tmp_file, prestate_tmp_file, tx, test_subfolder, test_name, tx_dgv, test_case):
