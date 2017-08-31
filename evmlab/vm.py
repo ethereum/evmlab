@@ -338,7 +338,7 @@ class ParityVM(VM):
             # Ignored for now
             if 'error' in p_step.keys() or 'output' in p_step.keys():
                 continue
-            print (p_step)
+
             if p_step['op'] == 0:
                 # skip STOPs
                 continue
