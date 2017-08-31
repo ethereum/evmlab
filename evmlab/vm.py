@@ -92,6 +92,25 @@ def compare_traces(clients_canon_traces, names):
     return equivalent
 
 
+def startProc(cmd):
+    # passing a list to Popen doesn't work. Can't read stdout from docker container when shell=False
+    #pyeth_process = subprocess.Popen(pyeth_docker_cmd, shell=False, stdout=subprocess.PIPE, close_fds=True)
+    
+    # need to pass a string to Popen and shell=True to get stdout from docker container
+    print(" ".join(cmd))
+    return Popen(" ".join(cmd), stdout=PIPE,shell=True, preexec_fn=os.setsid)
+
+
+def finishProc(process):
+    try:
+        (stdoutdata, stderrdata) = process.communicate(timeout=15)
+    except TimeoutExpired:
+        os.killpg(process.pid, signal.SIGINT) # send signal to the process group
+        (stdoutdata, stderrdata) = process.communicate()
+
+
+    return stdoutdata.decode().strip().split("\n")
+
 class VM(object):
 
     def __init__(self,executable="evmbin", docker = False):
@@ -100,17 +119,15 @@ class VM(object):
         self.genesis_format = "parity"
         self.lastCommand = ""
 
+
+
     def _run(self,cmd):
         self.lastCommand = " ".join(cmd)
-        with Popen(cmd, stdout=PIPE, preexec_fn=os.setsid) as process:
-            try:
-                output = process.communicate(timeout=15)[0]
-            except TimeoutExpired:
-                os.killpg(process.pid, signal.SIGINT) # send signal to the process group
-                output = process.communicate()[0]
+        return finishProc(startProc(cmd))
 
-        return output.decode().strip().split("\n")
-
+    def _start(self, cmd):
+        self.lastCommand = " ".join(cmd)
+        return startProc(cmd)
 
 class CppVM(VM):
 
@@ -118,6 +135,7 @@ class CppVM(VM):
     def canonicalized(output):
         from . import opcodes
         valid_opcodes = opcodes.reverse_opcodes.keys()
+        steps = []
 
         for x in output:
             if x[0:2] == "[{":
@@ -169,7 +187,9 @@ class PyVM(VM):
 
         canon_steps = []
         for step in json_steps():
- 
+            #print (step)
+            if 'event' not in step.keys():               
+                continue
             # geth logs code-out-of-range as a STOP, and we 
             # can't distinguish them from actual STOPs (that pyeth logs)
             if step['event'] == 'eth.vm.op.vm':
@@ -196,7 +216,7 @@ class GethVM(VM):
         super().__init__( executable, docker)
         self.genesis_format="geth"
 
-    def execute(self, code = None, codeFile = None, genesis = None, 
+    def start(self, code = None, codeFile = None, genesis = None, 
         gas = 4700000, price = None, json = False, statdump = False, 
         sender = None, receiver = None, memory = False, input = None, 
         value = None, dontExecuteButReturnCommand = False):
@@ -245,11 +265,16 @@ class GethVM(VM):
             cmd.append("--json")
 
         cmd.append("run")
-
-        if dontExecuteButReturnCommand:
-            return cmd
         
-        return self._run(cmd)
+        return self._start(cmd)
+
+    def execute(self, code = None, codeFile = None, genesis = None, 
+        gas = 4700000, price = None, json = False, statdump = False, 
+        sender = None, receiver = None, memory = False, input = None, 
+        value = None):
+
+        proc = self.start(code,codeFile,genesis,gas,price,json,statdump,sender,receiver,memory,input,value)
+        return finishProc(proc)
 
     @staticmethod
     def canonicalized(output):
