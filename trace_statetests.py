@@ -282,7 +282,7 @@ def startGeth(test_case, test_tx):
     
     if gas_limit > block_gaslimit:
         logger.info("Tx gas limit exceeds block gas limit. not calling geth")
-        return []
+        return None
     
     sender = '0x' + getTxSender(test_tx)
     sender_balance = parse_int_or_hex(test_case['pre'][sender]['balance'])
@@ -290,7 +290,7 @@ def startGeth(test_case, test_tx):
     
     if balance_required > sender_balance:
         logger.info("Insufficient balance. not calling geth")
-        return []
+        return None
     
     intrinsic_gas = getIntrinsicGas(test_tx)
     if tx_to == "":
@@ -299,7 +299,7 @@ def startGeth(test_case, test_tx):
     
     if gas_limit < intrinsic_gas:
         logger.info("Insufficient startgas. not calling geth")
-        return []
+        return None
     
     if tx_to == "" and input_data == "":
         logger.warn("No init code")
@@ -551,7 +551,9 @@ def perform_test(f, test_name, test_number = 0):
 
         # Read the outputs
         for (proc, end_fn) in procs:
-            canon_trace = end_fn(proc)
+            canon_trace = []
+            if proc is not None:
+                canon_trace = end_fn(proc)
             clients_canon_traces.append(canon_trace)
             
         if VMUtils.compare_traces(clients_canon_traces, clients):
