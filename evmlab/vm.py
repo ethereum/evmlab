@@ -2,6 +2,7 @@ import os, signal, json, itertools
 from subprocess import Popen, PIPE, TimeoutExpired
 from ethereum.utils import parse_int_or_hex,decode_hex,remove_0x_head
 import logging
+from . import opcodes
 logger = logging.getLogger()
 
 FNULL = open(os.devnull, 'w')
@@ -34,7 +35,13 @@ def toText(op):
     if len(op.keys()) == 0:
         return "END"
     if 'pc' in op.keys():
-        return "pc {pc:>5} op {op:>3} gas {gas:>8} depth {depth:>2} stack {stack}".format(**op)
+        op_key = op['op']
+        if op_key in opcodes.opcodes.keys():
+            opname = opcodes.opcodes[op_key][0]
+        else:
+            opname = "UNKNOWN"
+        op['opname'] = opname
+        return "pc {pc:>5} op {opname:>10}({op:>3}) gas {gas:>8} depth {depth:>2} stack {stack}".format(**op)
     elif 'time' in op.keys():# Final one
         
         if 'output' not in op.keys():
@@ -193,9 +200,8 @@ class PyVM(VM):
             # geth logs code-out-of-range as a STOP, and we 
             # can't distinguish them from actual STOPs (that pyeth logs)
             if step['event'] == 'eth.vm.op.vm':
-                if step['inst'] == 'STOP':
+                if step['op'] == 'STOP':
                     continue
-                
                 trace_step = {
                     'opName' : step['op'],
                     'op'     : step['inst'],
