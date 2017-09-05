@@ -48,6 +48,7 @@ def parse_config():
     cfg['PRESTATE_TMP_FILE']=config[uname]['prestate_tmp_file']
     cfg['SINGLE_TEST_TMP_FILE']=config[uname]['single_test_tmp_file']
     cfg['LOGS_PATH'] = config[uname]['logs_path']
+    cfg['TESTETH_DOCKER_NAME'] = config[uname]['testeth_docker_name']
     logger.info("Config")
     logger.info("\tActive clients: %s",      cfg['DO_CLIENTS'])
     logger.info("\tFork config: %s",         cfg['FORK_CONFIG'])
@@ -89,7 +90,7 @@ def iterate_tests(path = '/GeneralStateTests/', ignore = []):
                     yield os.path.join(subdir, f)
 
 
-def convertGeneralTest(test_file):
+def convertGeneralTest(test_file, fork_name):
     with open(test_file) as json_data:
         general_test = json.load(json_data)
         for test_name in general_test:
@@ -99,12 +100,12 @@ def convertGeneralTest(test_file):
             prestate['pre'] = general_test[test_name]['pre']
             prestate['config'] = {} # for pyeth run_statetest.py
             prestate['config']['metropolisBlock'] = 2000 # same default as evmlab/genesis.py
-            if cfg['FORK_CONFIG'] == 'Byzantium':
+            if fork_name == 'Byzantium':
                 prestate['config']['metropolisBlock'] = 0
             #print("prestate:", prestate)
             general_tx = general_test[test_name]['transaction']
             transactions = []
-            for test_i in general_test[test_name]['post'][cfg['FORK_CONFIG']]:
+            for test_i in general_test[test_name]['post'][fork_name]:
                 test_tx = general_tx.copy()
                 d_i = test_i['indexes']['data']
                 g_i = test_i['indexes']['gas']
@@ -118,7 +119,7 @@ def convertGeneralTest(test_file):
         return prestate, transactions
 
 
-def selectSingleFromGeneral(single_i, general_testfile):
+def selectSingleFromGeneral(single_i, general_testfile, fork_name):
     # a fork/network in a general state test has an array of test cases
     # each element of the array specifies (d,g,v) indexes in the transaction
     with open(general_testfile) as json_data:
@@ -129,7 +130,7 @@ def selectSingleFromGeneral(single_i, general_testfile):
             single_test = general_test
             single_tx = single_test[test_name]['transaction']
             general_tx = single_test[test_name]['transaction']
-            selected_case = general_test[test_name]['post'][cfg['FORK_CONFIG']][single_i]
+            selected_case = general_test[test_name]['post'][fork_name][single_i]
             single_tx['data'] = [ general_tx['data'][selected_case['indexes']['data']] ]
             single_tx['gasLimit'] = [ general_tx['gasLimit'][selected_case['indexes']['gas']] ]
             single_tx['value'] = [ general_tx['value'][selected_case['indexes']['value']] ]
@@ -137,8 +138,8 @@ def selectSingleFromGeneral(single_i, general_testfile):
             selected_case['indexes']['gas'] = 0
             selected_case['indexes']['value'] = 0
             single_test[test_name]['post'] = {}
-            single_test[test_name]['post'][cfg['FORK_CONFIG']] = []
-            single_test[test_name]['post'][cfg['FORK_CONFIG']].append(selected_case)
+            single_test[test_name]['post'][fork_name] = []
+            single_test[test_name]['post'][fork_name].append(selected_case)
             return single_test
 
 
@@ -195,6 +196,28 @@ def canon(str):
 
 def toText(op):
     return VMUtils.toText(op)
+
+def dumpJson(obj, prefix = None):
+    import tempfile
+    fd, temp_path = tempfile.mkstemp(prefix = 'randomtest_', suffix=".json")
+    with open(temp_path, 'w') as f :
+        json.dump(obj,f)
+        logger.info("Saved file to %s" % temp_path)
+    os.close(fd)
+    return temp_path
+
+def createRandomStateTest():
+    cmd = ["docker", "run", "--rm", cfg['TESTETH_DOCKER_NAME'],"-t","StateTestsGeneral","--","--createRandomTest"]
+    outp = "".join(VMUtils.finishProc(VMUtils.startProc(cmd)))
+    #Validate that it's json
+
+    path = dumpJson(json.loads(outp), "randomtest_")
+    return path
+
+def generateTests():
+    while True: 
+        yield createRandomStateTest()
+
 
 
 def startParity(test_file):
@@ -279,14 +302,14 @@ def startGeth(test_case, test_tx):
         return []
     
     if tx_to == "" and input_data == "":
-        logger.info("no init code. not calling geth")
-        return []
+        logger.warn("No init code")
+        #return []
     
     if tx_to in test_case['pre']:
         if 'code' in test_case['pre'][tx_to]:
             if test_case['pre'][tx_to]['code'] == '':
-                logger.info("To account in prestate has no code. not calling geth")
-                return []
+                logger.warn("To account in prestate has no code")
+                #return []
     
     vm = VMUtils.GethVM(executable = cfg['GETH_DOCKER_NAME'], docker = True)
 
@@ -416,12 +439,14 @@ regex_skip = [skip.replace('*', '') for skip in SKIP_LIST if '*' in skip]
 START_I = 0
 
 
+
 def main():
     fail_count = 0
     pass_count = 0
     failing_files = []
     test_number = 0
-    for f in iterate_tests(ignore=['stMemoryTest','stMemoryTest','stMemoryTest']):
+#    for f in iterate_tests(ignore=['stMemoryTest','stMemoryTest','stMemoryTest']):
+    for f in generateTests():
         with open(f) as json_data:
             general_test = json.load(json_data)
             test_name = list(general_test.keys())[0]
@@ -467,9 +492,10 @@ def perform_test(f, test_name, test_number = 0):
 
     pass_count = 0
     failures = []
+    fork_name = cfg['FORK_CONFIG']
 
     try:
-        prestate, txs_dgv = convertGeneralTest(f)
+        prestate, txs_dgv = convertGeneralTest(f, fork_name)
     except Exception as e:
         logger.warn("problem with test file, skipping.")
         return (test_number, fail_count, pass_count, failures)
@@ -501,16 +527,27 @@ def perform_test(f, test_name, test_number = 0):
         tx_dgv = tx_and_dgv[1]
         logger.info("file: %s", f)
         logger.info("test_name: %s. tx_i: %s", test_name, tx_i)
-        single_statetest = selectSingleFromGeneral(tx_i, f)
-        with open(test_tmpfile, 'w') as outfile:
-            json.dump(single_statetest, outfile)
                 
         clients_canon_traces = []
         procs = []
 
         #Start the processes
         for client_name in clients:
-            procs.append(startClient(client_name ,test_tmpfile, prestate_tmpfile, tx, test_subfolder, test_name, tx_dgv, test_case))
+
+            if client_name == 'GETH':
+                procs.append( (startGeth(test_case, tx), finishGeth) ) 
+            if client_name == 'CPP':
+                procs.append( (startCpp(test_subfolder, test_name, tx_dgv), finishCpp) )
+            if client_name == 'PY':
+                procs.append( (startPython(prestate_tmpfile, tx), finishPython) )
+            if client_name == 'PAR':
+                single_statetest = selectSingleFromGeneral(tx_i, f, fork_name)
+                with open(test_tmpfile, 'w') as outfile:
+                    json.dump(single_statetest, outfile)
+
+                procs.append( (startParity(test_tmpfile), finishParity) )
+
+#            procs.append(startClient(client_name ,test_tmpfile, prestate_tmpfile, tx, test_subfolder, test_name, tx_dgv, test_case))
 
         # Read the outputs
         for (proc, end_fn) in procs:
