@@ -91,17 +91,23 @@ def iterate_tests(path = '/GeneralStateTests/', ignore = []):
 
 
 def convertGeneralTest(test_file, fork_name):
+    # same default as evmlab/genesis.py
+    metroBlock = 2000
+    if fork_name == 'Byzantium':
+        metroBlock = 0
+
+
     with open(test_file) as json_data:
         general_test = json.load(json_data)
         for test_name in general_test:
             # should only be one test_name per file
-            prestate = {}
-            prestate['env'] = general_test[test_name]['env']
-            prestate['pre'] = general_test[test_name]['pre']
-            prestate['config'] = {} # for pyeth run_statetest.py
-            prestate['config']['metropolisBlock'] = 2000 # same default as evmlab/genesis.py
-            if fork_name == 'Byzantium':
-                prestate['config']['metropolisBlock'] = 0
+            prestate = {
+                'env' : general_test[test_name]['env'],
+                'pre' : general_test[test_name]['pre'],
+                'config': {
+                    'metropolisBlock' : metroBlock,
+                },
+            }
             #print("prestate:", prestate)
             general_tx = general_test[test_name]['transaction']
             transactions = []
@@ -167,26 +173,6 @@ def getTxSender(test_tx):
         tx.sign(decode_hex(remove_0x_head(test_tx['secretKey'])))
     return encode_hex(tx.sender)
 
-
-
-def outputs(stdouts):
-    import json
-    finished = False
-    while not finished:
-        items = []
-        for outp in stdouts:
-            if outp == "":
-                items.append({})
-                finished = True
-            else:
-                outp = outp.strip()
-                try:
-                    items.append(json.loads(outp))
-                except ValueError:
-                    logger.info("Invalid json: %s", outp)
-                    items.append({})
-        yield items
-
 def canon(str):
     if str in [None, "0x", ""]:
         return ""
@@ -197,9 +183,9 @@ def canon(str):
 def toText(op):
     return VMUtils.toText(op)
 
-def dumpJson(obj, prefix = None):
+def dumpJson(obj, dir = None, prefix = None):
     import tempfile
-    fd, temp_path = tempfile.mkstemp(prefix = 'randomtest_', suffix=".json")
+    fd, temp_path = tempfile.mkstemp(prefix = 'randomtest_', suffix=".json", dir = dir)
     with open(temp_path, 'w') as f :
         json.dump(obj,f)
         logger.info("Saved file to %s" % temp_path)
@@ -210,15 +196,37 @@ def createRandomStateTest():
     cmd = ["docker", "run", "--rm", cfg['TESTETH_DOCKER_NAME'],"-t","StateTestsGeneral","--","--createRandomTest"]
     outp = "".join(VMUtils.finishProc(VMUtils.startProc(cmd)))
     #Validate that it's json
+    return json.loads(outp)
 
-    path = dumpJson(json.loads(outp), "randomtest_")
-    return path
 
 def generateTests():
+    import getpass, time
+    uname = getpass.getuser()
+    host_id = "%s-%s" % (uname, time.strftime("%a_%H_%M_%S"))
+    here = os.path.dirname(os.path.realpath(__file__))
+
+    cfg['TESTS_PATH'] = "%s/generatedTests/" % here
+    testfile_dir = "%s/generatedTests/GeneralStateTests/stRandom" % here
+    filler_dir = "%s/generatedTests/src/GeneralStateTestsFiller/stRandom" % here 
+    os.makedirs( testfile_dir , exist_ok = True)
+    os.makedirs( filler_dir, exist_ok = True)
+    import pathlib
+
+    counter = 0
     while True: 
-        yield createRandomStateTest()
+        identifier = "%s-%d" %(host_id, counter)
+        test_json =  createRandomStateTest()
+        test_fullpath = "%s/randomStatetest%s.json" % (testfile_dir, identifier)
+        filler_fullpath = "%s/randomStatetest%sFiller.json" % (filler_dir, identifier)
+        test_json['randomStatetest%s' % identifier] =test_json.pop('randomStatetest', None) 
 
+        
+        with open(test_fullpath, "w+") as f:
+            json.dump(test_json, f)
+            pathlib.Path(filler_fullpath).touch()
 
+        yield test_fullpath
+        counter = counter +1
 
 def startParity(test_file):
     logger.info("running state test in parity.")
@@ -236,13 +244,14 @@ def startCpp(test_subfolder, test_name, test_dgv):
     [d,g,v] = test_dgv
 
     cpp_mount_tests = cfg['TESTS_PATH'] + ":" + "/mounted_tests"
-    cmd = ["docker", "run", "--rm", "-t", "-v", cpp_mount_tests, cfg['CPP_DOCKER_NAME']]
-    cmd.extend(['-t',"StateTestsGeneral/%s" %  test_subfolder,'--'])
-    cmd.extend(['--singletest', test_name])
-    cmd.extend(['--jsontrace',"'{ \"disableStorage\":true }'" ])
-    cmd.extend(['--singlenet',cfg['FORK_CONFIG']])
-    cmd.extend(['-d',str(d),'-g',str(g), '-v', str(v) ])
-    cmd.extend(['--testpath', '"/mounted_tests"'])
+    cmd = ["docker", "run", "--rm", "-t", "-v", cpp_mount_tests, cfg['CPP_DOCKER_NAME']
+            ,'-t',"StateTestsGeneral/%s" %  test_subfolder
+            ,'--'
+            ,'--singletest', test_name
+            ,'--jsontrace',"'{ \"disableStorage\":true }'" 
+            ,'--singlenet',cfg['FORK_CONFIG']
+            ,'-d',str(d),'-g',str(g), '-v', str(v) 
+            ,'--testpath', '"/mounted_tests"']
 
     logger.info("cpp_cmd: %s " % " ".join(cmd))
 
@@ -270,9 +279,7 @@ def startGeth(test_case, test_tx):
         # OS X workaround for https://github.com/docker/for-mac/issues/1298 "The path /var/folders/wb/d8qys65575g8m2691vvglpmm0000gn/T/tmpctxz3buh.json is not shared from OS X and is not known to Docker." 
         g_path = "/private" + g_path
     
-    input_data = test_tx['data']
-    if input_data[0:2] == "0x":
-        input_data = input_data[2:]
+    input_data = VMUtils.strip_0x(test_tx['data'])
     
     tx_to = test_tx['to']
     tx_value = parse_int_or_hex(test_tx['value'])
@@ -303,13 +310,13 @@ def startGeth(test_case, test_tx):
     
     if tx_to == "" and input_data == "":
         logger.warn("No init code")
-        #return []
+        return None
     
     if tx_to in test_case['pre']:
         if 'code' in test_case['pre'][tx_to]:
             if test_case['pre'][tx_to]['code'] == '':
                 logger.warn("To account in prestate has no code")
-                #return []
+                #return None
     
     vm = VMUtils.GethVM(executable = cfg['GETH_DOCKER_NAME'], docker = True)
 
@@ -464,11 +471,15 @@ def main():
 
         logger.info("f/p/t: %d,%d,%d" % ( num_fails, num_passes, (num_fails + num_passes)))
         logger.info("failures: %s" % str(failing_files))
+        logger.info("tot fail_count: %d" % fail_count)
+        logger.info("tot pass_count: %d" % pass_count)
+        logger.info("tot           : %d" % (fail_count + pass_count))
 
         fail_count = fail_count + num_fails
         pass_count = pass_count + num_passes
         failing_files.extend(failures)
-        #break
+        #if fail_count > 0:
+        #    break
     # done with all tests. print totals
     logger.info("fail_count: %d" % fail_count)
     logger.info("pass_count: %d" % pass_count)
