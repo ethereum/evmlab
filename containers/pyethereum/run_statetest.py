@@ -64,6 +64,10 @@ def runStateTest(test_case, test_transaction):
     test_config = config_spurious
     if test_case['config']['metropolisBlock'] == 0:
         test_config = config_metropolis
+    if test_case['config']['eip158Block'] != 0 and test_case['config']['eip150Block'] == 0:
+        test_config = config_tangerine
+    if test_case['config']['eip150Block'] != 0 and test_case['config']['homesteadBlock'] == 0:
+        test_config = config_homestead
     computed = compute_state_test_unit(pre_state, test_transaction, test_config)
     #print("computed:", computed)
 
