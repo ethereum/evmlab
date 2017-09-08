@@ -102,6 +102,7 @@ def convertGeneralTest(test_file):
             if cfg['FORK_CONFIG'] == 'Byzantium':
                 prestate['config']['metropolisBlock'] = 0
             if cfg['FORK_CONFIG'] == 'Homestead':
+                print("Setting prestate to homestead config")
                 prestate['config']['eip158Block'] = 2000
                 prestate['config']['eip150Block'] = 2000
                 prestate['config']['eip155Block'] = 2000
