@@ -31,7 +31,7 @@ class Genesis(object):
             "extraData":  "0x0000000000000000000000000000000000000000000000000000000000000000",
             "gasLimit": self.gasLimit,
             "alloc": self.alloc,
-            
+            "config": self.config,
         }
         return g
 
