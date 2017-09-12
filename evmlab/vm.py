@@ -102,7 +102,7 @@ def compare_traces(clients_canon_traces, names):
 def startProc(cmd):
     # passing a list to Popen doesn't work. Can't read stdout from docker container when shell=False
     #pyeth_process = subprocess.Popen(pyeth_docker_cmd, shell=False, stdout=subprocess.PIPE, close_fds=True)
-    
+
     # need to pass a string to Popen and shell=True to get stdout from docker container
     print(" ".join(cmd))
     return Popen(" ".join(cmd), stdout=PIPE,shell=True, preexec_fn=os.setsid)
@@ -146,7 +146,15 @@ class CppVM(VM):
 
         for x in output:
             if x[0:2] == "[{":
-                steps = json.loads(x)
+                try:
+                    steps = json.loads(x)
+                except Exception as e:
+                    logger.info('Exception parsing cpp json:')
+                    logger.info(e)
+                    logger.info('problematic line:')
+                    logger.info(x)
+                    steps = []
+
             logger.debug(output)
 
         canon_steps = []
@@ -190,7 +198,14 @@ class PyVM(VM):
                     continue
                 json_index = line.find("{")
                 if json_index >= 0:
-                    yield(json.loads(line[json_index:]))
+                    try:
+                        yield(json.loads(line[json_index:]))
+                    except Exception as e:
+                        logger.info("Exception parsing json:")
+                        logger.info(e)
+                        logger.info("problematic line:")
+                        logger.info(line)
+                        yield({})
 
         canon_steps = []
         for step in json_steps():
@@ -364,11 +379,13 @@ class ParityVM(VM):
     @staticmethod
     def canonicalized(output):
         from . import opcodes
-        steps = [json.loads(x) for x in output if len(x) > 0 and x[0] == "{"]
+        output_steps = [line for line in output]
+        logger.debug(output_steps)
+        steps = [json.loads(x) for x in output_steps if len(x) > 0 and x[0] == "{"]
 
         canon_steps = []
         for p_step in steps:
-            
+
             # Ignored for now
             if 'error' in p_step.keys() or 'output' in p_step.keys():
                 continue
@@ -388,7 +405,7 @@ class ParityVM(VM):
                 'stack' : p_step['stack'],
             }
             canon_steps.append(trace_step)
-        
+
         return canon_steps
 
 

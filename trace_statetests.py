@@ -104,15 +104,23 @@ def convertGeneralTest(test_file, fork_name):
             prestate = {
                 'env' : general_test[test_name]['env'],
                 'pre' : general_test[test_name]['pre'],
-                'config': {
-                    'metropolisBlock' : metroBlock,
-                },
+                'config' : { # for pyeth run_statetest.py
+                    'metropolisBlock' : 2000, # same default as evmlab/genesis.py
+                    'eip158Block' : 2000,
+                    'eip150Block' : 2000,
+                    'eip155Block' : 2000,
+                    'homesteadBlock' : 2000,
+                }
             }
+            if cfg['FORK_CONFIG'] == 'Byzantium':
+                prestate['config'] = {
+                    'metropolisBlock' : 0,
+                    'eip158Block' : 0,
+                    'eip150Block' : 0,
+                    'eip155Block' : 0,
+                    'homesteadBlock' : 0,
+                }
             if cfg['FORK_CONFIG'] == 'Homestead':
-                print("Setting prestate to homestead config")
-                prestate['config']['eip158Block'] = 2000
-                prestate['config']['eip150Block'] = 2000
-                prestate['config']['eip155Block'] = 2000
                 prestate['config']['homesteadBlock'] = 0
             #print("prestate:", prestate)
             general_tx = general_test[test_name]['transaction']
@@ -358,7 +366,10 @@ def startPython(test_file, test_tx):
     return VMUtils.startProc(pyeth_docker_cmd)
 
 def finishProc(name, process, canonicalizer):
-    outp = VMUtils.finishProc(process)
+    if isinstance(process, list) and len(process) == 0:
+        outp = [None]
+    else:
+        outp = VMUtils.finishProc(process)
     logging.info("End of %s trace, processing..." % name)
     canon_steps = canonicalizer(outp)
     canon_text = [toText(step) for step in canon_steps]
@@ -447,7 +458,17 @@ SKIP_LIST = [
     'zeroSigTransactionToZero',
     'zeroSigTransactionToZero2',
     'OverflowGasRequire2',
-    'TransactionDataCosts652'
+    'TransactionDataCosts652',
+    'stackLimitPush31_1023',
+    'stackLimitPush31_1023',
+    'stackLimitPush31_1024',
+    'stackLimitPush31_1025', # test runner crashes
+    'stackLimitPush32_1023',
+    'stackLimitPush32_1024',
+    'stackLimitPush32_1025', # big trace, onsensus failure
+    'stackLimitGas_1023',
+    'stackLimitGas_1024', # consensus bug
+    'stackLimitGas_1025'
 ]
 
 regex_skip = [skip.replace('*', '') for skip in SKIP_LIST if '*' in skip]
@@ -472,10 +493,10 @@ def main():
             if TEST_WHITELIST and test_name not in TEST_WHITELIST:
                 continue
             if test_name in SKIP_LIST and test_name not in TEST_WHITELIST:
-                logger.info("skipping test:", test_name)
+                logger.info("skipping test: %s" % test_name)
                 continue
             if regex_skip and re.search('|'.join(regex_skip), test_name) and test_name not in TEST_WHITELIST:
-                logger.info("skipping test (regex match):", test_name)
+                logger.info("skipping test (regex match): %s" % test_name)
                 continue
 
 
@@ -556,7 +577,7 @@ def perform_test(f, test_name, test_number = 0):
 
         #Start the processes
         for client_name in clients:
-
+ 
             if client_name == 'GETH':
                 procs.append( (startGeth(test_case, tx), finishGeth) ) 
             if client_name == 'CPP':
