@@ -1,16 +1,23 @@
 import json
 class Genesis(object):
     """ Utility to create genesis files"""
-    
+
     def __init__(self):
         self.alloc  = {}
         self.coinbase = "0x0000000000000000000000000000000000000000"
         self.timestamp = "0x00"
         self.gasLimit = "0x3D0900"
         self.difficulty = "0x01"
-        self.metropolisBlock = 2000
         self.blockNumber = 0
-        
+        self.config = {
+            "eip150Block": 0, 
+            "eip158Block": 0, 
+            "eip155Block": 0, 
+            "homesteadBlock": 0, 
+            "daoForkBlock": 0,
+            "byzantiumBlock": 2000,
+        }
+
     def geth(self):
 
         g = {
@@ -24,14 +31,9 @@ class Genesis(object):
             "extraData":  "0x0000000000000000000000000000000000000000000000000000000000000000",
             "gasLimit": self.gasLimit,
             "alloc": self.alloc,
-            "config": {
-                "eip150Block": 0, 
-                "eip158Block": 0, 
-                "eip155Block": 0, 
-                "homesteadBlock": 0, 
-                "daoForkBlock": 0,
-                "byzantiumBlock": self.metropolisBlock,
-            }
+
+            "config": self.config,
+
         }
         return g
 
@@ -109,8 +111,19 @@ class Genesis(object):
     def setBlockNumber(self, blockNumber):
         self.blockNumber = int(blockNumber, 16)
 
-    def setMetropolisActivation(self, activationBlock):
-        self.metropolisBlock = activationBlock
+    def setConfigMetropolis(self):
+        self.config['byzantiumBlock'] = 0
+        self.config['eip158Block'] = 0
+        self.config['eip150Block'] = 0
+        self.config['eip155Block'] = 0
+        self.config['homesteadBlock'] = 0
+
+    def setConfigHomestead(self):
+        self.config['byzantiumBlock'] = 2000
+        self.config['eip158Block'] = 2000
+        self.config['eip150Block'] = 2000
+        self.config['eip155Block'] = 2000
+        self.config['homesteadBlock'] = 0
 
     def addPrestateAccount(self, account):
         self.alloc[account['address'].lower()] = {

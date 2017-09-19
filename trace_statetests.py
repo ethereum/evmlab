@@ -108,6 +108,12 @@ def convertGeneralTest(test_file, fork_name):
                     'metropolisBlock' : metroBlock,
                 },
             }
+            if cfg['FORK_CONFIG'] == 'Homestead':
+                print("Setting prestate to homestead config")
+                prestate['config']['eip158Block'] = 2000
+                prestate['config']['eip150Block'] = 2000
+                prestate['config']['eip155Block'] = 2000
+                prestate['config']['homesteadBlock'] = 0
             #print("prestate:", prestate)
             general_tx = general_test[test_name]['transaction']
             transactions = []
@@ -121,7 +127,7 @@ def convertGeneralTest(test_file, fork_name):
                 test_tx['value'] = general_tx['value'][v_i]
                 test_dgv = (d_i, g_i, v_i)
                 transactions.append((test_tx, test_dgv))
-            
+
         return prestate, transactions
 
 
@@ -158,7 +164,7 @@ def getIntrinsicGas(test_tx):
         to=decode_hex(remove_0x_head(test_tx['to'])),
         value=parse_int_or_hex(test_tx['value'] or b"0"),
         data=decode_hex(remove_0x_head(test_tx['data'])))
-    
+
     return tx.intrinsic_gas_used
 
 def getTxSender(test_tx):
@@ -235,7 +241,7 @@ def startParity(test_file):
 
     parity_docker_cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, cfg['PARITY_DOCKER_NAME'], "--json", "--statetest", "/mounted_testfile"]
     logger.info(" ".join(parity_docker_cmd))
-    
+
     return VMUtils.startProc(parity_docker_cmd)
 
 
@@ -244,6 +250,7 @@ def startCpp(test_subfolder, test_name, test_dgv):
     [d,g,v] = test_dgv
 
     cpp_mount_tests = cfg['TESTS_PATH'] + ":" + "/mounted_tests"
+
     cmd = ["docker", "run", "--rm", "-t", "-v", cpp_mount_tests, cfg['CPP_DOCKER_NAME']
             ,'-t',"StateTestsGeneral/%s" %  test_subfolder
             ,'--'
@@ -252,6 +259,9 @@ def startCpp(test_subfolder, test_name, test_dgv):
             ,'--singlenet',cfg['FORK_CONFIG']
             ,'-d',str(d),'-g',str(g), '-v', str(v) 
             ,'--testpath', '"/mounted_tests"']
+
+    if cfg['FORK_CONFIG'] == 'Homestead' or cfg['FORK_CONFIG'] == 'Frontier':
+        cmd.extend(['--all']) # cpp requires this for some reason
 
     logger.info("cpp_cmd: %s " % " ".join(cmd))
 
@@ -271,14 +281,15 @@ def startGeth(test_case, test_tx):
     genesis.setBlockNumber(test_case['env']['currentNumber'])
 
     if cfg['FORK_CONFIG'] == 'Metropolis' or cfg['FORK_CONFIG'] == 'Byzantium':
-        genesis.setMetropolisActivation(0)
-    
+        genesis.setConfigMetropolis()
+    if cfg['FORK_CONFIG'] == 'Homestead':
+        genesis.setConfigHomestead()
+
     geth_genesis = genesis.geth()
     g_path = genesis.export_geth()
     if sys.platform == "darwin":
         # OS X workaround for https://github.com/docker/for-mac/issues/1298 "The path /var/folders/wb/d8qys65575g8m2691vvglpmm0000gn/T/tmpctxz3buh.json is not shared from OS X and is not known to Docker." 
         g_path = "/private" + g_path
-    
     input_data = VMUtils.strip_0x(test_tx['data'])
     
     tx_to = test_tx['to']
@@ -286,26 +297,29 @@ def startGeth(test_case, test_tx):
     gas_limit = parse_int_or_hex(test_tx['gasLimit'])
     gas_price = parse_int_or_hex(test_tx['gasPrice'])
     block_gaslimit = parse_int_or_hex(test_case['env']['currentGasLimit'])
-    
+
     if gas_limit > block_gaslimit:
         logger.info("Tx gas limit exceeds block gas limit. not calling geth")
         return None
-    
+
     sender = '0x' + getTxSender(test_tx)
     sender_balance = parse_int_or_hex(test_case['pre'][sender]['balance'])
     balance_required = (gas_price * gas_limit) + tx_value
-    
+
     if balance_required > sender_balance:
         logger.info("Insufficient balance. not calling geth")
+
         return None
     
+
     intrinsic_gas = getIntrinsicGas(test_tx)
     if tx_to == "":
         # create contract cost not included in getIntrinsicGas
         intrinsic_gas += 32000
-    
+
     if gas_limit < intrinsic_gas:
         logger.info("Insufficient startgas. not calling geth")
+
         return None
     
     if tx_to == "" and input_data == "":
@@ -320,7 +334,6 @@ def startGeth(test_case, test_tx):
     
     vm = VMUtils.GethVM(executable = cfg['GETH_DOCKER_NAME'], docker = True)
 
-
     return vm.start(genesis = g_path, gas = gas_limit, price = gas_price, json = True, sender = sender, receiver = tx_to, input = input_data, value = tx_value)
 
 
@@ -329,23 +342,22 @@ def startPython(test_file, test_tx):
     logger.info("running state test in pyeth.")
     tx_encoded = json.dumps(test_tx)
     tx_double_encoded = json.dumps(tx_encoded) # double encode to escape chars for command line
-    
+
     # command if not using a docker container
     # pyeth_process = subprocess.Popen(["python", "run_statetest.py", test_file, tx_double_encoded], shell=False, stdout=subprocess.PIPE, close_fds=True)
-    
+
     # command to run docker container
     # docker run --volume=/absolute/path/prestate.json:/mounted_prestate cdetrio/pyethereum run_statetest.py mounted_prestate "{\"data\": \"\", \"gasLimit\": \"0x0a00000000\", \"gasPrice\": \"0x01\", \"nonce\": \"0x00\", \"secretKey\": \"0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8\", \"to\": \"0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6\", \"value\": \"0x00\"}"
-    
+
     prestate_path = os.path.abspath(test_file)
     mount_flag = prestate_path + ":" + "/mounted_prestate"
     pyeth_docker_cmd = ["docker", "run", "--rm", "-t", "-v", mount_flag, cfg['PYETH_DOCKER_NAME'], "run_statetest.py", "/mounted_prestate", tx_double_encoded]
-    
+
     logger.info(" ".join(pyeth_docker_cmd))
 
     return VMUtils.startProc(pyeth_docker_cmd)
 
 def finishProc(name, process, canonicalizer):
-
     outp = VMUtils.finishProc(process)
     logging.info("End of %s trace, processing..." % name)
     canon_steps = canonicalizer(outp)
@@ -379,7 +391,7 @@ def startClient(client, single_test_tmp_file, prestate_tmp_file, tx, test_subfol
         return (startPython(prestate_tmp_file, tx), finishPython)
     if client == 'PAR':
         return (startParity(single_test_tmp_file), finishParity)
-    
+
     logger.error("ERROR! client not supported:", client)
     return []
 
@@ -486,7 +498,7 @@ def main():
     logger.info("total:      %d" % (fail_count + pass_count))
 
 def setupLogToFile(filename):
-    
+
     # remove all old handlers
     for hdlr in logger.handlers[:]:  
         if type(hdlr) == logging.FileHandler:
@@ -515,13 +527,13 @@ def perform_test(f, test_name, test_number = 0):
     test_tmpfile = cfg['SINGLE_TEST_TMP_FILE']
     prestate_tmpfile = cfg['PRESTATE_TMP_FILE']
 
-    
+
     logger.info("prestate: %s", prestate)
     logger.debug("txs: %s", txs_dgv)
 
     with open(prestate_tmpfile, 'w') as outfile:
         json.dump(prestate, outfile)
-        
+
     test_case = prestate
     test_subfolder = f.split(os.sep)[-2]
 
@@ -538,7 +550,7 @@ def perform_test(f, test_name, test_number = 0):
         tx_dgv = tx_and_dgv[1]
         logger.info("file: %s", f)
         logger.info("test_name: %s. tx_i: %s", test_name, tx_i)
-                
+
         clients_canon_traces = []
         procs = []
 
@@ -584,7 +596,7 @@ def perform_test(f, test_name, test_number = 0):
         renamed_trace = os.path.abspath(passfail_log_filename)
         os.rename(trace_file, renamed_trace)
 
-    
+
 
     return (test_number, len(failures), pass_count, failures)
 

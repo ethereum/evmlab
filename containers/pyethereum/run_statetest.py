@@ -61,9 +61,17 @@ def runStateTest(test_case, test_transaction):
     print("running stateTest")
     pre_state = init_state(test_case['env'], test_case['pre'])
     #print("inited state:", _state.to_dict())
+    print("pyeth default spurious config")
     test_config = config_spurious
     if test_case['config']['metropolisBlock'] == 0:
+        print("pyeth setting metro config")
         test_config = config_metropolis
+    if test_case['config']['eip158Block'] != 0 and test_case['config']['eip150Block'] == 0:
+        print("pyeth setting tangerine config")
+        test_config = config_tangerine
+    if test_case['config']['eip150Block'] != 0 and test_case['config']['homesteadBlock'] == 0:
+        print("pyeth setting homestead config")
+        test_config = config_homestead
     computed = compute_state_test_unit(pre_state, test_transaction, test_config)
     #print("computed:", computed)
 
