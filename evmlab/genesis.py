@@ -30,7 +30,7 @@ class Genesis(object):
                 "eip155Block": 0, 
                 "homesteadBlock": 0, 
                 "daoForkBlock": 0,
-                "metropolisBlock": self.metropolisBlock,
+                "byzantiumBlock": self.metropolisBlock,
             }
         }
         return g
