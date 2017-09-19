@@ -285,10 +285,13 @@ class GethVM(VM):
     @staticmethod
     def canonicalized(output):
         from . import opcodes
-        # last one is {"output":"","gasUsed":"0x34a48","time":4787059}
-        output = output[:-1] 
 
         steps = [json.loads(x) for x in output if len(x)>0 and x[0] == "{"]
+
+        if 'output' in steps[-1]:
+            # last one is {"output":"","gasUsed":"0x34a48","time":4787059}
+            # Remove    
+            steps = steps[:-1]
 
         canon_steps = []
         for step in steps:

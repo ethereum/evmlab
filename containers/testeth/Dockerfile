@@ -5,6 +5,7 @@ FROM ubuntu:14.04
 RUN     apt-get update \
     &&  apt-get install git -y \
     &&  cd /home && git clone --depth 1 --recursive https://github.com/ethereum/cpp-ethereum.git \
+    &&  sed -i '1s/^/\#define EVM_OPTIMIZE false\n/' cpp-ethereum/libevm/VMConfig.h \ 
     &&  git clone --depth 1 --recursive https://github.com/winsvega/solidity.git \
     &&  apt-get install curl libboost-all-dev libleveldb-dev libcurl4-openssl-dev libmicrohttpd-dev libminiupnpc-dev libgmp-dev -y \
     &&  cd cpp-ethereum && ./scripts/install_cmake.sh --prefix /usr/local \

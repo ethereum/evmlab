@@ -15,7 +15,7 @@ class Genesis(object):
             "eip155Block": 0, 
             "homesteadBlock": 0, 
             "daoForkBlock": 0,
-            "metropolisBlock": 2000,
+            "byzantiumBlock": 2000,
         }
 
     def geth(self):
@@ -31,7 +31,9 @@ class Genesis(object):
             "extraData":  "0x0000000000000000000000000000000000000000000000000000000000000000",
             "gasLimit": self.gasLimit,
             "alloc": self.alloc,
+
             "config": self.config,
+
         }
         return g
 
@@ -110,14 +112,14 @@ class Genesis(object):
         self.blockNumber = int(blockNumber, 16)
 
     def setConfigMetropolis(self):
-        self.config['metropolisBlock'] = 0
+        self.config['byzantiumBlock'] = 0
         self.config['eip158Block'] = 0
         self.config['eip150Block'] = 0
         self.config['eip155Block'] = 0
         self.config['homesteadBlock'] = 0
 
     def setConfigHomestead(self):
-        self.config['metropolisBlock'] = 2000
+        self.config['byzantiumBlock'] = 2000
         self.config['eip158Block'] = 2000
         self.config['eip150Block'] = 2000
         self.config['eip155Block'] = 2000

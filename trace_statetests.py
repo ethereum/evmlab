@@ -48,6 +48,7 @@ def parse_config():
     cfg['PRESTATE_TMP_FILE']=config[uname]['prestate_tmp_file']
     cfg['SINGLE_TEST_TMP_FILE']=config[uname]['single_test_tmp_file']
     cfg['LOGS_PATH'] = config[uname]['logs_path']
+    cfg['TESTETH_DOCKER_NAME'] = config[uname]['testeth_docker_name']
     logger.info("Config")
     logger.info("\tActive clients: %s",      cfg['DO_CLIENTS'])
     logger.info("\tFork config: %s",         cfg['FORK_CONFIG'])
@@ -89,18 +90,24 @@ def iterate_tests(path = '/GeneralStateTests/', ignore = []):
                     yield os.path.join(subdir, f)
 
 
-def convertGeneralTest(test_file):
+def convertGeneralTest(test_file, fork_name):
+    # same default as evmlab/genesis.py
+    metroBlock = 2000
+    if fork_name == 'Byzantium':
+        metroBlock = 0
+
+
     with open(test_file) as json_data:
         general_test = json.load(json_data)
         for test_name in general_test:
             # should only be one test_name per file
-            prestate = {}
-            prestate['env'] = general_test[test_name]['env']
-            prestate['pre'] = general_test[test_name]['pre']
-            prestate['config'] = {} # for pyeth run_statetest.py
-            prestate['config']['metropolisBlock'] = 2000 # same default as evmlab/genesis.py
-            if cfg['FORK_CONFIG'] == 'Byzantium':
-                prestate['config']['metropolisBlock'] = 0
+            prestate = {
+                'env' : general_test[test_name]['env'],
+                'pre' : general_test[test_name]['pre'],
+                'config': {
+                    'metropolisBlock' : metroBlock,
+                },
+            }
             if cfg['FORK_CONFIG'] == 'Homestead':
                 print("Setting prestate to homestead config")
                 prestate['config']['eip158Block'] = 2000
@@ -110,7 +117,7 @@ def convertGeneralTest(test_file):
             #print("prestate:", prestate)
             general_tx = general_test[test_name]['transaction']
             transactions = []
-            for test_i in general_test[test_name]['post'][cfg['FORK_CONFIG']]:
+            for test_i in general_test[test_name]['post'][fork_name]:
                 test_tx = general_tx.copy()
                 d_i = test_i['indexes']['data']
                 g_i = test_i['indexes']['gas']
@@ -124,7 +131,7 @@ def convertGeneralTest(test_file):
         return prestate, transactions
 
 
-def selectSingleFromGeneral(single_i, general_testfile):
+def selectSingleFromGeneral(single_i, general_testfile, fork_name):
     # a fork/network in a general state test has an array of test cases
     # each element of the array specifies (d,g,v) indexes in the transaction
     with open(general_testfile) as json_data:
@@ -135,7 +142,7 @@ def selectSingleFromGeneral(single_i, general_testfile):
             single_test = general_test
             single_tx = single_test[test_name]['transaction']
             general_tx = single_test[test_name]['transaction']
-            selected_case = general_test[test_name]['post'][cfg['FORK_CONFIG']][single_i]
+            selected_case = general_test[test_name]['post'][fork_name][single_i]
             single_tx['data'] = [ general_tx['data'][selected_case['indexes']['data']] ]
             single_tx['gasLimit'] = [ general_tx['gasLimit'][selected_case['indexes']['gas']] ]
             single_tx['value'] = [ general_tx['value'][selected_case['indexes']['value']] ]
@@ -143,8 +150,8 @@ def selectSingleFromGeneral(single_i, general_testfile):
             selected_case['indexes']['gas'] = 0
             selected_case['indexes']['value'] = 0
             single_test[test_name]['post'] = {}
-            single_test[test_name]['post'][cfg['FORK_CONFIG']] = []
-            single_test[test_name]['post'][cfg['FORK_CONFIG']].append(selected_case)
+            single_test[test_name]['post'][fork_name] = []
+            single_test[test_name]['post'][fork_name].append(selected_case)
             return single_test
 
 
@@ -172,26 +179,6 @@ def getTxSender(test_tx):
         tx.sign(decode_hex(remove_0x_head(test_tx['secretKey'])))
     return encode_hex(tx.sender)
 
-
-
-def outputs(stdouts):
-    import json
-    finished = False
-    while not finished:
-        items = []
-        for outp in stdouts:
-            if outp == "":
-                items.append({})
-                finished = True
-            else:
-                outp = outp.strip()
-                try:
-                    items.append(json.loads(outp))
-                except ValueError:
-                    logger.info("Invalid json: %s", outp)
-                    items.append({})
-        yield items
-
 def canon(str):
     if str in [None, "0x", ""]:
         return ""
@@ -202,6 +189,50 @@ def canon(str):
 def toText(op):
     return VMUtils.toText(op)
 
+def dumpJson(obj, dir = None, prefix = None):
+    import tempfile
+    fd, temp_path = tempfile.mkstemp(prefix = 'randomtest_', suffix=".json", dir = dir)
+    with open(temp_path, 'w') as f :
+        json.dump(obj,f)
+        logger.info("Saved file to %s" % temp_path)
+    os.close(fd)
+    return temp_path
+
+def createRandomStateTest():
+    cmd = ["docker", "run", "--rm", cfg['TESTETH_DOCKER_NAME'],"-t","StateTestsGeneral","--","--createRandomTest"]
+    outp = "".join(VMUtils.finishProc(VMUtils.startProc(cmd)))
+    #Validate that it's json
+    return json.loads(outp)
+
+
+def generateTests():
+    import getpass, time
+    uname = getpass.getuser()
+    host_id = "%s-%s" % (uname, time.strftime("%a_%H_%M_%S"))
+    here = os.path.dirname(os.path.realpath(__file__))
+
+    cfg['TESTS_PATH'] = "%s/generatedTests/" % here
+    testfile_dir = "%s/generatedTests/GeneralStateTests/stRandom" % here
+    filler_dir = "%s/generatedTests/src/GeneralStateTestsFiller/stRandom" % here 
+    os.makedirs( testfile_dir , exist_ok = True)
+    os.makedirs( filler_dir, exist_ok = True)
+    import pathlib
+
+    counter = 0
+    while True: 
+        identifier = "%s-%d" %(host_id, counter)
+        test_json =  createRandomStateTest()
+        test_fullpath = "%s/randomStatetest%s.json" % (testfile_dir, identifier)
+        filler_fullpath = "%s/randomStatetest%sFiller.json" % (filler_dir, identifier)
+        test_json['randomStatetest%s' % identifier] =test_json.pop('randomStatetest', None) 
+
+        
+        with open(test_fullpath, "w+") as f:
+            json.dump(test_json, f)
+            pathlib.Path(filler_fullpath).touch()
+
+        yield test_fullpath
+        counter = counter +1
 
 def startParity(test_file):
     logger.info("running state test in parity.")
@@ -219,15 +250,18 @@ def startCpp(test_subfolder, test_name, test_dgv):
     [d,g,v] = test_dgv
 
     cpp_mount_tests = cfg['TESTS_PATH'] + ":" + "/mounted_tests"
-    cmd = ["docker", "run", "--rm", "-t", "-v", cpp_mount_tests, cfg['CPP_DOCKER_NAME']]
-    cmd.extend(['-t',"StateTestsGeneral/%s" %  test_subfolder,'--'])
-    cmd.extend(['--singletest', test_name])
-    cmd.extend(['--jsontrace',"'{ \"disableStorage\":true }'" ])
-    cmd.extend(['--singlenet',cfg['FORK_CONFIG']])
+
+    cmd = ["docker", "run", "--rm", "-t", "-v", cpp_mount_tests, cfg['CPP_DOCKER_NAME']
+            ,'-t',"StateTestsGeneral/%s" %  test_subfolder
+            ,'--'
+            ,'--singletest', test_name
+            ,'--jsontrace',"'{ \"disableStorage\":true }'" 
+            ,'--singlenet',cfg['FORK_CONFIG']
+            ,'-d',str(d),'-g',str(g), '-v', str(v) 
+            ,'--testpath', '"/mounted_tests"']
+
     if cfg['FORK_CONFIG'] == 'Homestead' or cfg['FORK_CONFIG'] == 'Frontier':
         cmd.extend(['--all']) # cpp requires this for some reason
-    cmd.extend(['-d',str(d),'-g',str(g), '-v', str(v) ])
-    cmd.extend(['--testpath', '"/mounted_tests"'])
 
     logger.info("cpp_cmd: %s " % " ".join(cmd))
 
@@ -256,11 +290,8 @@ def startGeth(test_case, test_tx):
     if sys.platform == "darwin":
         # OS X workaround for https://github.com/docker/for-mac/issues/1298 "The path /var/folders/wb/d8qys65575g8m2691vvglpmm0000gn/T/tmpctxz3buh.json is not shared from OS X and is not known to Docker." 
         g_path = "/private" + g_path
-
-    input_data = test_tx['data']
-    if input_data[0:2] == "0x":
-        input_data = input_data[2:]
-
+    input_data = VMUtils.strip_0x(test_tx['data'])
+    
     tx_to = test_tx['to']
     tx_value = parse_int_or_hex(test_tx['value'])
     gas_limit = parse_int_or_hex(test_tx['gasLimit'])
@@ -269,7 +300,7 @@ def startGeth(test_case, test_tx):
 
     if gas_limit > block_gaslimit:
         logger.info("Tx gas limit exceeds block gas limit. not calling geth")
-        return []
+        return None
 
     sender = '0x' + getTxSender(test_tx)
     sender_balance = parse_int_or_hex(test_case['pre'][sender]['balance'])
@@ -277,7 +308,9 @@ def startGeth(test_case, test_tx):
 
     if balance_required > sender_balance:
         logger.info("Insufficient balance. not calling geth")
-        return []
+
+        return None
+    
 
     intrinsic_gas = getIntrinsicGas(test_tx)
     if tx_to == "":
@@ -286,18 +319,19 @@ def startGeth(test_case, test_tx):
 
     if gas_limit < intrinsic_gas:
         logger.info("Insufficient startgas. not calling geth")
-        return []
 
+        return None
+    
     if tx_to == "" and input_data == "":
-        logger.info("no init code. not calling geth")
-        return []
-
+        logger.warn("No init code")
+        return None
+    
     if tx_to in test_case['pre']:
         if 'code' in test_case['pre'][tx_to]:
             if test_case['pre'][tx_to]['code'] == '':
-                logger.info("To account in prestate has no code. not calling geth")
-                return []
-
+                logger.warn("To account in prestate has no code")
+                #return None
+    
     vm = VMUtils.GethVM(executable = cfg['GETH_DOCKER_NAME'], docker = True)
 
     return vm.start(genesis = g_path, gas = gas_limit, price = gas_price, json = True, sender = sender, receiver = tx_to, input = input_data, value = tx_value)
@@ -424,12 +458,14 @@ regex_skip = [skip.replace('*', '') for skip in SKIP_LIST if '*' in skip]
 START_I = 0
 
 
+
 def main():
     fail_count = 0
     pass_count = 0
     failing_files = []
     test_number = 0
-    for f in iterate_tests(ignore=['stMemoryTest','stMemoryTest','stMemoryTest']):
+#    for f in iterate_tests(ignore=['stMemoryTest','stMemoryTest','stMemoryTest']):
+    for f in generateTests():
         with open(f) as json_data:
             general_test = json.load(json_data)
             test_name = list(general_test.keys())[0]
@@ -447,11 +483,15 @@ def main():
 
         logger.info("f/p/t: %d,%d,%d" % ( num_fails, num_passes, (num_fails + num_passes)))
         logger.info("failures: %s" % str(failing_files))
+        logger.info("tot fail_count: %d" % fail_count)
+        logger.info("tot pass_count: %d" % pass_count)
+        logger.info("tot           : %d" % (fail_count + pass_count))
 
         fail_count = fail_count + num_fails
         pass_count = pass_count + num_passes
         failing_files.extend(failures)
-        #break
+        #if fail_count > 0:
+        #    break
     # done with all tests. print totals
     logger.info("fail_count: %d" % fail_count)
     logger.info("pass_count: %d" % pass_count)
@@ -475,9 +515,10 @@ def perform_test(f, test_name, test_number = 0):
 
     pass_count = 0
     failures = []
+    fork_name = cfg['FORK_CONFIG']
 
     try:
-        prestate, txs_dgv = convertGeneralTest(f)
+        prestate, txs_dgv = convertGeneralTest(f, fork_name)
     except Exception as e:
         logger.warn("problem with test file, skipping.")
         return (test_number, fail_count, pass_count, failures)
@@ -509,20 +550,33 @@ def perform_test(f, test_name, test_number = 0):
         tx_dgv = tx_and_dgv[1]
         logger.info("file: %s", f)
         logger.info("test_name: %s. tx_i: %s", test_name, tx_i)
-        single_statetest = selectSingleFromGeneral(tx_i, f)
-        with open(test_tmpfile, 'w') as outfile:
-            json.dump(single_statetest, outfile)
 
         clients_canon_traces = []
         procs = []
 
         #Start the processes
         for client_name in clients:
-            procs.append(startClient(client_name ,test_tmpfile, prestate_tmpfile, tx, test_subfolder, test_name, tx_dgv, test_case))
+
+            if client_name == 'GETH':
+                procs.append( (startGeth(test_case, tx), finishGeth) ) 
+            if client_name == 'CPP':
+                procs.append( (startCpp(test_subfolder, test_name, tx_dgv), finishCpp) )
+            if client_name == 'PY':
+                procs.append( (startPython(prestate_tmpfile, tx), finishPython) )
+            if client_name == 'PAR':
+                single_statetest = selectSingleFromGeneral(tx_i, f, fork_name)
+                with open(test_tmpfile, 'w') as outfile:
+                    json.dump(single_statetest, outfile)
+
+                procs.append( (startParity(test_tmpfile), finishParity) )
+
+#            procs.append(startClient(client_name ,test_tmpfile, prestate_tmpfile, tx, test_subfolder, test_name, tx_dgv, test_case))
 
         # Read the outputs
         for (proc, end_fn) in procs:
-            canon_trace = end_fn(proc)
+            canon_trace = []
+            if proc is not None:
+                canon_trace = end_fn(proc)
             clients_canon_traces.append(canon_trace)
             
         if VMUtils.compare_traces(clients_canon_traces, clients):
