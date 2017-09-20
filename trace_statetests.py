@@ -252,7 +252,7 @@ def startCpp(test_subfolder, test_name, test_dgv):
     cpp_mount_tests = cfg['TESTS_PATH'] + ":" + "/mounted_tests"
 
     cmd = ["docker", "run", "--rm", "-t", "-v", cpp_mount_tests, cfg['CPP_DOCKER_NAME']
-            ,'-t',"StateTestsGeneral/%s" %  test_subfolder
+            ,'-t',"GeneralStateTests/%s" %  test_subfolder
             ,'--'
             ,'--singletest', test_name
             ,'--jsontrace',"'{ \"disableStorage\":true }'" 
