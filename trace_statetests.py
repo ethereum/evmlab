@@ -38,6 +38,7 @@ def parse_config():
     if uname not in config.sections():
         uname = "DEFAULT"
 
+    cfg['RANDOM_TESTS'] = config[uname]['random_tests']
     cfg['DO_CLIENTS']  = config[uname]['clients'].split(",")
     cfg['FORK_CONFIG'] = config[uname]['fork_config']
     cfg['TESTS_PATH']  = config[uname]['tests_path']
@@ -275,8 +276,10 @@ def startCpp(test_subfolder, test_name, test_dgv):
 
     return VMUtils.startProc(cmd)
 
-def startGeth(test_case, test_tx):
+#def startGeth(test_case, test_tx):
+def startGeth(test_file):
     logger.info("running state test in geth.")
+    """
     genesis = gen.Genesis()
     for account_key in test_case['pre']:
         account = test_case['pre'][account_key]
@@ -299,7 +302,7 @@ def startGeth(test_case, test_tx):
         # OS X workaround for https://github.com/docker/for-mac/issues/1298 "The path /var/folders/wb/d8qys65575g8m2691vvglpmm0000gn/T/tmpctxz3buh.json is not shared from OS X and is not known to Docker." 
         g_path = "/private" + g_path
     input_data = VMUtils.strip_0x(test_tx['data'])
-    
+
     tx_to = test_tx['to']
     tx_value = parse_int_or_hex(test_tx['value'])
     gas_limit = parse_int_or_hex(test_tx['gasLimit'])
@@ -318,7 +321,7 @@ def startGeth(test_case, test_tx):
         logger.info("Insufficient balance. not calling geth")
 
         return None
-    
+
 
     intrinsic_gas = getIntrinsicGas(test_tx)
     if tx_to == "":
@@ -329,20 +332,27 @@ def startGeth(test_case, test_tx):
         logger.info("Insufficient startgas. not calling geth")
 
         return None
-    
+
     if tx_to == "" and input_data == "":
         logger.warn("No init code")
         return None
-    
+
     if tx_to in test_case['pre']:
         if 'code' in test_case['pre'][tx_to]:
             if test_case['pre'][tx_to]['code'] == '':
                 logger.warn("To account in prestate has no code")
                 #return None
-    
-    vm = VMUtils.GethVM(executable = cfg['GETH_DOCKER_NAME'], docker = True)
 
-    return vm.start(genesis = g_path, gas = gas_limit, price = gas_price, json = True, sender = sender, receiver = tx_to, input = input_data, value = tx_value)
+    #vm = VMUtils.GethVM(executable = cfg['GETH_DOCKER_NAME'], docker = True)
+    #return vm.start(genesis = g_path, gas = gas_limit, price = gas_price, json = True, sender = sender, receiver = tx_to, input = input_data, value = tx_value)
+    """
+    testfile_path = os.path.abspath(test_file)
+    mount_testfile = testfile_path + ":" + "/mounted_testfile"
+
+    geth_docker_cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, cfg['GETH_DOCKER_NAME'], "--json", "--nomemory", "statetest", "/mounted_testfile"]
+    logger.info(" ".join(geth_docker_cmd))
+
+    return VMUtils.startProc(geth_docker_cmd)
 
 
 
@@ -395,7 +405,8 @@ def startClient(client, single_test_tmp_file, prestate_tmp_file, tx, test_subfol
     Invoke the end_function with the process as arg to stop the process and read output
     """
     if client == 'GETH':
-        return (startGeth(test_case, tx), finishGeth)
+        #return (startGeth(test_case, tx), finishGeth)
+        return (startGeth(single_test_tmp_file), finishGeth)
     if client == 'CPP':
         return (startCpp(test_subfolder, test_name, tx_dgv), finishCpp)
     if client == 'PY':
@@ -479,6 +490,14 @@ regex_skip = [skip.replace('*', '') for skip in SKIP_LIST if '*' in skip]
 START_I = 0
 
 
+def testIterator():
+    if cfg['RANDOM_TESTS'] == 'Yes':
+        logger.info("generating random tests...")
+        return generateTests()
+    else:
+        logger.info("iterating over state tests...")
+        return iterate_tests(ignore=['stMemoryTest','stMemoryTest','stMemoryTest'])
+
 
 def main():
     fail_count = 0
@@ -486,7 +505,8 @@ def main():
     failing_files = []
     test_number = 0
 #    for f in iterate_tests(ignore=['stMemoryTest','stMemoryTest','stMemoryTest']):
-    for f in generateTests():
+#    for f in generateTests():
+    for f in testIterator():
         with open(f) as json_data:
             general_test = json.load(json_data)
             test_name = list(general_test.keys())[0]
@@ -563,6 +583,10 @@ def perform_test(f, test_name, test_number = 0):
         if test_number < START_I and not TEST_WHITELIST:
             continue
 
+        single_statetest = selectSingleFromGeneral(tx_i, f, fork_name)
+        with open(test_tmpfile, 'w') as outfile:
+            json.dump(single_statetest, outfile)
+
         # set up logging to file
         log_filename =  os.path.abspath(cfg['LOGS_PATH'] + '/' + test_name + '.log')
         file_log = setupLogToFile(log_filename)
@@ -579,16 +603,13 @@ def perform_test(f, test_name, test_number = 0):
         for client_name in clients:
  
             if client_name == 'GETH':
-                procs.append( (startGeth(test_case, tx), finishGeth) ) 
+                #procs.append( (startGeth(test_case, tx), finishGeth) )
+                procs.append( (startGeth(test_tmpfile), finishGeth) )
             if client_name == 'CPP':
                 procs.append( (startCpp(test_subfolder, test_name, tx_dgv), finishCpp) )
             if client_name == 'PY':
                 procs.append( (startPython(prestate_tmpfile, tx), finishPython) )
             if client_name == 'PAR':
-                single_statetest = selectSingleFromGeneral(tx_i, f, fork_name)
-                with open(test_tmpfile, 'w') as outfile:
-                    json.dump(single_statetest, outfile)
-
                 procs.append( (startParity(test_tmpfile), finishParity) )
 
 #            procs.append(startClient(client_name ,test_tmpfile, prestate_tmpfile, tx, test_subfolder, test_name, tx_dgv, test_case))
@@ -599,7 +620,7 @@ def perform_test(f, test_name, test_number = 0):
             if proc is not None:
                 canon_trace = end_fn(proc)
             clients_canon_traces.append(canon_trace)
-            
+
         if VMUtils.compare_traces(clients_canon_traces, clients):
             logger.info("equivalent.")
             pass_count += 1
