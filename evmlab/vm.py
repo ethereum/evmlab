@@ -42,8 +42,10 @@ def toText(op):
             opname = "UNKNOWN"
         op['opname'] = opname
         return "pc {pc:>5} op {opname:>10}({op:>3}) gas {gas:>8} depth {depth:>2} stack {stack}".format(**op)
+    elif 'stateRoot' in op.keys():
+        return "stateRoot {}".format(op['stateRoot'])
     elif 'time' in op.keys():# Final one
-        
+
         if 'output' not in op.keys():
            op['output'] = ""
 
@@ -102,7 +104,7 @@ def compare_traces(clients_canon_traces, names):
 def startProc(cmd):
     # passing a list to Popen doesn't work. Can't read stdout from docker container when shell=False
     #pyeth_process = subprocess.Popen(pyeth_docker_cmd, shell=False, stdout=subprocess.PIPE, close_fds=True)
-    
+
     # need to pass a string to Popen and shell=True to get stdout from docker container
     print(" ".join(cmd))
     return Popen(" ".join(cmd), stdout=PIPE,shell=True, preexec_fn=os.setsid)
@@ -126,8 +128,6 @@ class VM(object):
         self.genesis_format = "parity"
         self.lastCommand = ""
 
-
-
     def _run(self,cmd):
         self.lastCommand = " ".join(cmd)
         return finishProc(startProc(cmd))
@@ -142,33 +142,53 @@ class CppVM(VM):
     def canonicalized(output):
         from . import opcodes
         valid_opcodes = opcodes.reverse_opcodes.keys()
-        steps = []
+        logger.debug(output)
 
+        steps = []
         for x in output:
-            if x[0:2] == "[{":
-                steps = json.loads(x)
-            logger.debug(output)
+            try:
+                if x[0:2] == "[{":
+                        steps = json.loads(x)
+
+                if x[0:2] == "{\"":
+                    step = json.loads(x)
+                    if 'stateRoot' in step.keys():
+                        steps.append(step)
+
+            except Exception as e:
+                logger.info('Exception parsing cpp json:')
+                logger.info(e)
+                logger.info('problematic line:')
+                logger.info(x)
 
         canon_steps = []
 
-        for step in steps:
-            logger.debug(step)
-            if step['op'] in ['INVALID', 'STOP'] :
-                # skip STOPs
-                continue
-            if step['op'] not in valid_opcodes:
-                logger.info("got cpp step for an unknown opcode:")
-                logger.info(step)
-                continue
+        try:
+            for step in steps:
+                logger.debug(step)
+                if 'stateRoot' in step.keys():
+                    if len(canon_steps): # dont log state root if no previous EVM steps
+                        canon_steps.append(step) # should happen last
+                    continue
+                if step['op'] in ['INVALID', 'STOP'] :
+                    # skip STOPs
+                    continue
+                if step['op'] not in valid_opcodes:
+                    logger.info("got cpp step for an unknown opcode:")
+                    logger.info(step)
+                    continue
 
-            trace_step = {
-                'pc'  : step['pc'],
-                'gas': '0x{0:01x}'.format(int(step['gas'])) ,
-                'op': opcodes.reverse_opcodes[step['op']],
-                'depth' : step['depth'],
-                'stack' : toHexQuantities(step['stack']),
-            }
-            canon_steps.append(trace_step)
+                trace_step = {
+                    'pc'  : step['pc'],
+                    'gas': '0x{0:01x}'.format(int(step['gas'])) ,
+                    'op': opcodes.reverse_opcodes[step['op']],
+                    'depth' : step['depth'],
+                    'stack' : toHexQuantities(step['stack']),
+                }
+                canon_steps.append(trace_step)
+        except Exception as e:
+            logger.info('Exception parsing cpp step:')
+            logger.info(e)
 
         return canon_steps
 
@@ -183,18 +203,29 @@ class PyVM(VM):
 
         def json_steps():
             for line in output:
-                logger.debug(line.rstrip() + "\n")
+                logger.debug(line.rstrip())
                 if line.startswith("tx:"):
                     continue
                 if line.startswith("tx_decoded:"):
                     continue
                 json_index = line.find("{")
                 if json_index >= 0:
-                    yield(json.loads(line[json_index:]))
+                    try:
+                        yield(json.loads(line[json_index:]))
+                    except Exception as e:
+                        logger.info("Exception parsing python output:")
+                        logger.info(e)
+                        logger.info("problematic line:")
+                        logger.info(line)
+                        yield({})
 
         canon_steps = []
         for step in json_steps():
             #print (step)
+            if 'stateRoot' in step.keys() and len(canon_steps):
+                # dont log stateRoot when tx doesnt execute, to match cpp and parity
+                canon_steps.append(step)
+                continue
             if 'event' not in step.keys():               
                 continue
             # geth logs code-out-of-range as a STOP, and we 
@@ -271,7 +302,7 @@ class GethVM(VM):
             cmd.append("--json")
 
         cmd.append("run")
-        
+
         return self._start(cmd)
 
     def execute(self, code = None, codeFile = None, genesis = None, 
@@ -285,31 +316,43 @@ class GethVM(VM):
     @staticmethod
     def canonicalized(output):
         from . import opcodes
-
-        steps = [json.loads(x) for x in output if len(x)>0 and x[0] == "{"]
-
-        if 'output' in steps[-1]:
-            # last one is {"output":"","gasUsed":"0x34a48","time":4787059}
-            # Remove    
-            steps = steps[:-1]
-
+        output_steps = [line for line in output]
+        logger.debug(output_steps)
         canon_steps = []
-        for step in steps:
-            if step['op'] == 0:
-                # skip STOPs
-                continue
-            if step['opName'] == "" or step['op'] not in opcodes.opcodes:
-                # invalid opcode
-                continue
-            trace_step = {
-                'pc'  : step['pc'],
-                'gas': step['gas'],
-                'op': step['op'],
-                # we want a 0-based depth
-                'depth' : step['depth'] -1,
-                'stack' : step['stack'],
-            }
-            canon_steps.append(trace_step)
+
+        try:
+            steps = [json.loads(x) for x in output if len(x)>0 and x[0] == "{"]
+
+            if 'output' in steps[-1]:
+                # last one is {"output":"","gasUsed":"0x34a48","time":4787059}
+                # Remove    
+                steps = steps[:-1]
+
+            for step in steps:
+                if 'stateRoot' in step.keys() and len(canon_steps):
+                    # don't log stateRoot when tx doesnt execute, to match cpp and parity
+                    # should be last step
+                    canon_steps.append(step)
+                    continue
+                if step['op'] == 0:
+                    # skip STOPs
+                    continue
+                if step['opName'] == "" or step['op'] not in opcodes.opcodes:
+                    # invalid opcode
+                    continue
+                trace_step = {
+                    'pc'  : step['pc'],
+                    'gas': step['gas'],
+                    'op': step['op'],
+                    # we want a 0-based depth
+                    'depth' : step['depth'] -1,
+                    'stack' : step['stack'],
+                }
+                canon_steps.append(trace_step)
+        except Exception as e:
+            logger.warn('Exception parsing geth output:')
+            logger.warn(e)
+
         return canon_steps
 
 
@@ -364,31 +407,42 @@ class ParityVM(VM):
     @staticmethod
     def canonicalized(output):
         from . import opcodes
-        steps = [json.loads(x) for x in output if len(x) > 0 and x[0] == "{"]
-
+        output_steps = [line for line in output]
+        logger.debug(output_steps)
         canon_steps = []
-        for p_step in steps:
-            
-            # Ignored for now
-            if 'error' in p_step.keys() or 'output' in p_step.keys():
-                continue
+        try:
+            steps = [json.loads(x) for x in output_steps if len(x) > 0 and x[0] == "{"]
 
-            if p_step['op'] == 0:
-                # skip STOPs
-                continue
-            if p_step['opName'] == "" or p_step['op'] not in opcodes.opcodes:
-                # invalid opcode
-                continue
-            trace_step = {
-                'pc'  : p_step['pc'],
-                'gas': p_step['gas'],
-                'op': p_step['op'],
-                # parity depth starts at 1, but we want a 0-based depth
-                'depth' : p_step['depth'] -1,
-                'stack' : p_step['stack'],
-            }
-            canon_steps.append(trace_step)
-        
+            for p_step in steps:
+                if 'stateRoot' in p_step.keys() and len(canon_steps):
+                    # dont log the stateRoot for basic tx's (that have no EVM steps)
+                    # should be last step
+                    canon_steps.append(p_step)
+                    continue
+
+                # Ignored for now
+                if 'error' in p_step.keys() or 'output' in p_step.keys():
+                    continue
+
+                if p_step['op'] == 0:
+                    # skip STOPs
+                    continue
+                if p_step['opName'] == "" or p_step['op'] not in opcodes.opcodes:
+                    # invalid opcode
+                    continue
+                trace_step = {
+                    'pc'  : p_step['pc'],
+                    'gas': p_step['gas'],
+                    'op': p_step['op'],
+                    # parity depth starts at 1, but we want a 0-based depth
+                    'depth' : p_step['depth'] -1,
+                    'stack' : p_step['stack'],
+                }
+                canon_steps.append(trace_step)
+        except Exception as e:
+            logger.warn('Exception parsing parity output:')
+            logger.warn(e)
+
         return canon_steps
 
 

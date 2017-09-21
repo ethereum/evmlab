@@ -51,6 +51,8 @@ def compute_state_test_unit(state, txdata, konfig):
         #"indexes": indices,
         #"diff": mk_state_diff(prev, post)
     }
+    stateRoot = encode_hex(state.trie.root_hash)
+    print("{{\"stateRoot\": \"{}\"}}".format(stateRoot))
     state.revert(s)
     return output_decl
 
