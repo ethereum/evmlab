@@ -163,27 +163,32 @@ class CppVM(VM):
 
         canon_steps = []
 
-        for step in steps:
-            logger.debug(step)
-            if 'stateRoot' in step.keys():
-                canon_steps.append(step) # should happen last
-                continue
-            if step['op'] in ['INVALID', 'STOP'] :
-                # skip STOPs
-                continue
-            if step['op'] not in valid_opcodes:
-                logger.info("got cpp step for an unknown opcode:")
-                logger.info(step)
-                continue
+        try:
+            for step in steps:
+                logger.debug(step)
+                if 'stateRoot' in step.keys():
+                    if len(canon_steps): # dont log state root if no previous EVM steps
+                        canon_steps.append(step) # should happen last
+                    continue
+                if step['op'] in ['INVALID', 'STOP'] :
+                    # skip STOPs
+                    continue
+                if step['op'] not in valid_opcodes:
+                    logger.info("got cpp step for an unknown opcode:")
+                    logger.info(step)
+                    continue
 
-            trace_step = {
-                'pc'  : step['pc'],
-                'gas': '0x{0:01x}'.format(int(step['gas'])) ,
-                'op': opcodes.reverse_opcodes[step['op']],
-                'depth' : step['depth'],
-                'stack' : toHexQuantities(step['stack']),
-            }
-            canon_steps.append(trace_step)
+                trace_step = {
+                    'pc'  : step['pc'],
+                    'gas': '0x{0:01x}'.format(int(step['gas'])) ,
+                    'op': opcodes.reverse_opcodes[step['op']],
+                    'depth' : step['depth'],
+                    'stack' : toHexQuantities(step['stack']),
+                }
+                canon_steps.append(trace_step)
+        except Exception as e:
+            logger.info('Exception parsing cpp step:')
+            logger.info(e)
 
         return canon_steps
 
@@ -217,7 +222,8 @@ class PyVM(VM):
         canon_steps = []
         for step in json_steps():
             #print (step)
-            if 'stateRoot' in step.keys():
+            if 'stateRoot' in step.keys() and len(canon_steps):
+                # dont log stateRoot when tx doesnt execute, to match cpp and parity
                 canon_steps.append(step)
                 continue
             if 'event' not in step.keys():               
@@ -323,7 +329,8 @@ class GethVM(VM):
                 steps = steps[:-1]
 
             for step in steps:
-                if 'stateRoot' in step.keys():
+                if 'stateRoot' in step.keys() and len(canon_steps):
+                    # don't log stateRoot when tx doesnt execute, to match cpp and parity
                     # should be last step
                     canon_steps.append(step)
                     continue
@@ -407,7 +414,8 @@ class ParityVM(VM):
             steps = [json.loads(x) for x in output_steps if len(x) > 0 and x[0] == "{"]
 
             for p_step in steps:
-                if 'stateRoot' in p_step.keys():
+                if 'stateRoot' in p_step.keys() and len(canon_steps):
+                    # dont log the stateRoot for basic tx's (that have no EVM steps)
                     # should be last step
                     canon_steps.append(p_step)
                     continue
