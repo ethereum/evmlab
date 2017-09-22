@@ -379,7 +379,10 @@ def finishProc(name, process, canonicalizer):
     if isinstance(process, list) and len(process) == 0:
         outp = [None]
     else:
-        outp = VMUtils.finishProc(process)
+        extraTime = False
+        if name == "python":
+            extraTime = True
+        outp = VMUtils.finishProc(process, extraTime)
     logging.info("End of %s trace, processing..." % name)
     canon_steps = canonicalizer(outp)
     canon_text = [toText(step) for step in canon_steps]
@@ -456,6 +459,7 @@ SKIP_LIST = [
     'static_RawCallGasValueTransferMemory',
     'static_RawCallGasValueTransferMemoryAsk',
     'static_refund_CallA_notEnoughGasInCall',
+    'static_LoopCallsThenRevert',
     'HighGasLimit', # geth doesn't run
     'zeroSigTransacrionCreate', # geth fails this one
     'zeroSigTransacrionCreatePrice0', # geth fails

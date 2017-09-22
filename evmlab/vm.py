@@ -7,6 +7,8 @@ logger = logging.getLogger()
 
 FNULL = open(os.devnull, 'w')
 
+valid_opcodes = opcodes.reverse_opcodes.keys()
+
 
 def add_0x(str):
     if str in [None, "0x", ""]:
@@ -110,10 +112,14 @@ def startProc(cmd):
     return Popen(" ".join(cmd), stdout=PIPE,shell=True, preexec_fn=os.setsid)
 
 
-def finishProc(process):
+def finishProc(process, extraTime=False):
+    timeout = 15
+    if extraTime:
+        timeout = 30
     try:
-        (stdoutdata, stderrdata) = process.communicate(timeout=15)
+        (stdoutdata, stderrdata) = process.communicate(timeout=timeout)
     except TimeoutExpired:
+        logger.info("TIMEOUT ERROR!")
         os.killpg(process.pid, signal.SIGINT) # send signal to the process group
         (stdoutdata, stderrdata) = process.communicate()
 
@@ -228,11 +234,15 @@ class PyVM(VM):
                 continue
             if 'event' not in step.keys():               
                 continue
-            # geth logs code-out-of-range as a STOP, and we 
-            # can't distinguish them from actual STOPs (that pyeth logs)
             if step['event'] == 'eth.vm.op.vm':
-                if step['op'] == 'STOP':
+                if step['op'] not in valid_opcodes:
+                    # invalid opcode
                     continue
+                if step['op'] == 'STOP':
+                    # geth logs code-out-of-range as a STOP, and we 
+                    # can't distinguish them from actual STOPs (that pyeth logs)
+                    continue
+
                 trace_step = {
                     'opName' : step['op'],
                     'op'     : step['inst'],
