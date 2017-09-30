@@ -208,7 +208,7 @@ def dumpJson(obj, dir = None, prefix = None):
     return temp_path
 
 def createRandomStateTest():
-    cmd = ["docker", "run", "--rm", cfg['TESTETH_DOCKER_NAME'],"-t","StateTestsGeneral","--","--createRandomTest"]
+    cmd = ["docker", "run", "--rm", cfg['TESTETH_DOCKER_NAME'],"-t","GeneralStateTests","--","--createRandomTest"]
     outp = "".join(VMUtils.finishProc(VMUtils.startProc(cmd)))
     #Validate that it's json
     return json.loads(outp)
@@ -264,9 +264,9 @@ def startCpp(test_subfolder, test_name, test_dgv):
             ,'-t',"GeneralStateTests/%s" %  test_subfolder
             ,'--'
             ,'--singletest', test_name
-            ,'--jsontrace',"'{ \"disableStorage\":true }'" 
+            ,'--jsontrace',"'{ \"disableStorage\":true, \"disableMemory\":true }'"
             ,'--singlenet',cfg['FORK_CONFIG']
-            ,'-d',str(d),'-g',str(g), '-v', str(v) 
+            ,'-d',str(d),'-g',str(g), '-v', str(v)
             ,'--testpath', '"/mounted_tests"']
 
     if cfg['FORK_CONFIG'] == 'Homestead' or cfg['FORK_CONFIG'] == 'Frontier':
