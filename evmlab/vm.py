@@ -417,13 +417,19 @@ class ParityVM(VM):
     @staticmethod
     def canonicalized(output):
         from . import opcodes
-        output_steps = [line for line in output]
-        logger.debug(output_steps)
+        parsed_steps = []
+        for line in output:
+            logger.debug(line)
+            if len(line) > 0 and line[0] == "{":
+                try:
+                    parsed_steps.append(json.loads(line))
+                except Exception as e:
+                    logger.warn('Exception parsing parity output:')
+                    logger.warn(e)
+
         canon_steps = []
         try:
-            steps = [json.loads(x) for x in output_steps if len(x) > 0 and x[0] == "{"]
-
-            for p_step in steps:
+            for p_step in parsed_steps:
                 if 'stateRoot' in p_step.keys() and len(canon_steps):
                     # dont log the stateRoot for basic tx's (that have no EVM steps)
                     # should be last step
