@@ -446,11 +446,17 @@ SKIP_LIST = [
     'static_Call1024PreCalls2', # slow
     'static_Call1024PreCalls3', #slow
     'static_Call50000',
-    'static_Call50000',
     'static_Call50000bytesContract50_1',
     'static_Call50000bytesContract50_2',
     'static_Call50000bytesContract50_3',
     'static_CallToNameRegistratorAddressTooBigLeft',
+    'static_Call50000_identity2',
+    'static_Call50000_identity',
+    'static_Call50000_ecrec',
+    'static_Call50000_rip160',
+    'static_Call50000_sha256',
+    'static_Return50000_2',
+    'static_callChangeRevert',
     'static_log3_MaxTopic',
     'static_log4_Caller',
     'static_RawCallGas',
