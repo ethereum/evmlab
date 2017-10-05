@@ -15,7 +15,7 @@ def generateCall():
 
     p = c.Program()
     p.mstore(0,0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
-    p.call(5000,0x01,0, instart= 0x0, insize= 0xff, out = 0x00 ,outsize = 0xfb)#0x2e83dbe)
+    p.call(0x10000,0x1,0, instart= 0x20, insize= 0xff, out = 0x00 ,outsize = 0x20)#0x2e83dbe)
     p.op(c.RETURNDATASIZE)
     p.op(c.STOP)
     return p.bytecode()
@@ -32,8 +32,8 @@ def main():
     geth = vm.GethVM("/home/martin/go/src/github.com/ethereum/go-ethereum/build/bin/evm")
     par = vm.ParityVM(executable="holiman/std-parityvm", docker=True)
 
-    g_out = geth.execute(code = generateCall(), genesis = geth_g, json=True, gas=10000000, memory=False)
-    p_out = par.execute(code = generateCall(), genesis = parity_g, json=True, gas=10000000, memory=True)
+    g_out = geth.execute(code = generateCall(), genesis = geth_g, json=True, gas=0xf989680, memory=False)
+    p_out = par.execute(code = generateCall(), genesis = parity_g, json=True, gas=0xf1989680, memory=True)
     l = len(g_out)
     if len(p_out) < l:
         l = len(p_out)
