@@ -40,10 +40,18 @@ class Genesis(object):
     def parity(self):
 
         builtins = {
-                "0000000000000000000000000000000000000001": { "builtin": { "name": "ecrecover", "pricing": { "linear": { "base": 3000, "word": 0 } } } },
-                "0000000000000000000000000000000000000002": { "builtin": { "name": "sha256", "pricing": { "linear": { "base": 60, "word": 12 } } } },
-                "0000000000000000000000000000000000000003": { "builtin": { "name": "ripemd160", "pricing": { "linear": { "base": 600, "word": 120 } } } },
-                "0000000000000000000000000000000000000004": { "builtin": { "name": "identity", "pricing": { "linear": { "base": 15, "word": 3 } } } }
+                "0000000000000000000000000000000000000001": { "builtin": 
+                    { "name": "ecrecover", "pricing": { "linear": { "base": 3000, "word": 0 } } } },
+                "0000000000000000000000000000000000000002": { "builtin": 
+                    { "name": "sha256", "pricing": { "linear": { "base": 60, "word": 12 } } } },
+                "0000000000000000000000000000000000000003": { "builtin": 
+                    { "name": "ripemd160", "pricing": { "linear": { "base": 600, "word": 120 } } } },
+                "0000000000000000000000000000000000000004": { "builtin": 
+                    { "name": "identity", "pricing": { "linear": { "base": 15, "word": 3 } } } },
+                "0000000000000000000000000000000000000005": { "builtin": {"activate_at": self.config['byzantiumBlock'], "name": "modexp", "pricing": { "modexp": { "divisor": 20 }}}},
+                "0000000000000000000000000000000000000006": { "builtin": { "activate_at": self.config['byzantiumBlock'], "name": "alt_bn128_add",  "pricing": { "linear": { "base": 500, "word": 0 }}}},
+                "0000000000000000000000000000000000000007": { "builtin": { "activate_at": self.config['byzantiumBlock'], "name": "alt_bn128_mul",  "pricing": { "linear": { "base": 40000, "word": 0 }}}},
+                "0000000000000000000000000000000000000008": { "builtin": { "activate_at": self.config['byzantiumBlock'], "name": "alt_bn128_pairing", "pricing": { "alt_bn128_pairing": { "base": 100000, "pair": 80000 }}}},
             }
         builtins.update(self.alloc)
         g = {
@@ -62,6 +70,9 @@ class Genesis(object):
                     "eip160Transition"   : 0,
                     "eip161abcTransition": 0,
                     "eip161dTransition"  : 0,
+                    "eip649Reward":"0x29A2241AF62C0000",
+                    "eip649Transition" : self.config['byzantiumBlock'],
+                    "eip100bTransition": self.config['byzantiumBlock'],
 
                     }
                 }
@@ -81,13 +92,21 @@ class Genesis(object):
                 "gasLimit": "0x8000000",
             },
             "params": {
+                "maxCodeSize": 24576,
                 "gasLimitBoundDivisor": "0x0400",
                 "accountStartNonce": "0x0",
                 "maximumExtraDataSize": "0x20",
                 "minGasLimit": "0x1388",
                 "networkID" : "0x0",
                 "eip98Transition": "0x0",
-                "eip86Transition": "0x0"
+                "eip86Transition": "0x0",
+                "eip140Transition" : self.config['byzantiumBlock'],
+                "eip211Transition" : self.config['byzantiumBlock'],
+                "eip214Transition" : self.config['byzantiumBlock'],
+                "eip658Transition" : self.config['byzantiumBlock'],
+
+
+    # Also new pre
             },
             "accounts": self.alloc,
         }
