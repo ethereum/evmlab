@@ -30,6 +30,12 @@ def toHexQuantities(vals):
 bstrToInt = lambda b_str: int(b_str.replace("b", "").replace("'", ""))
 bstrToHex = lambda b_str: '0x{0:01x}'.format(bstrToInt(b_str))
 
+def canon(str):
+    if str in [None, "0x", ""]:
+        return ""
+    if str[:2] == "0x":
+        return str
+    return "0x" + str
 
 def toText(op):
     if len(op.keys()) == 0:

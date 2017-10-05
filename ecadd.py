@@ -21,7 +21,7 @@ def generateCall():
 
 def main():
     g = genesis.Genesis()
-    g.setMetropolisActivation(0)
+    g.setConfigMetropolis()
     (geth_g, parity_g) = g.export()
 
     geth = vm.GethVM("/home/martin/go/src/github.com/ethereum/go-ethereum/build/bin/evm")

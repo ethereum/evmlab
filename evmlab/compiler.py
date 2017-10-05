@@ -35,7 +35,9 @@ CODECOPY      = 0x39 # Pops: 3, Pushes: 0, Gas: 3],
 GASPRICE      = 0x3a # Pops: 0, Pushes: 1, Gas: 2],
 EXTCODESIZE   = 0x3b # Pops: 1, Pushes: 1, Gas: 20],
 EXTCODECOPY   = 0x3c # Pops: 4, Pushes: 0, Gas: 20],
+RETURNDATASIZE= 0x3D
 BLOCKHASH     = 0x40 # Pops: 1, Pushes: 1, Gas: 20],
+
 COINBASE      = 0x41 # Pops: 0, Pushes: 1, Gas: 2],
 TIMESTAMP     = 0x42 # Pops: 0, Pushes: 1, Gas: 2],
 NUMBER        = 0x43 # Pops: 0, Pushes: 1, Gas: 2],
@@ -64,6 +66,7 @@ CALL          = 0xf1 # Pops: 7, Pushes: 1, Gas: 40],
 CALLCODE      = 0xf2 # Pops: 7, Pushes: 1, Gas: 40],
 RETURN        = 0xf3 # Pops: 2, Pushes: 0, Gas: 0],
 DELEGATECALL  = 0xf4 # Pops: 6, Pushes: 0, Gas: 40],
+REVERT        = 0xfd
 SUICIDE       = 0xff # Pops: 1, Pushes: 0, Gas: 0],
 SELFDESTRUCT  = 0xff # Pops: 1, Pushes: 0, Gas: 0],
 
@@ -157,6 +160,8 @@ class Program():
 		self.log4        = lambda p, s, t1, t2, t3, t4: self.push(t4).push(t3).push(t2).push(t1).push(s).push(p).op(LOG3)
 		self.jump        = lambda label : self.push(label).op(JUMP)
 		self.jumpi        = lambda label,cond : self.push(cond).push(label).op(JUMPI)
+		self.revert      = lambda  memStart, memSize: self.push(memSize).push(memStart).op(REVERT)
+
 		
 	def _add(self, x):
 		if x == None:
@@ -231,6 +236,7 @@ class Program():
 		self.push(memStart)
 		self._addOp(RETURN)
 		return self
+
 
 	def bytecode(self):
 		return "".join(self.compiled)
