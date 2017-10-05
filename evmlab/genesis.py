@@ -15,7 +15,6 @@ class Genesis(object):
             "eip155Block": 0, 
             "homesteadBlock": 0, 
             "daoForkBlock": 0,
-            "byzantiumBlock": 2000,
         }
 
     def geth(self):
@@ -31,7 +30,6 @@ class Genesis(object):
             "extraData":  "0x0000000000000000000000000000000000000000000000000000000000000000",
             "gasLimit": self.gasLimit,
             "alloc": self.alloc,
-
             "config": self.config,
 
         }
@@ -108,7 +106,7 @@ class Genesis(object):
 
     # Also new pre
             },
-            "accounts": self.alloc,
+            "accounts": builtins,
         }
         return g
 
