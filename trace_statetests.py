@@ -244,7 +244,7 @@ def generateTests():
         counter = counter +1
 
 def startParity(test_file):
-    logger.info("running state test in parity.")
+
     testfile_path = os.path.abspath(test_file)
     mount_testfile = testfile_path + ":" + "/mounted_testfile"
 
@@ -254,7 +254,7 @@ def startParity(test_file):
 
 
 def startCpp(test_subfolder, test_name, test_dgv):
-    logger.info("running state test in cpp-ethereum.")
+
     [d,g,v] = test_dgv
 
     cpp_mount_tests = cfg['TESTS_PATH'] + ":" + "/mounted_tests"
@@ -274,7 +274,7 @@ def startCpp(test_subfolder, test_name, test_dgv):
     return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd)}
 
 def startGeth(test_file):
-    logger.info("running state test in geth.")
+
     testfile_path = os.path.abspath(test_file)
     mount_testfile = testfile_path + ":" + "/mounted_testfile"
 
@@ -285,7 +285,7 @@ def startGeth(test_file):
 
 
 def startPython(test_file, test_tx):
-    logger.info("running state test in pyeth.")
+
     tx_encoded = json.dumps(test_tx)
     tx_double_encoded = json.dumps(tx_encoded) # double encode to escape chars for command line
 
@@ -442,17 +442,15 @@ def finishProc(name, processInfo, canonicalizer, fulltrace_filename = None):
 
     outp = VMUtils.finishProc(processInfo['proc'], extraTime)
 
-    logging.info("End of %s trace, processing..." % name)
-
     if fulltrace_filename is not None:
-        logging.info("Writing full trace to %s" % fulltrace_filename)
+        logging.info("Writing %s full trace to %s" % (name, fulltrace_filename))
         with open(fulltrace_filename, "w+") as f: 
             f.write("# command\n")
             f.write("# %s\n\n" % processInfo['cmd'])
             f.write("\n".join(outp))
 
     canon_text = [toText(step) for step in canonicalizer(outp)]
-    logging.info("Done processing %s trace (%d steps), returning in canon format" % (name, len(canon_text)))
+    logging.info("Processed %s steps for %s" % (len(canon_text), name))
     return canon_text
 
 
@@ -506,6 +504,8 @@ def perform_test(testfile, test_name, test_number = 0):
             "PY"   : VMUtils.PyVM.canonicalized, 
             "PAR"  :  VMUtils.ParityVM.canonicalized ,
         }
+        logger.info("Starting processes for %s" % clients)
+
         #Start the processes
         for client_name in clients:
 
@@ -517,7 +517,9 @@ def perform_test(testfile, test_name, test_number = 0):
                 procinfo = startPython(prestate_tmpfile, tx)
             elif client_name == 'PAR':
                 procinfo = startParity(test_tmpfile)
-
+            else:
+                logger.warning("Undefined client %s", client_name)
+                continue
             procs.append( (procinfo, client_name ))
 
         # Read the outputs
@@ -547,7 +549,7 @@ def perform_test(testfile, test_name, test_number = 0):
             test_id
             )
         with open(passfail_log_filename, "w+") as f:
-            logger.info("Writing combined trace into %s" , passfail_log_filename)
+            logger.info("Combined trace: %s" , passfail_log_filename)
             f.write("\n".join(trace_output))
 
     return (test_number, len(failures), pass_count, failures)

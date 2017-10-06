@@ -88,7 +88,7 @@ def compare_traces(clients_canon_traces, names):
 
 
     canon_traces = list(itertools.zip_longest(*clients_canon_traces))
-    logger.info("Comparing traces")
+
     num_clients = len(names)
     equivalent = True
     for step in canon_traces:
