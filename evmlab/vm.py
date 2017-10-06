@@ -83,6 +83,10 @@ def compare_traces(clients_canon_traces, names):
 
     """ Compare 'canonical' traces from the clients"""
 
+    full_output = []
+    log = lambda x: full_output.append(x)
+
+
     canon_traces = list(itertools.zip_longest(*clients_canon_traces))
     logger.info("Comparing traces")
     num_clients = len(names)
@@ -96,17 +100,17 @@ def compare_traces(clients_canon_traces, names):
                 wrong_clients.append(i)
 
         if step_equiv == True:
-            logger.debug('[*]       {}'.format(step[0]))
+            log('[*]       {}'.format(step[0]))
         else:
             equivalent = False
             logger.info("")
             for i in range(0, num_clients):
                 if i in wrong_clients or len(wrong_clients) == num_clients-1:
-                    logger.info('[!!] {:>4} {}'.format(names[i], step[i]))
+                    log('[!!] {:>4} {}'.format(names[i], step[i]))
                 else:
-                    logger.info('[*] {:>5} {}'.format(names[i], step[i]))
+                    log('[*] {:>5} {}'.format(names[i], step[i]))
 
-    return equivalent
+    return (equivalent, full_output)
 
 
 def startProc(cmd):
@@ -114,7 +118,7 @@ def startProc(cmd):
     #pyeth_process = subprocess.Popen(pyeth_docker_cmd, shell=False, stdout=subprocess.PIPE, close_fds=True)
 
     # need to pass a string to Popen and shell=True to get stdout from docker container
-    print(" ".join(cmd))
+    #print(" ".join(cmd))
     return Popen(" ".join(cmd), stdout=PIPE,shell=True, preexec_fn=os.setsid)
 
 
@@ -154,7 +158,6 @@ class CppVM(VM):
     def canonicalized(output):
         from . import opcodes
         valid_opcodes = opcodes.reverse_opcodes.keys()
-        logger.debug(output)
 
         steps = []
         for x in output:
@@ -177,7 +180,6 @@ class CppVM(VM):
 
         try:
             for step in steps:
-                logger.debug(step)
                 if 'stateRoot' in step.keys():
                     if len(canon_steps): # dont log state root if no previous EVM steps
                         canon_steps.append(step) # should happen last
@@ -215,7 +217,6 @@ class PyVM(VM):
 
         def json_steps():
             for line in output:
-                logger.debug(line.rstrip())
                 if line.startswith("tx:"):
                     continue
                 if line.startswith("tx_decoded:"):
@@ -334,7 +335,6 @@ class GethVM(VM):
         from . import opcodes
         parsed_steps = []
         for line in output:
-            logger.debug(line)
             if len(line) > 0 and line[0] == "{":
                 try:
                     parsed_steps.append(json.loads(line))
@@ -430,7 +430,6 @@ class ParityVM(VM):
         from . import opcodes
         parsed_steps = []
         for line in output:
-            logger.debug(line)
             if len(line) > 0 and line[0] == "{":
                 try:
                     parsed_steps.append(json.loads(line))
