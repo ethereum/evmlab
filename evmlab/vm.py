@@ -7,6 +7,8 @@ logger = logging.getLogger()
 
 FNULL = open(os.devnull, 'w')
 
+valid_opcodes = opcodes.reverse_opcodes.keys()
+
 
 def add_0x(str):
     if str in [None, "0x", ""]:
@@ -116,10 +118,14 @@ def startProc(cmd):
     return Popen(" ".join(cmd), stdout=PIPE,shell=True, preexec_fn=os.setsid)
 
 
-def finishProc(process):
+def finishProc(process, extraTime=False):
+    timeout = 15
+    if extraTime:
+        timeout = 30
     try:
-        (stdoutdata, stderrdata) = process.communicate(timeout=15)
+        (stdoutdata, stderrdata) = process.communicate(timeout=timeout)
     except TimeoutExpired:
+        logger.info("TIMEOUT ERROR!")
         os.killpg(process.pid, signal.SIGINT) # send signal to the process group
         (stdoutdata, stderrdata) = process.communicate()
 
@@ -234,11 +240,15 @@ class PyVM(VM):
                 continue
             if 'event' not in step.keys():               
                 continue
-            # geth logs code-out-of-range as a STOP, and we 
-            # can't distinguish them from actual STOPs (that pyeth logs)
             if step['event'] == 'eth.vm.op.vm':
-                if step['op'] == 'STOP':
+                if step['op'] not in valid_opcodes:
+                    # invalid opcode
                     continue
+                if step['op'] == 'STOP':
+                    # geth logs code-out-of-range as a STOP, and we 
+                    # can't distinguish them from actual STOPs (that pyeth logs)
+                    continue
+
                 trace_step = {
                     'opName' : step['op'],
                     'op'     : step['inst'],
@@ -322,19 +332,24 @@ class GethVM(VM):
     @staticmethod
     def canonicalized(output):
         from . import opcodes
-        output_steps = [line for line in output]
-        logger.debug(output_steps)
+        parsed_steps = []
+        for line in output:
+            logger.debug(line)
+            if len(line) > 0 and line[0] == "{":
+                try:
+                    parsed_steps.append(json.loads(line))
+                except Exception as e:
+                    logger.warn('Exception parsing geth output:')
+                    logger.warn(e)
+        
         canon_steps = []
-
         try:
-            steps = [json.loads(x) for x in output if len(x)>0 and x[0] == "{"]
-
-            if 'output' in steps[-1]:
+            if 'output' in parsed_steps[-1]:
                 # last one is {"output":"","gasUsed":"0x34a48","time":4787059}
                 # Remove    
-                steps = steps[:-1]
+                parsed_steps = parsed_steps[:-1]
 
-            for step in steps:
+            for step in parsed_steps:
                 if 'stateRoot' in step.keys() and len(canon_steps):
                     # don't log stateRoot when tx doesnt execute, to match cpp and parity
                     # should be last step
@@ -413,13 +428,19 @@ class ParityVM(VM):
     @staticmethod
     def canonicalized(output):
         from . import opcodes
-        output_steps = [line for line in output]
-        logger.debug(output_steps)
+        parsed_steps = []
+        for line in output:
+            logger.debug(line)
+            if len(line) > 0 and line[0] == "{":
+                try:
+                    parsed_steps.append(json.loads(line))
+                except Exception as e:
+                    logger.warn('Exception parsing parity output:')
+                    logger.warn(e)
+
         canon_steps = []
         try:
-            steps = [json.loads(x) for x in output_steps if len(x) > 0 and x[0] == "{"]
-
-            for p_step in steps:
+            for p_step in parsed_steps:
                 if 'stateRoot' in p_step.keys() and len(canon_steps):
                     # dont log the stateRoot for basic tx's (that have no EVM steps)
                     # should be last step
