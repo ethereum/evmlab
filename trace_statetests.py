@@ -422,8 +422,8 @@ def main():
         fail_count = fail_count + num_fails
         pass_count = pass_count + num_passes
         failing_files.extend(failures)
-        if fail_count > 0:
-            break
+        #if fail_count > 0:
+        #    break
     # done with all tests. print totals
     logger.info("fail_count: %d" % fail_count)
     logger.info("pass_count: %d" % pass_count)
