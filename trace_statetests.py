@@ -443,7 +443,7 @@ def finishProc(name, processInfo, canonicalizer, fulltrace_filename = None):
     outp = VMUtils.finishProc(processInfo['proc'], extraTime)
 
     if fulltrace_filename is not None:
-        logging.info("Writing %s full trace to %s" % (name, fulltrace_filename))
+        #logging.info("Writing %s full trace to %s" % (name, fulltrace_filename))
         with open(fulltrace_filename, "w+") as f: 
             f.write("# command\n")
             f.write("# %s\n\n" % processInfo['cmd'])
@@ -522,6 +522,7 @@ def perform_test(testfile, test_name, test_number = 0):
                 continue
             procs.append( (procinfo, client_name ))
 
+        traceFiles = []
         # Read the outputs
         for (procinfo, client_name) in procs:
             if procinfo['proc'] is None:
@@ -529,6 +530,7 @@ def perform_test(testfile, test_name, test_number = 0):
 
             canonicalizer = canonicalizers[client_name]
             full_trace_filename = os.path.abspath("%s/%s-%s.trace.log" % (cfg['LOGS_PATH'],test_id, client_name))
+            traceFiles.append(full_trace_filename)
             canon_trace = finishProc(client_name, procinfo, canonicalizer, full_trace_filename)
             clients_canon_traces.append(canon_trace)
 
@@ -536,6 +538,10 @@ def perform_test(testfile, test_name, test_number = 0):
 
 
         if equivalent:
+            #delete non-failed traces
+            for f in traceFiles:
+                os.remove(f)
+
             pass_count += 1
             passfail = 'PASS'
         else:
