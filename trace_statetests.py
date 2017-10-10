@@ -536,8 +536,6 @@ def perform_test(testfile, test_name, test_number = 0):
 
         (equivalent, trace_output) = VMUtils.compare_traces(clients_canon_traces, clients) 
 
-        equivalent = False
-
         if equivalent:
             #delete non-failed traces
             for f in traceFiles:
