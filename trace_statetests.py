@@ -536,6 +536,7 @@ def perform_test(testfile, test_name, test_number = 0):
 
         (equivalent, trace_output) = VMUtils.compare_traces(clients_canon_traces, clients) 
 
+        equivalent = False
 
         if equivalent:
             #delete non-failed traces
@@ -545,6 +546,11 @@ def perform_test(testfile, test_name, test_number = 0):
             pass_count += 1
             passfail = 'PASS'
         else:
+            # save the state-test
+            statetest_filename = "%s/%s-test.json" %(
+                cfg['LOGS_PATH'], 
+                test_id)
+            os.rename(test_tmpfile,statetest_filename)
             logger.warning("CONSENSUS BUG!!!\a")
             passfail = 'FAIL'
             failures.append(test_name)
@@ -552,8 +558,7 @@ def perform_test(testfile, test_name, test_number = 0):
         passfail_log_filename = "%s/%s-%s.log.txt" % ( 
             cfg['LOGS_PATH'], 
             passfail,
-            test_id
-            )
+            test_id)
         with open(passfail_log_filename, "w+") as f:
             logger.info("Combined trace: %s" , passfail_log_filename)
             f.write("\n".join(trace_output))
