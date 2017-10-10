@@ -66,6 +66,7 @@ CALL          = 0xf1 # Pops: 7, Pushes: 1, Gas: 40],
 CALLCODE      = 0xf2 # Pops: 7, Pushes: 1, Gas: 40],
 RETURN        = 0xf3 # Pops: 2, Pushes: 0, Gas: 0],
 DELEGATECALL  = 0xf4 # Pops: 6, Pushes: 0, Gas: 40],
+STATICCALL    = 0xfa
 REVERT        = 0xfd
 SUICIDE       = 0xff # Pops: 1, Pushes: 0, Gas: 0],
 SELFDESTRUCT  = 0xff # Pops: 1, Pushes: 0, Gas: 0],
@@ -230,6 +231,15 @@ class Program():
 		self._addOp(DELEGATECALL)
 		return self
 
+	def staticcall(self,gas ,address,instart = 0, insize = 0, out = 0, outsize = 0):
+		self.push(outsize)
+		self.push(out)
+		self.push(insize)
+		self.push(instart)
+		self.push(address)
+		self.push(gas)
+		self._addOp(DELEGATECALL)
+		return self
 
 	def rreturn(self, memStart=0, memSize=0):
 		self.push(memSize)
