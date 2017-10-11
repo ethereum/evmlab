@@ -45,9 +45,9 @@ def parse_config():
     cfg['CPP_DOCKER_NAME'] = config[uname]['cpp_docker_name']
     cfg['PARITY_DOCKER_NAME'] = config[uname]['parity_docker_name']
     cfg['GETH_DOCKER_NAME'] = config[uname]['geth_docker_name']
-    cfg['PRESTATE_TMP_FILE']=config[uname]['prestate_tmp_file']
     # Make it possible to run in paralell sessions    
-    cfg['SINGLE_TEST_TMP_FILE']="%s-%d" % (config[uname]['single_test_tmp_file'], os.getpid())
+    cfg['PRESTATE_TMP_FILE']    ="%s-%d" % (config[uname]['prestate_tmp_file'] , os.getpid())
+    cfg['SINGLE_TEST_TMP_FILE'] ="%s-%d" % (config[uname]['single_test_tmp_file'], os.getpid())
 
     cfg['LOGS_PATH'] = config[uname]['logs_path']
     cfg['TESTETH_DOCKER_NAME'] = config[uname]['testeth_docker_name']
@@ -232,8 +232,8 @@ def generateTests():
     while True: 
         identifier = "%s-%d" %(host_id, counter)
         test_json =  createRandomStateTest()
-        test_fullpath = "%s/randomStatetest-%s.json" % (testfile_dir, identifier)
-        filler_fullpath = "%s/randomStatetest-%sFiller.json" % (filler_dir, identifier)
+        test_fullpath = "%s/randomStatetest%s.json" % (testfile_dir, identifier)
+        filler_fullpath = "%s/randomStatetest%sFiller.json" % (filler_dir, identifier)
         test_json['randomStatetest%s' % identifier] =test_json.pop('randomStatetest', None) 
 
         
@@ -242,7 +242,7 @@ def generateTests():
             pathlib.Path(filler_fullpath).touch()
 
         yield test_fullpath
-        counter = countfer +1
+        counter = counter +1
 
 def startParity(test_file):
 
@@ -550,7 +550,7 @@ def perform_test(testfile, test_name, test_number = 0):
                 cfg['LOGS_PATH'], 
                 test_id)
             os.rename(test_tmpfile,statetest_filename)
-            logger.warning("CONSENSUS BUG!!!\a")
+            logger.warning("CONSENSUS BUG!!!")
             passfail = 'FAIL'
             failures.append(test_name)
 
