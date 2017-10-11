@@ -30,10 +30,9 @@ def parse_config():
     may contain user-specific configuration
     """
 
-    import configparser
+    import configparser, time, getpass
     config = configparser.ConfigParser()
     config.read('statetests.ini')
-    import getpass
     uname = getpass.getuser()
     if uname not in config.sections():
         uname = "DEFAULT"
@@ -47,7 +46,9 @@ def parse_config():
     cfg['PARITY_DOCKER_NAME'] = config[uname]['parity_docker_name']
     cfg['GETH_DOCKER_NAME'] = config[uname]['geth_docker_name']
     cfg['PRESTATE_TMP_FILE']=config[uname]['prestate_tmp_file']
-    cfg['SINGLE_TEST_TMP_FILE']=config[uname]['single_test_tmp_file']
+    # Make it possible to run in paralell sessions    
+    cfg['SINGLE_TEST_TMP_FILE']="%s-%d" % (config[uname]['single_test_tmp_file'], int(time.time()))
+
     cfg['LOGS_PATH'] = config[uname]['logs_path']
     cfg['TESTETH_DOCKER_NAME'] = config[uname]['testeth_docker_name']
     logger.info("Config")
