@@ -218,7 +218,7 @@ def createRandomStateTest():
 def generateTests():
     import getpass, time
     uname = getpass.getuser()
-    host_id = "%s-%s" % (uname, time.strftime("%a_%H_%M_%S"))
+    host_id = "%s-%s-%d" % (uname, time.strftime("%a_%H_%M_%S"), os.getpid())
     here = os.path.dirname(os.path.realpath(__file__))
 
     cfg['TESTS_PATH'] = "%s/generatedTests/" % here
@@ -232,8 +232,8 @@ def generateTests():
     while True: 
         identifier = "%s-%d" %(host_id, counter)
         test_json =  createRandomStateTest()
-        test_fullpath = "%s/randomStatetest%s.json" % (testfile_dir, identifier)
-        filler_fullpath = "%s/randomStatetest%sFiller.json" % (filler_dir, identifier)
+        test_fullpath = "%s/randomStatetest-%s.json" % (testfile_dir, identifier)
+        filler_fullpath = "%s/randomStatetest-%sFiller.json" % (filler_dir, identifier)
         test_json['randomStatetest%s' % identifier] =test_json.pop('randomStatetest', None) 
 
         
@@ -242,7 +242,7 @@ def generateTests():
             pathlib.Path(filler_fullpath).touch()
 
         yield test_fullpath
-        counter = counter +1
+        counter = countfer +1
 
 def startParity(test_file):
 
