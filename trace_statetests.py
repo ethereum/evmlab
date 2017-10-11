@@ -471,7 +471,7 @@ def perform_test(testfile, test_name, test_number = 0):
         logger.warn("problem with test file, skipping.")
         return (test_number, fail_count, pass_count, failures)
 
-    logger.info("prestate: %s", prestate)
+#    logger.info("prestate: %s", prestate)
     logger.debug("txs: %s", txs_dgv)
 
     with open(prestate_tmpfile, 'w') as outfile:
