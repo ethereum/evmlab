@@ -553,13 +553,13 @@ def perform_test(testfile, test_name, test_number = 0):
             passfail = 'FAIL'
             failures.append(test_name)
 
-        passfail_log_filename = "%s/%s-%s.log.txt" % ( 
-            cfg['LOGS_PATH'], 
-            passfail,
-            test_id)
-        with open(passfail_log_filename, "w+") as f:
-            logger.info("Combined trace: %s" , passfail_log_filename)
-            f.write("\n".join(trace_output))
+            passfail_log_filename = "%s/%s-%s.log.txt" % ( 
+                cfg['LOGS_PATH'], 
+                passfail,
+                test_id)
+            with open(passfail_log_filename, "w+") as f:
+                logger.info("Combined trace: %s" , passfail_log_filename)
+                f.write("\n".join(trace_output))
 
     return (test_number, len(failures), pass_count, failures)
 
