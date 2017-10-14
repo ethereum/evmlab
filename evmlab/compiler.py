@@ -228,7 +228,10 @@ class Program():
 		self.push(insize)
 		self.push(instart)
 		self.push(address)
-		self.push(gas)
+		if gas != -1:
+			self.push(gas)
+		else:
+			self.op(GAS)
 		self._addOp(DELEGATECALL)
 		return self
 
