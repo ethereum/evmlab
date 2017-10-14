@@ -465,6 +465,22 @@ def finishProc(name, processInfo, canonicalizer, fulltrace_filename = None):
     logging.info("Processed %s steps for %s" % (len(canon_text), name))
     return canon_text
 
+def get_summary(combined_trace, n=20):
+    """Returns (up to) n (default 20) preceding steps before the first diff, and the diff-section
+    """
+    from collections import deque
+    buf = deque([],n)
+    index = 0
+    for index, line in enumerate(combined_trace):
+        buf.append(line)
+        if line.startswith("[!!]"):
+            break
+
+    for i in range(index, min(len(combined_trace), index+5 )):
+        buf.append(combined_trace[i])
+
+    return list(buf)
+
 
 def perform_test(testfile, test_name, test_number = 0):
 
@@ -556,22 +572,27 @@ def perform_test(testfile, test_name, test_number = 0):
             pass_count += 1
             passfail = 'PASS'
         else:
-            # save the state-test
-            statetest_filename = "%s/%s-test.json" %(
-                cfg['LOGS_PATH'], 
-                test_id)
-            os.rename(test_tmpfile,statetest_filename)
             logger.warning("CONSENSUS BUG!!!")
-            passfail = 'FAIL'
             failures.append(test_name)
 
-            passfail_log_filename = "%s/%s-%s.log.txt" % ( 
-                cfg['LOGS_PATH'], 
-                passfail,
-                test_id)
+            # save the state-test
+            statetest_filename = "%s/%s-test.json" %(cfg['LOGS_PATH'], test_id)
+            os.rename(test_tmpfile,statetest_filename)
+
+            # save combined trace
+            passfail = 'FAIL'
+            passfail_log_filename = "%s/%s-%s.log.txt" % ( cfg['LOGS_PATH'], passfail,test_id)
             with open(passfail_log_filename, "w+") as f:
                 logger.info("Combined trace: %s" , passfail_log_filename)
                 f.write("\n".join(trace_output))
+
+            # save a summary of the trace, with up to 20 steps preceding the first diff
+            trace_summary = get_summary(trace_output)
+            summary_log_filename = "%s/%s-%s.summary.txt" % ( cfg['LOGS_PATH'], passfail,test_id)
+            with open(summary_log_filename, "w+") as f:
+                logger.info("Summary trace: %s" , summary_log_filename)
+                f.write("\n".join(trace_summary))
+
 
     return (test_number, len(failures), pass_count, failures)
 
@@ -593,7 +614,11 @@ def runStateTest(test_case):
     py_out = f.read()
     print("py_out:", py_out)
 """
-
+def testSummary():
+    """Enable this, and test by passing a trace-output via console"""
+    with open(sys.argv[1]) as f:
+        print("".join(get_summary(f.readlines())))
 
 if __name__ == '__main__':
+#    testSummary()
     main()
