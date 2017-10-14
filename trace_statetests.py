@@ -3,7 +3,7 @@
 Executes state tests on multiple clients, checking for EVM trace equivalence
 
 """
-import json, sys, re, os, subprocess, io, itertools
+import json, sys, re, os, subprocess, io, itertools, traceback
 from contextlib import redirect_stderr, redirect_stdout
 import ethereum.transactions as transactions
 from ethereum.utils import decode_hex, parse_int_or_hex, sha3, to_string, \
@@ -212,7 +212,14 @@ def createRandomStateTest():
     cmd = ["docker", "run", "--rm", cfg['TESTETH_DOCKER_NAME'],"-t","GeneralStateTests","--","--createRandomTest"]
     outp = "".join(VMUtils.finishProc(VMUtils.startProc(cmd)))
     #Validate that it's json
-    return json.loads(outp)
+    try:
+        return json.loads(outp)
+    except:
+        print("Exception generating test")
+        print('-'*60)
+        traceback.print_exc(file=sys.stdout)
+        print('-'*60)
+    return None
 
 
 def generateTests():
@@ -230,8 +237,12 @@ def generateTests():
 
     counter = 0
     while True: 
-        identifier = "%s-%d" %(host_id, counter)
         test_json =  createRandomStateTest()
+        if test_json == None: 
+            time.sleep(2)
+            continue
+
+        identifier = "%s-%d" %(host_id, counter)
         test_fullpath = "%s/randomStatetest%s.json" % (testfile_dir, identifier)
         filler_fullpath = "%s/randomStatetest%sFiller.json" % (filler_dir, identifier)
         test_json['randomStatetest%s' % identifier] =test_json.pop('randomStatetest', None) 
