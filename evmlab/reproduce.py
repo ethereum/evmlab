@@ -14,7 +14,7 @@ This is a tool to replicate live on-chain events. It starts with a transaction i
 """
 
 import json
-import tempfile, os
+import tempfile, os, traceback
 from web3 import Web3, RPCProvider
 from sys import argv, exit
 
@@ -31,6 +31,7 @@ def findExternalCalls(list_of_output):
                 "CALL"         : lambda o : o['stack'][-2], 
                 "CALLCODE"     : lambda o : o['stack'][-2], 
                 "DELEGATECALL" : lambda o : o['stack'][-2], 
+                "STATICCALL"   : lambda o : o['stack'][-2], 
                 "EXTCODECOPY"  : lambda o : o['stack'][-1],
                 "EXTCODESIZE"  : lambda o : o['stack'][-1],
                 "BALANCE"      : lambda o : o['stack'][-1],
@@ -50,7 +51,6 @@ def findStorageLookups(list_of_output, original_context):
     """ This method searches through an EVM-output and locates SLOAD queries
     Returns a list of (<address>, <key>)
     """
-
     # call context
     context = [] 
     # duplicate avoidance
@@ -85,7 +85,7 @@ def findStorageLookups(list_of_output, original_context):
             cur_address = callstack.pop()
 
         # Sload tracking
-        if o['opName'] in ['SLOAD']:
+        if o['opName'] in ['SLOAD','SSTORE']:
             key  = o['stack'][-1]
             entry = (cur_address, key)
             refs.add(entry)
@@ -134,7 +134,7 @@ def reproduceTx(txhash, vm, api):
         externals_fetched.update(externals_tofetch)
 
         for (addr,key) in list(slots_to_fetch):
-            val = api.getStorageSlot( addr, key, blnum)
+            val = api.getStorageSlot( addr, int(key,16), blnum)
             genesis.addStorage(addr, key, val)
             done = False
         storage_slots_fetched.update(slots_to_fetch)
@@ -148,13 +148,15 @@ def reproduceTx(txhash, vm, api):
             print("Executing tx...")
             # We could use the following to set the code for parity:
             #receivercode = genesis.codeAt(r)
+            print(tx)
             vm_args = {
                 "receiver"  : r,
                 "sender"    : s,
                 "genesis"   : genesis_path, 
                 "json"      : True, 
-                "input"     : tx['input'], 
-                "memory"    : False,
+                "input"     : tx['input'],
+                "gas"       : tx['gas'], 
+                "memory"    : True,
             }
             output =  vm.execute(**vm_args)
 
@@ -193,8 +195,10 @@ def reproduceTx(txhash, vm, api):
 
     except Exception as e:
         print("Evmtracing failed")
-        print(e)
+        traceback.print_exc()
 
+    print("vm args:")
+    print(vm_args)
     return artefacts, vm_args
         
 
@@ -218,6 +222,6 @@ def fetch(args):
 
 
 if __name__ == '__main__':
-    #fetch(argv[1:])
+    fetch(argv[1:])
     test()
     #testStoreLookup()
