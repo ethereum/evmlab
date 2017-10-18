@@ -270,65 +270,61 @@ class GethVM(VM):
         super().__init__( executable, docker)
         self.genesis_format="geth"
 
-    def start(self, code = None, codeFile = None, genesis = None, 
-        gas = 4700000, price = None, json = False, statdump = False, 
-        sender = None, receiver = None, memory = False, input = None, 
-        value = None, dontExecuteButReturnCommand = False):
+    def makeCommand(self, **kwargs):
+        cmd = []
+
+        def get(v, default = None):
+            if v in kwargs.keys() and kwargs[v]:
+                return kwargs[v]
+            return default
+
+        def extend(v, flagname=None, default=None):
+            if flagname == None:
+                flagname = v
+
+            if get(v, default=default):
+                cmd.extend(["--%s" % flagname, str(get(v))])
 
         if self.docker: 
-            cmd = ['docker', 'run', '--rm']
+            cmd.extend(['docker', 'run', '--rm'])
             # If any files are referenced, they need to be mounted
-            if genesis is not None:
+            if get('genesis') is not None:
                 cmd.append('-v')
-                cmd.append('%s:%s' % (genesis,"/mounted_genesis"))
+                cmd.append('%s:%s' % (get('genesis'),"/mounted_genesis"))
                 genesis = "mounted_genesis"
 
-            cmd.append( self.executable ) 
-        else:
-            cmd = [self.executable]
-    
-        if receiver == "":
-            receiver = None
-            code = input
-            input = None
+        cmd.append( self.executable ) 
+
+        if get('receiver') == "":
+            kwargs.pop("receiver", None)
+            kwargs['code'] = kwargs.pop('input', "")
             cmd.append("--create")
 
-        if statdump:
-            cmd.append("--statdump")
-        if code is not None:
-            cmd.extend(["--code", code])
-        if codeFile is not None:
-            cmd.extend(["--codefile", codeFile])
-        if genesis is not None:
-            cmd.extend(["--prestate", genesis])
-        if gas is not None:
-            cmd.extend(["--gas","%d" % gas])
-        if price is not None:
-            cmd.extend(["--price","%d" % price] )
-        if sender is not None:
-            cmd.extend(["--sender", sender])
-        if receiver is not None:
-            cmd.extend(["--receiver", receiver])
-        if input is not None and input != "":
-            cmd.extend(['--input', input])
-        if value is not None:
-            cmd.extend(["--value", "%d" % value])
-        if not memory:
+        extend('code')
+        extend('codeFile', 'codefile')
+        extend('genesis', 'prestate')
+        extend('gas', default=4700000)
+        extend('sender')
+        extend('receiver')
+        extend('input')
+        extend('value')
+
+        if not get('memory'):
             cmd.append("--nomemory")
-        if json:
+        if get('json'):
             cmd.append("--json")
+        if get('statdump'):
+            cmd.append("--statdump")
 
         cmd.append("run")
 
-        return self._start(cmd)
+        return cmd
 
-    def execute(self, code = None, codeFile = None, genesis = None, 
-        gas = 4700000, price = None, json = False, statdump = False, 
-        sender = None, receiver = None, memory = False, input = None, 
-        value = None):
+    def start(self, **kwargs):
+        return self._start(self.makeCommand(**kwargs))
 
-        proc = self.start(code,codeFile,genesis,gas,price,json,statdump,sender,receiver,memory,input,value)
-        return finishProc(proc)
+    def execute(self, **kwargs):
+        return finishProc(self.start(**kwargs))
 
     @staticmethod
     def canonicalized(output):
@@ -383,11 +379,24 @@ class ParityVM(VM):
     def __init__(self,executable="evmbin", docker = False):
         super().__init__(executable, docker)
     
-    def execute(self, code = None, codeFile = None, genesis = None, 
-        gas = 4700000, price = None, json = False, statdump=True, 
-        sender= None, receiver = None, memory=False,  input = None,
-        dontExecuteButReturnCommand = False):
+    def makeCommand(self, **kwargs):
+        
+        def get(v, default = None):
+            if v in kwargs.keys() and kwargs[v]:
+                return kwargs[v]
+            return default
 
+
+        code = get('code')
+        codeFile = get('codeFile')
+        genesis = get('genesis')
+        gas = get('gas')
+        price = get('price')
+        sender = get('sender')
+        receiver = get('receiver')
+        input = get('input')
+        _json = get('json')
+        
         if self.docker: 
             cmd = ['docker', 'run','--rm']
             # If any files are referenced, they need to be mounted
@@ -418,12 +427,17 @@ class ParityVM(VM):
             cmd.extend(["--to",strip_0x(receiver)])
         if input is not None:
             cmd.extend(["--input", input])
-        if json: 
+        if _json: 
             cmd.append("--json")
-        if dontExecuteButReturnCommand:
-            return cmd
 
-        return self._run(cmd)
+        return cmd
+
+    def start(self, **kwargs):
+        return self._start(self.makeCommand(**kwargs))
+
+
+    def execute(self, **kwargs):
+        return finishProc(self.start(**kwargs))
 
     @staticmethod
     def canonicalized(output):
