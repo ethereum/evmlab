@@ -2,6 +2,8 @@ import os
 import json
 from .opcodes import opcodes
 from . import compiler
+#from opcodes import opcodes
+#import compiler
 
 #tracer = open(os.path.join(os.path.dirname(__file__), 'tracefunc.js')).read()
 
@@ -27,11 +29,18 @@ OPCODE_FORMATS = {
     "SLOAD":        "SLOAD(addr={0})",
     "SSTORE":       "SSTORE(addr={0}, data={1})",
     "CALL":         "CALL(gas={0}, addr={1}, value={2}, in={3}, insize={4}, out={5}, outsize={6})",
+    "DELEGATECALL": "DELEGATECALL(gas={0}, addr={1}, in={2}, insize={3}, out={4}, outsize={5})",
+    "STATICCALL":   "STATICCALL(gas={0}, addr={1}, in={2}, insize={3}, out={4}, outsize={5})",
+    "CALL":         "CALL(gas={0}, addr={1}, value={2}, in={3}, insize={4}, out={5}, outsize={6})",
     "EXTCODECOPY":  "EXTCODECOPY(addr={0}, to={1}, from={2}, size={3}))",
     "CODECOPY":     "CODECOPY(to={1}, from={2}, size={3}))",
     "CREATE":       "CREATE(val={0}, offset={1}, size={2})"
 }
 
+def opinfo(opcode):
+    if opcode in opcodes.keys():
+        return opcodes[opcode]
+    return "INVALID",0,0,0
 
 class Annotable(object):
     def __init__(self):
@@ -48,7 +57,7 @@ class OpcodeNode(Annotable):
         self.pc = pc
         self.opcode = opcode
         self.depth = depth
-        self.opname, self.ins, self.outs, self.gas = opcodes[opcode]
+        self.opname, self.ins, self.outs, self.gas = opinfo(opcode)
         self.args = args
         self.result = result
 
@@ -96,7 +105,11 @@ def buildAST(trace):
 
     for step in trace:
         pc = step.get('pc', pc)
-        opname, ins, outs, gas = opcodes[step['op']]
+        if step['op'] in opcodes.keys():
+            opname, ins, outs, gas = opcodes[step['op']]
+        else:
+            opname, ins, outs,gas = "INVALID",0,0,0
+
         if ins > 0:
             args = stack[-ins:][::-1]
             stack = stack[:-ins]
@@ -350,8 +363,13 @@ def evmResult(tracefile):
 
             if log['depth'] != len(res['stack']):
                 res['stack'] = res['stack'][0:-1]
-
-            frame = res['stack'][-1]
+            #print("line", line)
+            try:
+                frame = res['stack'][-1]
+            except Exception as e:
+                print(res)
+                print(line)
+                raise e
 
             if log['depth'] == len(res['stack']):
                 opinfo = {
@@ -364,14 +382,14 @@ def evmResult(tracefile):
                     for i in range(0,npushes[prevop['op']]):
                         prevop['result'].append(hex(peek(i)))
 
-                if isOp(compiler.CALL) or isOp(compiler.CALLCODE) or isOp(compiler.DELEGATECALL):
+                if isOp(compiler.CALL) or isOp(compiler.CALLCODE) or isOp(compiler.DELEGATECALL) or isOp(compiler.STATICCALL):
                     opinfo["error"] = None;
                     opinfo["return"] = None;
                     opinfo["ops"] = [];
                     opinfo["gas"]   = peek(0)
                     opinfo["to"]    = peek(1)
 
-                    if isOp(compiler.DELEGATECALL):
+                    if isOp(compiler.DELEGATECALL) or isOp(compiler.STATICCALL):
                         instart = peek(-2)
                         insize  = peek(-3)
                     else:
@@ -399,9 +417,12 @@ def evmResult(tracefile):
                 frame['ops'].append(opinfo)
 
         
- 
-if __name__ == '__main__':
-    testfile = os.path.join(os.path.dirname(__file__), 'example_trace.txt')
+def testFile(fname):
+    testfile = os.path.join(os.path.dirname(__file__), fname)
     ast = traceEvmOutput(testfile)
     print(str(ast))
+    print("OK")
 
+if __name__ == '__main__':
+#    testFile("example_trace.txt")
+    testFile("example_trace2.txt")
