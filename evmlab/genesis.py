@@ -15,6 +15,7 @@ class Genesis(object):
             "eip155Block": 0, 
             "homesteadBlock": 0, 
             "daoForkBlock": 0,
+            "byzantiumBlock" : 2000,
         }
 
     def geth(self):
