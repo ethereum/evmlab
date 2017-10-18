@@ -213,16 +213,21 @@ def main(args):
         #Some tricks to get the right command for local replay
         p_gen = saved_files['parity genesis']['name']
         g_gen = saved_files['geth genesis']['name']
-        vm_args['genesis'] = g_gen
-        vm_args['dontExecuteButReturnCommand'] = True
-        command = vm.execute(**vm_args)
-        print("")
-        print("Command to execute locally (geth):")
-        print("")
-        print("\t %s" % " ".join(command))
-        print("")
+        vm_args['genesis'] = "%s/%s" % (OUTPUT_DIR, g_gen)
+
+        print("\nCommand to execute locally (geth):\n")
+        print("%s" % " ".join(vm.makeCommand(**vm_args)))
+        print("\nWith memory:\n")
+        vm_args['memory'] = True
+        print("%s" % " ".join(vm.makeCommand(**vm_args)))
+        vm_args.pop('json', None)
+        vm_args.pop('memory', None)
+        vm_args['statdump'] = "true"
+        print("\nFor benchmarking:\n")
+        print("%s" % " ".join(vm.makeCommand(**vm_args)))
+
         (zipfilepath, zipfilename) = zipFiles(saved_files, args.hash[:8])
-        print("Zipped files into %s%s" % (zipfilepath, zipfilename))
+        print("\nZipped files into %s%s" % (zipfilepath, zipfilename))
 
 
 
