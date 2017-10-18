@@ -1,5 +1,5 @@
 
-import shelve
+import shelve, traceback
 
 class MultiApi(object):
 
@@ -29,6 +29,8 @@ class MultiApi(object):
 
     def getAccountInfo(self, address, blnum = None):
         acc = {}
+
+        print("GetAccountInfo(%s, %s)"% (address, str(blnum)))
 
         if blnum is not None: 
             cachekey = "%s-%d" % (address, blnum)
@@ -82,6 +84,8 @@ class MultiApi(object):
 
     def getStorageSlot(self, addr, key, blnum = None):
 
+        print("GetStorageSlot(%s, %s, %s)"% (addr, key, str(blnum)))
+
         if blnum is not None: 
             cachekey = "%s-%d-%s" % (addr,blnum,key)
             cached = self._getCached(cachekey)
@@ -94,8 +98,9 @@ class MultiApi(object):
                 self._putCached(cachekey, value)
                 return value
             except Exception as e:
-                    print(e)
-                    return ""
+                print("ERROR OCCURRED: trace may not be correct")    
+                traceback.print_exc()
+                return ""
             
         else:
             print("getStorageSlot not implemented for etherchain api")
