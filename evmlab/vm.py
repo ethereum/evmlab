@@ -283,7 +283,7 @@ class GethVM(VM):
                 flagname = v
 
             if get(v, default=default):
-                cmd.extend(["--%s" % flagname, str(get(v))])
+                cmd.extend(["--%s" % flagname, str(get(v,default=default))])
 
         if self.docker: 
             cmd.extend(['docker', 'run', '--rm'])
