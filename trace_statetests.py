@@ -3,7 +3,7 @@
 Executes state tests on multiple clients, checking for EVM trace equivalence
 
 """
-import json, sys, re, os, subprocess, io, itertools, traceback, time
+import json, sys, re, os, subprocess, io, itertools, traceback, time, collections
 from contextlib import redirect_stderr, redirect_stdout
 import ethereum.transactions as transactions
 from ethereum.utils import decode_hex, parse_int_or_hex, sha3, to_string, \
@@ -24,6 +24,7 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 cfg ={}
+local_cfg = {}
 
 def parse_config():
     """Parses 'statetests.ini'-file, which 
@@ -41,32 +42,60 @@ def parse_config():
     cfg['DO_CLIENTS']  = config[uname]['clients'].split(",")
     cfg['FORK_CONFIG'] = config[uname]['fork_config']
     cfg['TESTS_PATH']  = config[uname]['tests_path']
-    cfg['PYETH_DOCKER_NAME'] = config[uname]['pyeth_docker_name']
-    cfg['CPP_DOCKER_NAME'] = config[uname]['cpp_docker_name']
-    cfg['PARITY_DOCKER_NAME'] = config[uname]['parity_docker_name']
-    cfg['GETH_DOCKER_NAME'] = config[uname]['geth_docker_name']
+#
+#    cfg['PYETH_DOCKER_NAME'] = config[uname]['py.docker_name']
+#    cfg['CPP_DOCKER_NAME'] = config[uname]['cpp.docker_name']
+#    cfg['PARITY_DOCKER_NAME'] = config[uname]['parity.docker_name']
+#    cfg['GETH_DOCKER_NAME'] = config[uname]['geth.docker_name']
+#
+#    cfg['PYETH_BIN'] = config[uname]['py.binary']
+#    cfg['CPP_BIN'] = config[uname]['cpp.binary']
+#    cfg['PARITY_BIN'] = config[uname]['parity.binary']
+#    cfg['GETH_BIN'] = config[uname]['geth.binary']
+    global local_cfg
+    local_cfg = collections.defaultdict(lambda: None, config[uname])
+    print(local_cfg["geth.binary"])
+    print(local_cfg["test"])
     # Make it possible to run in paralell sessions    
     cfg['PRESTATE_TMP_FILE']    ="%s-%d" % (config[uname]['prestate_tmp_file'] , os.getpid())
     cfg['SINGLE_TEST_TMP_FILE'] ="%s-%d" % (config[uname]['single_test_tmp_file'], os.getpid())
 
     cfg['LOGS_PATH'] = config[uname]['logs_path']
-    cfg['TESTETH_DOCKER_NAME'] = config[uname]['testeth_docker_name']
-    logger.info("Config")
-    logger.info("\tActive clients: %s",      cfg['DO_CLIENTS'])
-    logger.info("\tFork config: %s",         cfg['FORK_CONFIG'])
-    logger.info("\tTests path: %s",          cfg['TESTS_PATH'])
-    logger.info("\tPyeth: %s",               cfg['PYETH_DOCKER_NAME'])
-    logger.info("\tCpp: %s",                 cfg['CPP_DOCKER_NAME'])
-    logger.info("\tParity: %s",              cfg['PARITY_DOCKER_NAME'])
-    logger.info("\tGeth: %s",                cfg['GETH_DOCKER_NAME'])
-    logger.info("\tPrestate tempfile: %s",   cfg['PRESTATE_TMP_FILE'])
-    logger.info("\tSingle test tempfile: %s",cfg['SINGLE_TEST_TMP_FILE'])
-    logger.info("\tLog path: %s",            cfg['LOGS_PATH'])
+#    cfg['TESTETH_DOCKER_NAME'] = config[uname]['testeth_docker_name']
 
+#    logger.info("Config")
+#    logger.info("\tActive clients: %s",      cfg['DO_CLIENTS'])
+#    logger.info("\tFork config: %s",         cfg['FORK_CONFIG'])
+#    logger.info("\tTests path: %s",          cfg['TESTS_PATH'])
+#    logger.info("\tPyeth: %s",               cfg['PYETH_DOCKER_NAME'])
+#    logger.info("\tCpp: %s",                 cfg['CPP_DOCKER_NAME'])
+#    logger.info("\tParity: %s",              cfg['PARITY_DOCKER_NAME'])
+#    logger.info("\tGeth: %s",                cfg['GETH_DOCKER_NAME'])
+#    logger.info("\tPrestate tempfile: %s",   cfg['PRESTATE_TMP_FILE'])
+#    logger.info("\tSingle test tempfile: %s",cfg['SINGLE_TEST_TMP_FILE'])
+#    logger.info("\tLog path: %s",            cfg['LOGS_PATH'])
+#
 
 
 parse_config()
 
+
+def getBaseCmd(bin_or_docker):
+    """ Gets the configured 'base_command' for an image or binary. 
+    Returns a path or image name and a boolean if it's a docker 
+    image or not (needed to know if any mounts are needed)
+    returns a tuple: ( name  , isDocker)
+    """
+
+    binary = local_cfg["{}.binary".format(bin_or_docker) ]
+    if binary:
+        return (binary, False)
+
+    image = local_cfg["{}.docker_name".format(bin_or_docker)]
+    if image: 
+        return (image, True)
+
+        
 
 # used to check for unknown opcode names in traces
 OPCODES = {}
@@ -209,7 +238,13 @@ def dumpJson(obj, dir = None, prefix = None):
     return temp_path
 
 def createRandomStateTest():
-    cmd = ["docker", "run", "--rm", cfg['TESTETH_DOCKER_NAME'],"-t","GeneralStateTests","--","--createRandomTest"]
+    (name, isDocker) = getBaseCmd("testeth")
+    if isDocker:
+        cmd = ['docker', "run", "--rm",name]
+    else:
+        cmd = [name]
+
+    cmd.extend(["-t","GeneralStateTests","--","--createRandomTest"])
     outp = "".join(VMUtils.finishProc(VMUtils.startProc(cmd)))
     #Validate that it's json
     try:
@@ -260,39 +295,60 @@ def startParity(test_file):
     testfile_path = os.path.abspath(test_file)
     mount_testfile = testfile_path + ":" + "/mounted_testfile"
 
-    cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, cfg['PARITY_DOCKER_NAME'], "state-test", "/mounted_testfile", "--json"]
-   
-    return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd)}
+    (name, isDocker) = getBaseCmd("parity")
+    if isDocker:
+        cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, name, "state-test", "/mounted_testfile", "--json"]
+    else:
+        cmd = [name,"state-test", mount_testfile, "--json"]
+
+    return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
 
 
 def startCpp(test_subfolder, test_name, test_dgv):
 
     [d,g,v] = test_dgv
 
-    cpp_mount_tests = cfg['TESTS_PATH'] + ":" + "/mounted_tests"
 
-    cmd = ["docker", "run", "--rm", "-t", "-v", cpp_mount_tests, cfg['CPP_DOCKER_NAME']
-            ,'-t',"GeneralStateTests/%s" %  test_subfolder
-            ,'--'
-            ,'--singletest', test_name
-            ,'--jsontrace',"'{ \"disableStorage\":true, \"disableMemory\":true }'"
-            ,'--singlenet',cfg['FORK_CONFIG']
-            ,'-d',str(d),'-g',str(g), '-v', str(v)
-            ,'--testpath', '"/mounted_tests"']
+    (name, isDocker) = getBaseCmd("cpp")
+    if isDocker:
+        cpp_mount_tests = cfg['TESTS_PATH'] + ":" + "/mounted_tests"
+        cmd = ["docker", "run", "--rm", "-t", "-v", cpp_mount_tests, name
+                ,'-t',"GeneralStateTests/%s" %  test_subfolder
+                ,'--'
+                ,'--singletest', test_name
+                ,'--jsontrace',"'{ \"disableStorage\":true, \"disableMemory\":true }'"
+                ,'--singlenet',cfg['FORK_CONFIG']
+                ,'-d',str(d),'-g',str(g), '-v', str(v)
+                ,'--testpath', '"/mounted_tests"']
+    else:
+        cmd = [name
+                ,'-t',"GeneralStateTests/%s" %  test_subfolder
+                ,'--'
+                ,'--singletest', test_name
+                ,'--jsontrace',"'{ \"disableStorage\":true, \"disableMemory\":true }'"
+                ,'--singlenet',cfg['FORK_CONFIG']
+                ,'-d',str(d),'-g',str(g), '-v', str(v)
+                ,'--testpath',  cfg['TESTS_PATH']]
+
 
     if cfg['FORK_CONFIG'] == 'Homestead' or cfg['FORK_CONFIG'] == 'Frontier':
         cmd.extend(['--all']) # cpp requires this for some reason
 
-    return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd)}
+    return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
 
 def startGeth(test_file):
 
     testfile_path = os.path.abspath(test_file)
     mount_testfile = testfile_path + ":" + "/mounted_testfile"
 
-    cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, cfg['GETH_DOCKER_NAME'], "--json", "--nomemory", "statetest", "/mounted_testfile"]
+    (name, isDocker) = getBaseCmd("geth")
+    if isDocker:
+        cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, name, "--json", "--nomemory", "statetest", "/mounted_testfile"]
+        return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
+    else:
+        cmd = [name,"--json", "--nomemory", "statetest", testfile_path]
+        return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stderr'}
 
-    return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd)}
 
 
 
@@ -311,7 +367,7 @@ def startPython(test_file, test_tx):
     mount_flag = prestate_path + ":" + "/mounted_prestate"
     cmd = ["docker", "run", "--rm", "-t", "-v", mount_flag, cfg['PYETH_DOCKER_NAME'], "run_statetest.py", "/mounted_prestate", tx_double_encoded]
 
-    return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd)}
+    return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd), 'output' : 'stdout'}
 
 
 
@@ -456,10 +512,10 @@ def finishProc(name, processInfo, canonicalizer, fulltrace_filename = None):
     process = processInfo['proc']
 
     extraTime = False
-    if name == "PY":
+    if name == "py":
         extraTime = True
 
-    outp = VMUtils.finishProc(processInfo['proc'], extraTime)
+    outp = VMUtils.finishProc(processInfo['proc'], extraTime, processInfo['output'])
 
     if fulltrace_filename is not None:
         #logging.info("Writing %s full trace to %s" % (name, fulltrace_filename))
@@ -534,23 +590,23 @@ def perform_test(testfile, test_name, test_number = 0):
         procs = []
 
         canonicalizers = {
-            "GETH" : VMUtils.GethVM.canonicalized, 
-            "CPP"  : VMUtils.CppVM.canonicalized, 
-            "PY"   : VMUtils.PyVM.canonicalized, 
-            "PAR"  :  VMUtils.ParityVM.canonicalized ,
+            "geth" : VMUtils.GethVM.canonicalized, 
+            "cpp"  : VMUtils.CppVM.canonicalized, 
+            "py"   : VMUtils.PyVM.canonicalized, 
+            "parity"  :  VMUtils.ParityVM.canonicalized ,
         }
         logger.info("Starting processes for %s" % clients)
 
         #Start the processes
         for client_name in clients:
 
-            if client_name == 'GETH':
+            if client_name == 'geth':
                 procinfo = startGeth(test_tmpfile)
-            elif client_name == 'CPP':
+            elif client_name == 'cpp':
                 procinfo = startCpp(test_subfolder, test_name, tx_dgv)
-            elif client_name == 'PY':
+            elif client_name == 'py':
                 procinfo = startPython(prestate_tmpfile, tx)
-            elif client_name == 'PAR':
+            elif client_name == 'parity':
                 procinfo = startParity(test_tmpfile)
             else:
                 logger.warning("Undefined client %s", client_name)
