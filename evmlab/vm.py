@@ -470,6 +470,7 @@ class ParityVM(VM):
                 if 'test' in p_step.keys():
                     # first step of trace has test name
                     continue
+
                 if 'stateRoot' in p_step.keys():
                     # dont log the stateRoot for basic tx's (that have no EVM steps)
                     # should be last step
