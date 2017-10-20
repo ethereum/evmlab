@@ -260,7 +260,7 @@ def startParity(test_file):
     testfile_path = os.path.abspath(test_file)
     mount_testfile = testfile_path + ":" + "/mounted_testfile"
 
-    cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, cfg['PARITY_DOCKER_NAME'], "--json", "--statetest", "/mounted_testfile"]
+    cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, cfg['PARITY_DOCKER_NAME'], "state-test", "/mounted_testfile", "--json"]
    
     return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd)}
 
