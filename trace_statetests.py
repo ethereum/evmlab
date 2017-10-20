@@ -53,20 +53,20 @@ def parse_config():
     cfg['SINGLE_TEST_TMP_FILE'] ="%s-%d" % (config[uname]['single_test_tmp_file'], os.getpid())
 
     cfg['LOGS_PATH'] = config[uname]['logs_path']
-#    cfg['TESTETH_DOCKER_NAME'] = config[uname]['testeth_docker_name']
 
     logger.info("Config")
     logger.info("\tActive clients:")
     for c in cfg['DO_CLIENTS']:
-        logger.info(" {} : {} docker:{}".format(c, getBaseCmd(c)[0],getBaseCmd(c)[1]) )
-    logger.info("\tFork config: %s",         cfg['FORK_CONFIG'])
-#    logger.info("\tCpp: %s",                 cfg['CPP_DOCKER_NAME'])
-#    logger.info("\tParity: %s",              cfg['PARITY_DOCKER_NAME'])
-#    logger.info("\tGeth: %s",                cfg['GETH_DOCKER_NAME'])
-    logger.info("\tPrestate tempfile: %s",   cfg['PRESTATE_TMP_FILE'])
+        logger.info("\t* {} : {} docker:{}".format(c, getBaseCmd(c)[0],getBaseCmd(c)[1]) )
+
+    logger.info("\tTest generator:")
+    logger.info("\t* {} : {} docker:{}".format('testeth', getBaseCmd('testeth')[0],getBaseCmd('testeth')[1]) )
+ 
+    logger.info("\tFork config:          %s",         cfg['FORK_CONFIG'])
+    logger.info("\tPrestate tempfile:    %s",   cfg['PRESTATE_TMP_FILE'])
     logger.info("\tSingle test tempfile: %s",cfg['SINGLE_TEST_TMP_FILE'])
-#    logger.info("\tLog path: %s",            cfg['LOGS_PATH'])
-#
+    logger.info("\tLog path:             %s",            cfg['LOGS_PATH'])
+
 
 
 def getBaseCmd(bin_or_docker):
