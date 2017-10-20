@@ -119,10 +119,10 @@ def startProc(cmd):
 
     # need to pass a string to Popen and shell=True to get stdout from docker container
     #print(" ".join(cmd))
-    return Popen(" ".join(cmd), stdout=PIPE,shell=True, preexec_fn=os.setsid)
+    return Popen(" ".join(cmd), stdout=PIPE,shell=True, stderr=PIPE, preexec_fn=os.setsid)
 
 
-def finishProc(process, extraTime=False):
+def finishProc(process, extraTime=False, output="stdout"):
     timeout = 15
     if extraTime:
         timeout = 30
@@ -133,8 +133,9 @@ def finishProc(process, extraTime=False):
         os.killpg(process.pid, signal.SIGINT) # send signal to the process group
         (stdoutdata, stderrdata) = process.communicate()
 
-
-    return stdoutdata.decode().strip().split("\n")
+    if output == 'stdout':
+        return stdoutdata.decode().strip().split("\n")
+    return stderrdata.decode().strip().split("\n")
 
 class VM(object):
 
