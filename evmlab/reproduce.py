@@ -114,6 +114,15 @@ def reproduceTx(txhash, vm, api):
     #debugdump(tx)
     blnum = int(tx['blockNumber'])
 
+    if blnum > 4370000:
+        genesis.setConfigMetropolis()
+    elif blnum > 2675000:
+        genesis.setConfigSpuriousDragon()
+    elif blnum > 2463000:
+        genesis.setConfigTangerineWhistle()
+    elif blnum > 1150000: 
+        genesis.setConfigHomestead()
+
 
     externals_fetched = set()
     externals_tofetch = set([s,r])
