@@ -1,4 +1,4 @@
-import os, signal, json, itertools
+import os, signal, json, itertools, traceback, sys
 from subprocess import Popen, PIPE, TimeoutExpired
 from ethereum.utils import parse_int_or_hex,decode_hex,remove_0x_head
 import logging
@@ -236,9 +236,10 @@ class PyVM(VM):
         canon_steps = []
         for step in json_steps():
             #print (step)
-            if 'stateRoot' in step.keys() and len(canon_steps):
+            if 'stateRoot' in step.keys()
                 # dont log stateRoot when tx doesnt execute, to match cpp and parity
-                canon_steps.append(step)
+                if len(canon_steps):
+                    canon_steps.append(step)
                 continue
             if 'event' not in step.keys():               
                 continue
@@ -338,9 +339,10 @@ class GethVM(VM):
                 try:
                     parsed_steps.append(json.loads(line))
                 except Exception as e:
-                    logger.warn('Exception parsing geth output:')
+                    logger.warn('Exception [1] parsing geth output:')
+                    traceback.print_exc(file=sys.stdout)
                     logger.warn(e)
-        
+
         canon_steps = []
         try:
             if 'output' in parsed_steps[-1]:
@@ -349,11 +351,18 @@ class GethVM(VM):
                 parsed_steps = parsed_steps[:-1]
 
             for step in parsed_steps:
-                if 'stateRoot' in step.keys() and len(canon_steps):
+                if 'stateRoot' in step.keys() :
                     # don't log stateRoot when tx doesnt execute, to match cpp and parity
                     # should be last step
-                    canon_steps.append(step)
+                    if len(canon_steps):
+                        canon_steps.append(step)
+                    
                     continue
+
+                if not 'op' in step.keys():
+                    logger.warn("Missing 'op': %s" % str(step))
+                    continue
+
                 if step['op'] == 0:
                     # skip STOPs
                     continue
@@ -370,7 +379,8 @@ class GethVM(VM):
                 }
                 canon_steps.append(trace_step)
         except Exception as e:
-            logger.warn('Exception parsing geth output:')
+            logger.warn('Exception [2] parsing geth output:')
+            traceback.print_exc(file=sys.stdout)
             logger.warn(e)
 
         return canon_steps
@@ -451,7 +461,7 @@ class ParityVM(VM):
                 try:
                     parsed_steps.append(json.loads(line))
                 except Exception as e:
-                    logger.warn('Exception parsing parity output:')
+                    logger.warn('Exception [1] parsing parity output:')
                     logger.warn(e)
 
         canon_steps = []
@@ -460,16 +470,21 @@ class ParityVM(VM):
                 if 'test' in p_step.keys():
                     # first step of trace has test name
                     continue
-                if 'stateRoot' in p_step.keys() and len(canon_steps):
+                if 'stateRoot' in p_step.keys():
                     # dont log the stateRoot for basic tx's (that have no EVM steps)
                     # should be last step
-                    canon_steps.append(p_step)
+                    if len(canon_steps):
+                        canon_steps.append(p_step)
                     continue
 
                 # Ignored for now
                 if 'error' in p_step.keys() or 'output' in p_step.keys():
                     continue
 
+                if not 'op' in p_step.keys():
+                    logger.warn("Missing 'op': %s" % str(p_step))
+                    continue
+                    
                 if p_step['op'] == 0:
                     # skip STOPs
                     continue
@@ -486,7 +501,7 @@ class ParityVM(VM):
                 }
                 canon_steps.append(trace_step)
         except Exception as e:
-            logger.warn('Exception parsing parity output:')
+            logger.warn('Exception [2] parsing parity output:')
             logger.warn(e)
 
         return canon_steps
