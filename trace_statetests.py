@@ -42,17 +42,9 @@ def parse_config():
     cfg['DO_CLIENTS']  = config[uname]['clients'].split(",")
     cfg['FORK_CONFIG'] = config[uname]['fork_config']
     cfg['TESTS_PATH']  = config[uname]['tests_path']
-#
-#    cfg['PYETH_DOCKER_NAME'] = config[uname]['py.docker_name']
-#    cfg['CPP_DOCKER_NAME'] = config[uname]['cpp.docker_name']
-#    cfg['PARITY_DOCKER_NAME'] = config[uname]['parity.docker_name']
-#    cfg['GETH_DOCKER_NAME'] = config[uname]['geth.docker_name']
-#
-#    cfg['PYETH_BIN'] = config[uname]['py.binary']
-#    cfg['CPP_BIN'] = config[uname]['cpp.binary']
-#    cfg['PARITY_BIN'] = config[uname]['parity.binary']
-#    cfg['GETH_BIN'] = config[uname]['geth.binary']
+
     global local_cfg
+
     local_cfg = collections.defaultdict(lambda: None, config[uname])
     print(local_cfg["geth.binary"])
     print(local_cfg["test"])
@@ -63,21 +55,18 @@ def parse_config():
     cfg['LOGS_PATH'] = config[uname]['logs_path']
 #    cfg['TESTETH_DOCKER_NAME'] = config[uname]['testeth_docker_name']
 
-#    logger.info("Config")
-#    logger.info("\tActive clients: %s",      cfg['DO_CLIENTS'])
-#    logger.info("\tFork config: %s",         cfg['FORK_CONFIG'])
-#    logger.info("\tTests path: %s",          cfg['TESTS_PATH'])
-#    logger.info("\tPyeth: %s",               cfg['PYETH_DOCKER_NAME'])
+    logger.info("Config")
+    logger.info("\tActive clients:")
+    for c in cfg['DO_CLIENTS']:
+        logger.info(" {} : {} docker:{}".format(c, getBaseCmd(c)[0],getBaseCmd(c)[1]) )
+    logger.info("\tFork config: %s",         cfg['FORK_CONFIG'])
 #    logger.info("\tCpp: %s",                 cfg['CPP_DOCKER_NAME'])
 #    logger.info("\tParity: %s",              cfg['PARITY_DOCKER_NAME'])
 #    logger.info("\tGeth: %s",                cfg['GETH_DOCKER_NAME'])
-#    logger.info("\tPrestate tempfile: %s",   cfg['PRESTATE_TMP_FILE'])
-#    logger.info("\tSingle test tempfile: %s",cfg['SINGLE_TEST_TMP_FILE'])
+    logger.info("\tPrestate tempfile: %s",   cfg['PRESTATE_TMP_FILE'])
+    logger.info("\tSingle test tempfile: %s",cfg['SINGLE_TEST_TMP_FILE'])
 #    logger.info("\tLog path: %s",            cfg['LOGS_PATH'])
 #
-
-
-parse_config()
 
 
 def getBaseCmd(bin_or_docker):
@@ -96,6 +85,8 @@ def getBaseCmd(bin_or_docker):
         return (image, True)
 
         
+parse_config()
+
 
 # used to check for unknown opcode names in traces
 OPCODES = {}
@@ -248,7 +239,9 @@ def createRandomStateTest():
     outp = "".join(VMUtils.finishProc(VMUtils.startProc(cmd)))
     #Validate that it's json
     try:
-        return json.loads(outp)
+        test = json.loads(outp)
+        test['randomStatetest']['_info'] = {'sourcehash': "x", "comment":"x"}
+        return test
     except:
         print("Exception generating test")
         print('-'*60)
@@ -264,8 +257,10 @@ def generateTests():
     here = os.path.dirname(os.path.realpath(__file__))
 
     cfg['TESTS_PATH'] = "%s/generatedTests/" % here
+    # cpp needs the tests to be placed according to certain rules... 
     testfile_dir = "%s/generatedTests/GeneralStateTests/stRandom" % here
     filler_dir = "%s/generatedTests/src/GeneralStateTestsFiller/stRandom" % here 
+
     os.makedirs( testfile_dir , exist_ok = True)
     os.makedirs( filler_dir, exist_ok = True)
     import pathlib
