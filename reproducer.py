@@ -100,8 +100,7 @@ if app:
         p_gen = saved_files['parity genesis']['name']
         g_gen = saved_files['geth genesis']['name']
         vm_args['genesis'] = g_gen
-        vm_args['dontExecuteButReturnCommand'] = True
-        command = app.vm.execute(**vm_args)
+        command = app.vm.makeCommand(**vm_args)
         
         outp = "Transaction tracing seems to have been successfull. Use the following command to execute locally" 
         (path, zipfilename) = zipFiles(saved_files, txhash[:8])
