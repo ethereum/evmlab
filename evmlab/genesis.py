@@ -129,18 +129,32 @@ class Genesis(object):
     def setBlockNumber(self, blockNumber):
         self.blockNumber = int(blockNumber, 16)
 
-    def setConfigMetropolis(self):
-        self.config['byzantiumBlock'] = 0
-        self.config['eip158Block'] = 0
-        self.config['eip150Block'] = 0
-        self.config['eip155Block'] = 0
-        self.config['homesteadBlock'] = 0
-
     def setConfigHomestead(self):
         self.config['byzantiumBlock'] = 2000
         self.config['eip158Block'] = 2000
-        self.config['eip150Block'] = 2000
         self.config['eip155Block'] = 2000
+        self.config['eip150Block'] = 2000
+        self.config['homesteadBlock'] = 0
+
+    def setConfigTangerineWhistle(self):
+        self.config['byzantiumBlock'] = 2000
+        self.config['eip158Block'] = 2000
+        self.config['eip155Block'] = 2000
+        self.config['eip150Block'] = 0
+        self.config['homesteadBlock'] = 0
+
+    def setConfigSpuriousDragon(self):
+        self.config['byzantiumBlock'] = 2000
+        self.config['eip158Block'] = 0
+        self.config['eip155Block'] = 0
+        self.config['eip150Block'] = 0
+        self.config['homesteadBlock'] = 0
+
+    def setConfigMetropolis(self):
+        self.config['byzantiumBlock'] = 0
+        self.config['eip158Block'] = 0
+        self.config['eip155Block'] = 0
+        self.config['eip150Block'] = 0
         self.config['homesteadBlock'] = 0
 
     def addPrestateAccount(self, account):
