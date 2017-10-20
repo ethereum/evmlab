@@ -236,7 +236,7 @@ class PyVM(VM):
         canon_steps = []
         for step in json_steps():
             #print (step)
-            if 'stateRoot' in step.keys()
+            if 'stateRoot' in step.keys():
                 # dont log stateRoot when tx doesnt execute, to match cpp and parity
                 if len(canon_steps):
                     canon_steps.append(step)
