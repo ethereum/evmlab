@@ -100,15 +100,15 @@ def compare_traces(clients_canon_traces, names):
                 wrong_clients.append(i)
 
         if step_equiv == True:
-            log('[*]       {}'.format(step[0]))
+            log('[*] {:>8} {}'.format("", step[0]))
         else:
             equivalent = False
             logger.info("")
             for i in range(0, num_clients):
                 if i in wrong_clients or len(wrong_clients) == num_clients-1:
-                    log('[!!] {:>4} {}'.format(names[i], step[i]))
+                    log('[!!] {:>7} {}'.format(names[i], step[i]))
                 else:
-                    log('[*] {:>5} {}'.format(names[i], step[i]))
+                    log('[*] {:>8} {}'.format(names[i], step[i]))
 
     return (equivalent, full_output)
 
