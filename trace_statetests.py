@@ -240,7 +240,8 @@ def createRandomStateTest():
     #Validate that it's json
     try:
         test = json.loads(outp)
-        test['randomStatetest']['_info'] = {'sourcehash': "x", "comment":"x"}
+        test['randomStatetest']['_info'] = {'sourceHash': "0000000000000000000000000000000000000000000000000000000000001337", "comment":"x"}
+
         return test
     except:
         print("Exception generating test")
@@ -294,7 +295,8 @@ def startParity(test_file):
     if isDocker:
         cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, name, "state-test", "/mounted_testfile", "--json"]
     else:
-        cmd = [name,"state-test", mount_testfile, "--json"]
+        cmd = [name,"state-test", testfile_path, "--json"]
+
 
     return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
 
