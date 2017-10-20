@@ -532,9 +532,10 @@ def get_summary(combined_trace, n=20):
     buf = deque([],n)
     index = 0
     for index, line in enumerate(combined_trace):
-        buf.append(line)
         if line.startswith("[!!]"):
+            buf.append("\n---- [ %d steps in total before diff ]-------\n\n" % (index))
             break
+        buf.append(line)
 
     for i in range(index, min(len(combined_trace), index+5 )):
         buf.append(combined_trace[i])
