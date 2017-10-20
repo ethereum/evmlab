@@ -454,6 +454,9 @@ class ParityVM(VM):
         canon_steps = []
         try:
             for p_step in parsed_steps:
+                if 'test' in p_step.keys():
+                    # first step of trace has test name
+                    continue
                 if 'stateRoot' in p_step.keys() and len(canon_steps):
                     # dont log the stateRoot for basic tx's (that have no EVM steps)
                     # should be last step
