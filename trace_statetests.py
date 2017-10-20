@@ -3,7 +3,7 @@
 Executes state tests on multiple clients, checking for EVM trace equivalence
 
 """
-import json, sys, re, os, subprocess, io, itertools, traceback
+import json, sys, re, os, subprocess, io, itertools, traceback, time
 from contextlib import redirect_stderr, redirect_stdout
 import ethereum.transactions as transactions
 from ethereum.utils import decode_hex, parse_int_or_hex, sha3, to_string, \
@@ -408,7 +408,7 @@ def main():
     pass_count = 0
     failing_files = []
     test_number = 0
-
+    start_time = time.time()
     for f in testIterator():
         with open(f) as json_data:
             general_test = json.load(json_data)
@@ -425,15 +425,22 @@ def main():
 
         (test_number, num_fails, num_passes,failures) = perform_test(f, test_name, test_number)
 
-        logger.info("f/p/t: %d,%d,%d" % ( num_fails, num_passes, (num_fails + num_passes)))
-        logger.info("failures: %s" % str(failing_files))
-        logger.info("tot fail_count: %d" % fail_count)
-        logger.info("tot pass_count: %d" % pass_count)
-        logger.info("tot           : %d" % (fail_count + pass_count))
+        failing_files.extend(failures)
 
+        #Total sums
         fail_count = fail_count + num_fails
         pass_count = pass_count + num_passes
-        failing_files.extend(failures)
+
+        time_elapsed = time.time() - start_time
+
+        logger.info("f/p/t: {},{},{}".format( num_fails, num_passes, (num_fails + num_passes)))
+        logger.info("Total fails {}, pass {}, #tests {} (speed {:f} tests/s)".format(
+            fail_count,
+            pass_count, 
+            fail_count+pass_count,  
+            (fail_count+pass_count) / time_elapsed))
+        logger.info("Failing files: %s" % str(failing_files))
+
         #if fail_count > 0:
         #    break
     # done with all tests. print totals
