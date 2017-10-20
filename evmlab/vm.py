@@ -290,8 +290,10 @@ class GethVM(VM):
             # If any files are referenced, they need to be mounted
             if get('genesis') is not None:
                 cmd.append('-v')
-                cmd.append('%s:%s' % (get('genesis'),"/mounted_genesis"))
-                genesis = "mounted_genesis"
+                cmd.append('%s:%s' % (get('genesis'),get('genesis')))
+#                kwargs['genesis'] = "mounted_genesis"
+#                cmd.append('%s:%s' % (get('genesis'),"/mounted_genesis"))
+ #               kwargs['genesis'] = "mounted_genesis"
 
         cmd.append( self.executable ) 
 
