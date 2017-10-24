@@ -1,6 +1,5 @@
 import urwid, argparse, traceback
 import json,sys
-
 # Python3 support
 try:
     xrange(0,1);
@@ -126,9 +125,9 @@ def hexdump( src, length=16, sep='.', minrows = 8 , start =0):
     result.append('           00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F  |  [ --ascii--]')
     result.append('')
     rows = []
+
     for i in xrange(0,16):
         subSrc = src[ 2 * (start * 16 + i * 16) :2 * ( start * 16 + i * 16) +length*2]   
-
         hexa = ''
         text = '';
         if len(subSrc) > 0:
@@ -356,7 +355,9 @@ class DebugViewer():
             return op
         if key not in op.keys():
             return default
-        return op[key]
+        if op[key]:
+            return op[key]
+        return default
 
 
     def getOp(self):
@@ -364,6 +365,7 @@ class DebugViewer():
 
     def getMem(self):
         m = self._op('memory',"0x")
+        
         return hexdump(m[2:], start = self.memptr)
 
     def getStack(self):
@@ -445,8 +447,33 @@ class DebugViewer():
             self.dbg("TODO: Implement GOTO")
 
 
+def loadJsonDebugStackTrace(fname):
+    from evmlab.opcodes import reverse_opcodes
+    
+    ops = []
+    try:
+        with open(fname) as f:
+            one_json_blob = json.load(f)
+            xops = one_json_blob['result']['structLogs']
+            for op in xops:
+                op['opName'] = op['op']
+                op['op'] = reverse_opcodes[op['op']]
+                if 'memory' in op.keys():
+                    if op['memory'] == None:
+                        op['memory'] = "0x"
+                    else:
+                        op['memory'] = "0x"+"".join(op['memory'])
+                        print("Memory set to ", op['memory'])
+                ops.append(op)
+            print("Loaded %d items from structlogs" % len(ops))
+            return ops
+    except Exception as e:
+        traceback.print_stack()
+    return None
+
 def loadJsonObjects(fname):
     ops = []
+    
     with open(fname) as f:
         for l in f:
             ops.append(json.loads(l))
@@ -457,7 +484,7 @@ def loadWeirdJson(fname):
     with open(fname) as f:
         text = ""
         for l in f:
-        #However, sometimes they're spread out
+            #However, sometimes they're spread out
             if l.strip() == '{':
                 text = ""
             text = text + l.strip()
@@ -470,17 +497,18 @@ def loadWeirdJson(fname):
 def main(args):
     ops = []
 
-
     fname = args.file
-    failed = False
-    # Usually, each line is a json-object
-    try:
-        ops = loadJsonObjects(fname)
-    except Exception as e:
-        print("Error loading json:")
-        traceback.print_stack()
-        print("Trying alternate loader")
-        ops = loadWeirdJson(fname)
+
+    ops = loadJsonDebugStackTrace(fname)
+    if ops == None:
+        # Usually, each line is a json-object
+        try:
+            ops = loadJsonObjects(fname)
+        except Exception as e:
+            print("Error loading json:")
+            traceback.print_stack()
+            print("Trying alternate loader")
+            ops = loadWeirdJson(fname)
 
     DebugViewer().setTrace(ops)
 
