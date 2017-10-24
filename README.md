@@ -126,3 +126,10 @@ At the end of execution, some summarical info is good, e.g.
 When errors occur, geth and parity handles them differently. 
 
 Minor changes to how things work is ok, we can handle discrepancies in format and minor quirks. 
+
+# Opviewer
+
+The 'opviewer.py' is a simple debugger-like trace-viewer. It can be used against an `evm`-trace and navigate the data in a bit more friendly manner than raw json. 
+Invoke via e.g. `python opviewer.py -f example2.json`
+
+![screenshot](https://raw.githubusercontent.com/holiman/evmlab/master/docs/example.png)
