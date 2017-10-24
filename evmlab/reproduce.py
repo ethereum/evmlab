@@ -75,17 +75,27 @@ def findStorageLookups(list_of_output, original_context):
         # Address tracking - what's the context we're executing in
         cur_depth = o['depth']
         if cur_depth > prev_depth:
-            #Made it into a call
+            #Made it into a call-variant
             callstack.append(cur_address)
             # All call-lookalikes are 'gas,address,value' on stack, 
             # so address is second item of prev line
-            cur_address = prev_op['stack'][-2]
+            #
+            # There's one exception, though; DELEGATECALL
+            # After a DELEGATECALL, we've increased the depth, 
+            # but still operating on the same context, regardless of the
+            # address that was invoked
+            print("Curdepth increase")
+            print("prev_op", prev_op)
+            if prev_op['op'] != 0xf4:
+                cur_address = prev_op['stack'][-2]
+
         if cur_depth < prev_depth:
             # Returned from a call
             cur_address = callstack.pop()
 
         # Sload tracking
-        if o['opName'] in ['SLOAD','SSTORE']:
+        if o['opName'] in ['SLOAD','SSTORE'] or o['op'] in [0x54, 0x55]:
+
             key  = o['stack'][-1]
             entry = (cur_address, key)
             refs.add(entry)
@@ -116,12 +126,16 @@ def reproduceTx(txhash, vm, api):
 
     if blnum > 4370000:
         genesis.setConfigMetropolis()
+        print("Setting Metro config for block %d", blnum)
     elif blnum > 2675000:
         genesis.setConfigSpuriousDragon()
+        print("Setting Spurious config for block %d", blnum)
     elif blnum > 2463000:
         genesis.setConfigTangerineWhistle()
+        print("Setting Tangerine config for block %d", blnum)
     elif blnum > 1150000: 
-        genesis.setConfigHomestead()
+        print("Setting Homestead config for block %d", blnum)        
+
 
 
     externals_fetched = set()
