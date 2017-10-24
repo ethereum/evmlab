@@ -142,7 +142,8 @@ def hexdump( src, length=16, sep='.', minrows = 8 , start =0):
         rows.append('{:08x}:  {:<49} | {:<16} '.format(16*(start+i), hexa, text))
         if len(rows) == minrows:
             break
-    result.extend(rows)                
+    result.extend(rows)
+#    return result
     return '\n'.join(result);
 
 def stackdump(st, length = 16, minrows=8, start =0, opcode = None):
@@ -185,18 +186,20 @@ def opDump(obj):
     @brief returns information about current exeution step
     """
 
-    def attr(x):
+    def attr(x, tryCastToInt= True):
         prelim = ('bold',"{:10}: ".format(x))
         if x in obj.keys():
             v = obj[x]
-            if type(v) != type(0):
+            if type(v) != type(0) and tryCastToInt:
                 try:
                     v = int(v,16)
                 except Exception as e:
                     # It's text
                     return [prelim, "{:6}\n".format(v.strip())]
             # An int
-            return [prelim, "{:6d} (0x{:02x})\n".format(v,v)]
+            if type(v) == type(0)
+                return [prelim, "{:6d} (0x{:02x})\n".format(v,v)]
+            return [prelim, "{:6} \n".format(v)]
         else:
             # Not available
             return [prelim, "<N/A>\n"]
@@ -206,7 +209,7 @@ def opDump(obj):
 
     result.append(attr('pc'))
     result.append(attr('op'))
-    result.append(attr('opName'))
+    result.append(attr('opName',False))
     result.append(attr('gasCost'))
     result.append(attr('gas'))
     result.append(attr('memSize'))
@@ -448,6 +451,7 @@ class DebugViewer():
 
 
 def loadJsonDebugStackTrace(fname):
+    """Parse the output from debug_getTrace"""
     from evmlab.opcodes import reverse_opcodes
     
     ops = []
@@ -468,15 +472,25 @@ def loadJsonDebugStackTrace(fname):
             print("Loaded %d items from structlogs" % len(ops))
             return ops
     except Exception as e:
-        traceback.print_stack()
+        traceback.print_exc()
     return None
 
 def loadJsonObjects(fname):
+    """Load the json from geth `evm`"""
+    print("Trying to load geth format")
     ops = []
     
     with open(fname) as f:
         for l in f:
-            ops.append(json.loads(l))
+            l = l.strip()
+            if l.startswith("#"):
+                continue
+            if len(l) == 0:
+                continue
+            op = json.loads(l)
+            if 'action' in op.keys():
+                continue
+            ops.append(op)
     return ops
 
 def loadWeirdJson(fname):
@@ -506,7 +520,7 @@ def main(args):
             ops = loadJsonObjects(fname)
         except Exception as e:
             print("Error loading json:")
-            traceback.print_stack()
+            traceback.print_exc()
             print("Trying alternate loader")
             ops = loadWeirdJson(fname)
 
