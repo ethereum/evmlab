@@ -228,7 +228,7 @@ class Program():
 		self.push(insize)
 		self.push(instart)
 		self.push(address)
-		if gas != -1:
+		if gas is not None:
 			self.push(gas)
 		else:
 			self.op(GAS)
@@ -241,8 +241,11 @@ class Program():
 		self.push(insize)
 		self.push(instart)
 		self.push(address)
-		self.push(gas)
-		self._addOp(DELEGATECALL)
+		if gas is not None:
+			self.push(gas)
+		else:
+			self.op(GAS)
+		self._addOp(STATICCALL)
 		return self
 
 	def rreturn(self, memStart=0, memSize=0):
