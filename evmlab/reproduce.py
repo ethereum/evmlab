@@ -41,7 +41,9 @@ def findExternalCalls(list_of_output):
         if len(l) == 0 or l[0] != "{":
             print("Odd line: %s" % l)
             continue
+
         o = json.loads(l.strip())
+
         if 'opName' in o and o['opName'] in externals.keys():
             accounts.add(externals[o['opName']](o))
     
@@ -84,8 +86,6 @@ def findStorageLookups(list_of_output, original_context):
             # After a DELEGATECALL, we've increased the depth, 
             # but still operating on the same context, regardless of the
             # address that was invoked
-            print("Curdepth increase")
-            print("prev_op", prev_op)
             if prev_op['op'] != 0xf4:
                 cur_address = prev_op['stack'][-2]
 
@@ -162,39 +162,45 @@ def reproduceTx(txhash, vm, api):
             done = False
         storage_slots_fetched.update(slots_to_fetch)
         
+        (g_path, p_path) = genesis.export(txhash[:8])
+        genesis_path = g_path
+        if vm.genesis_format == 'parity':
+            genesis_path = p_path
+
+        vm_args = {
+            "receiver"  : r,
+            "sender"    : s,
+            "genesis"   : genesis_path, 
+            "json"      : True, 
+            "input"     : tx['input'],
+            "gas"       : tx['gas'], 
+            "memory"    : False,
+        }
         if not done:
-            (g_path, p_path) = genesis.export(txhash[:8])
-            genesis_path = g_path
-            if vm.genesis_format == 'parity':
-                genesis_path = p_path
-
             print("Executing tx...")
-            # We could use the following to set the code for parity:
-            #receivercode = genesis.codeAt(r)
-            print(tx)
-            vm_args = {
-                "receiver"  : r,
-                "sender"    : s,
-                "genesis"   : genesis_path, 
-                "json"      : True, 
-                "input"     : tx['input'],
-                "gas"       : tx['gas'], 
-                "memory"    : True,
-            }
-            output =  vm.execute(**vm_args)
+        else:
+            #One final trace with memory on, makes for better annotated trace
+            print("Final execution (memory on)")
+            vm_args['memory'] = True
 
-            fd, temp_path = tempfile.mkstemp( prefix=txhash[:8]+'_', suffix=".txt")
-            with open(temp_path, 'w') as f :
-                f.write("\n".join(output))
-                print("Saved trace to %s" % temp_path)
-            os.close(fd)
+        # We could use the following to set the code for parity:
+        #receivercode = genesis.codeAt(r)
+        #print(tx)
+        output =  vm.execute(**vm_args)
 
+        fd, temp_path = tempfile.mkstemp( prefix=txhash[:8]+'_', suffix=".txt")
+        with open(temp_path, 'w') as f :
+            f.write("\n".join(output))
+            print("Saved trace to %s" % temp_path)
+        os.close(fd)
+
+        if not done:
             # External accounts to lookup
             externals_found = findExternalCalls(output)
             externals_tofetch = externals_found.difference(externals_fetched)
             if len(externals_tofetch) > 0:
                 print("External accounts to fetch: %s " % externals_tofetch )
-  
+
             # Storage slots to lookup
             slots_found = findStorageLookups(output, r)
             slots_to_fetch = slots_found.difference(storage_slots_fetched)
