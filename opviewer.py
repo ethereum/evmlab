@@ -6,6 +6,11 @@ try:
 except NameError:
     xrange = range;
 
+
+def bold(text):
+    return '\033[1m{}\033[0m'.format(text)
+
+
 description = """
 Tool to explore a json-trace in a debug-like interface
 """
@@ -113,7 +118,7 @@ def getStackAnnotations(opcode):
 
     return []
 
-def hexdump( src, length=16, sep='.', minrows = 8 , start =0):
+def hexdump( src, length=16, sep='.', minrows = 8 , start =0, prevsrc = ""):
     """
     @brief Return {src} in hex dump.
     """
@@ -127,7 +132,7 @@ def hexdump( src, length=16, sep='.', minrows = 8 , start =0):
     rows = []
 
     for i in xrange(0,16):
-        subSrc = src[ 2 * (start * 16 + i * 16) :2 * ( start * 16 + i * 16) +length*2]   
+        subSrc = src[ 2 * (start * 16 + i * 16) :2 * ( start * 16 + i * 16) +length*2]
         hexa = ''
         text = '';
         if len(subSrc) > 0:
@@ -136,15 +141,27 @@ def hexdump( src, length=16, sep='.', minrows = 8 , start =0):
                     hexa += ' '
                 byte = int(subSrc[h:h+2],16)
 
-                hexa += "{:02x} ".format(byte)
+                # Check if it changed from op before
+                changed = False
+                if prevsrc is not None:
+                    index = 2* (start+i)*16 + h
+                    if index +2 > len(prevsrc) :
+                        changed = True
+                    elif int(prevsrc[index:index+2],16) != byte:
+                        changed = True
+
+                if changed:
+                    hexa += "{:02x}•".format(byte)
+                else:
+                    hexa += "{:02x} ".format(byte)
                 text += txt(byte)
 
         rows.append('{:08x}:  {:<49} | {:<16} '.format(16*(start+i), hexa, text))
         if len(rows) == minrows:
             break
     result.extend(rows)
-#    return result
     return '\n'.join(result);
+
 
 def stackdump(st, length = 16, minrows=8, start =0, opcode = None):
     """ 
@@ -221,10 +238,10 @@ def toText(op):
     """
     @brief Formats an execution-step to one line of text
     """
-    def attr(x,fmt):
+    def attr(x,fmt,tryCastToInt= True):
         if x in op.keys():
             v = op[x]
-            if type(v) != type(0):
+            if type(v) != type(0) and tryCastToInt:
                 try:
                     v = int(v,16)
                 except Exception as e:
@@ -253,7 +270,7 @@ def toText(op):
         return " ".join(result)
 
     result.append(attr('pc', '{:>5d}'))
-    result.append(attr('opName','{:>12}'))
+    result.append(attr('opName','{:>12}', False))
     result.append(attr('op', '{:>5x}'))
     result.append(attr('gas', '{:>8x}'))
     result.append(attr('gasCost', '{:>8d}'))
@@ -362,14 +379,28 @@ class DebugViewer():
             return op[key]
         return default
 
+    def _prevop(self, key = None, default = None):
+
+        if self.opptr > len(self.operations)-2:
+            return default
+
+        op = self.operations[self.opptr-1]
+        if key == None:
+            return op
+        if key not in op.keys():
+            return default
+        if op[key]:
+            return op[key]
+        return default
+
 
     def getOp(self):
         return opDump(self._op(default={'pc':1}))
 
     def getMem(self):
         m = self._op('memory',"0x")
-        
-        return hexdump(m[2:], start = self.memptr)
+        prev_m = self._prevop('memory',"0x")
+        return hexdump(m[2:], start = self.memptr, prevsrc = prev_m[2:])
 
     def getStack(self):
         st = self._op('stack',[])
