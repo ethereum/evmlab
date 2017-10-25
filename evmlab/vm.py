@@ -122,10 +122,10 @@ def startProc(cmd):
     return Popen(" ".join(cmd), stdout=PIPE,shell=True, stderr=PIPE, preexec_fn=os.setsid)
 
 
-def finishProc(process, extraTime=False, output="stdout"):
-    timeout = 15
+def finishProc(process, extraTime=False, output="stdout", timeout = 30):
+
     if extraTime:
-        timeout = 30
+        timeout = 45
     try:
         (stdoutdata, stderrdata) = process.communicate(timeout=timeout)
     except TimeoutExpired:
