@@ -225,6 +225,9 @@ def main(args):
         print("\nFor benchmarking:\n")
         print("%s" % " ".join(vm.makeCommand(**vm_args)))
 
+        print("\nFor opviewing:\n")
+        print("python3 opviewer.py -f %s/%s" % (saved_files['json-trace']['path'],saved_files['json-trace']['name']))
+
         (zipfilepath, zipfilename) = zipFiles(saved_files, args.hash[:8])
         print("\nZipped files into %s%s" % (zipfilepath, zipfilename))
 
