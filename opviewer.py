@@ -197,7 +197,7 @@ def opDump(obj):
                     # It's text
                     return [prelim, "{:6}\n".format(v.strip())]
             # An int
-            if type(v) == type(0)
+            if type(v) == type(0):
                 return [prelim, "{:6d} (0x{:02x})\n".format(v,v)]
             return [prelim, "{:6} \n".format(v)]
         else:
