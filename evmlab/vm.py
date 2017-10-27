@@ -344,6 +344,9 @@ class GethVM(VM):
                     logger.warn(e)
 
         canon_steps = []
+        if len(parsed_steps) == 0:
+            return canon_steps
+            
         try:
             if 'output' in parsed_steps[-1]:
                 # last one is {"output":"","gasUsed":"0x34a48","time":4787059}
