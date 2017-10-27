@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import urwid, argparse, traceback
 import json,sys
 # Python3 support
