@@ -191,7 +191,6 @@ class StateTest():
 
         with open(self.tmpfile, 'w') as outfile:
             json.dump(self.statetest, outfile)
-        print("Wrote to disk:"  , self.tmpfile)
 
 
 
@@ -205,16 +204,6 @@ def iterate_tests(path = '/GeneralStateTests/', ignore = []):
                         continue
                     yield os.path.join(subdir, f)
 
-
-def canon(str):
-    if str in [None, "0x", ""]:
-        return ""
-    if str[:2] == "0x":
-        return str
-    return "0x" + str
-
-def toText(op):
-    return VMUtils.toText(op)
 
 def dumpJson(obj, dir = None, prefix = None):
     import tempfile
@@ -283,85 +272,8 @@ def generateTests():
         yield test_fullpath
         counter = counter +1
 
-def startParity(test_file):
-
-    testfile_path = os.path.abspath(test_file)
-    mount_testfile = testfile_path + ":" + "/mounted_testfile"
-
-    (name, isDocker) = getBaseCmd("parity")
-    if isDocker:
-        cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, name, "state-test", "/mounted_testfile", "--json"]
-    else:
-        cmd = [name,"state-test", testfile_path, "--json"]
 
 
-    return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
-
-
-def startCpp(test_subfolder, test_name, test_dgv):
-
-    [d,g,v] = test_dgv
-
-
-    (name, isDocker) = getBaseCmd("cpp")
-    if isDocker:
-        cpp_mount_tests = cfg['TESTS_PATH'] + ":" + "/mounted_tests"
-        cmd = ["docker", "run", "--rm", "-t", "-v", cpp_mount_tests, name
-                ,'-t',"GeneralStateTests/%s" %  test_subfolder
-                ,'--'
-                ,'--singletest', test_name
-                ,'--jsontrace',"'{ \"disableStorage\":true, \"disableMemory\":true }'"
-                ,'--singlenet',cfg['FORK_CONFIG']
-                ,'-d',str(d),'-g',str(g), '-v', str(v)
-                ,'--testpath', '"/mounted_tests"']
-    else:
-        cmd = [name
-                ,'-t',"GeneralStateTests/%s" %  test_subfolder
-                ,'--'
-                ,'--singletest', test_name
-                ,'--jsontrace',"'{ \"disableStorage\":true, \"disableMemory\":true }'"
-                ,'--singlenet',cfg['FORK_CONFIG']
-                ,'-d',str(d),'-g',str(g), '-v', str(v)
-                ,'--testpath',  cfg['TESTS_PATH']]
-
-
-    if cfg['FORK_CONFIG'] == 'Homestead' or cfg['FORK_CONFIG'] == 'Frontier':
-        cmd.extend(['--all']) # cpp requires this for some reason
-
-    return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
-
-def startGeth(test_file):
-
-    testfile_path = os.path.abspath(test_file)
-    mount_testfile = testfile_path + ":" + "/mounted_testfile"
-
-    (name, isDocker) = getBaseCmd("geth")
-    if isDocker:
-        cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, name, "--json", "--nomemory", "statetest", "/mounted_testfile"]
-        return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
-    else:
-        cmd = [name,"--json", "--nomemory", "statetest", testfile_path]
-        return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stderr'}
-
-
-
-
-def startPython(test_file, test_tx):
-
-    tx_encoded = json.dumps(test_tx)
-    tx_double_encoded = json.dumps(tx_encoded) # double encode to escape chars for command line
-
-    # command if not using a docker container
-    # pyeth_process = subprocess.Popen(["python", "run_statetest.py", test_file, tx_double_encoded], shell=False, stdout=subprocess.PIPE, close_fds=True)
-
-    # command to run docker container
-    # docker run --volume=/absolute/path/prestate.json:/mounted_prestate cdetrio/pyethereum run_statetest.py mounted_prestate "{\"data\": \"\", \"gasLimit\": \"0x0a00000000\", \"gasPrice\": \"0x01\", \"nonce\": \"0x00\", \"secretKey\": \"0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8\", \"to\": \"0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6\", \"value\": \"0x00\"}"
-
-    prestate_path = os.path.abspath(test_file)
-    mount_flag = prestate_path + ":" + "/mounted_prestate"
-    cmd = ["docker", "run", "--rm", "-t", "-v", mount_flag, cfg['PYETH_DOCKER_NAME'], "run_statetest.py", "/mounted_prestate", tx_double_encoded]
-
-    return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd), 'output' : 'stdout'}
 
 
 
@@ -481,8 +393,7 @@ def finishProc(name, processInfo, canonicalizer, fulltrace_filename = None):
             f.write("# %s\n\n" % processInfo['cmd'])
             f.write("\n".join(outp))
 
-    canon_text = [toText(step) for step in canonicalizer(outp)]
-    logging.info("Processed %s steps for %s" % (len(canon_text), name))
+    canon_text = [VMUtils.toText(step) for step in canonicalizer(outp)]
     return canon_text
 
 def get_summary(combined_trace, n=20):
@@ -502,25 +413,91 @@ def get_summary(combined_trace, n=20):
 
     return list(buf)
 
+def startGeth(test):
+
+    testfile_path = os.path.abspath(test.tmpfile)
+    mount_testfile = testfile_path + ":" + "/mounted_testfile"
+
+    (name, isDocker) = getBaseCmd("geth")
+    if isDocker:
+        cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, name, "--json", "--nomemory", "statetest", "/mounted_testfile"]
+        return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
+    else:
+        cmd = [name,"--json", "--nomemory", "statetest", testfile_path]
+        return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stderr'}
+
+def startParity(test):
+
+    testfile_path = os.path.abspath(test.tmpfile)
+    mount_testfile = testfile_path + ":" + "/mounted_testfile"
+
+    (name, isDocker) = getBaseCmd("parity")
+    if isDocker:
+        cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, name, "state-test", "/mounted_testfile", "--json"]
+    else:
+        cmd = [name,"state-test", testfile_path, "--json"]
+
+
+    return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
+
+def startCpp(test):
+
+    [d,g,v] = test.tx_dgv
+
+
+    (name, isDocker) = getBaseCmd("cpp")
+    if isDocker:
+        cpp_mount_tests = cfg['TESTS_PATH'] + ":" + "/mounted_tests"
+        cmd = ["docker", "run", "--rm", "-t", "-v", cpp_mount_tests, name
+                ,'-t',"GeneralStateTests/%s" %  test.subfolder
+                ,'--'
+                ,'--singletest', test.name
+                ,'--jsontrace',"'{ \"disableStorage\":true, \"disableMemory\":true }'"
+                ,'--singlenet',cfg['FORK_CONFIG']
+                ,'-d',str(d),'-g',str(g), '-v', str(v)
+                ,'--testpath', '"/mounted_tests"']
+    else:
+        cmd = [name
+                ,'-t',"GeneralStateTests/%s" %  test.subfolder
+                ,'--'
+                ,'--singletest', test.name
+                ,'--jsontrace',"'{ \"disableStorage\":true, \"disableMemory\":true }'"
+                ,'--singlenet',cfg['FORK_CONFIG']
+                ,'-d',str(d),'-g',str(g), '-v', str(v)
+                ,'--testpath',  cfg['TESTS_PATH']]
+
+
+    if cfg['FORK_CONFIG'] == 'Homestead' or cfg['FORK_CONFIG'] == 'Frontier':
+        cmd.extend(['--all']) # cpp requires this for some reason
+
+    return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
+
+def startPython(test):
+
+    tx_encoded = json.dumps(test.tx)
+    tx_double_encoded = json.dumps(tx_encoded) # double encode to escape chars for command line
+
+    prestate_path = os.path.abspath(test.prestate_tmpfile)
+    mount_flag = prestate_path + ":" + "/mounted_prestate"
+    cmd = ["docker", "run", "--rm", "-t", "-v", mount_flag, cfg['PYETH_DOCKER_NAME'], "run_statetest.py", "/mounted_prestate", tx_double_encoded]
+
+    return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd), 'output' : 'stdout'}
+
 
 def start_processes(test):
     clients = cfg['DO_CLIENTS']
-    logger.info("Starting processes for %s" % clients)
+
+    starters = {'geth': startGeth, 'cpp': startCpp, 'py': startPython, 'parity': startParity}
+
+    logger.info("Starting processes for %s on test %s" % ( clients, test.name))
     #Start the processes
     for client_name in clients:
-        if client_name == 'geth':
-            procinfo = startGeth(test.tmpfile)
-        elif client_name == 'cpp':
-            procinfo = startCpp(test.subfolder, test.name, test.tx_dgv)
-        elif client_name == 'py':
-            procinfo = startPython(test.prestate_tmpfile, test.tx)
-        elif client_name == 'parity':
-            procinfo = startParity(test.tmpfile)
+        if client_name in starters.keys():
+            procinfo = starters[client_name](test)
+            test.procs.append( (procinfo, client_name ))        
         else:
             logger.warning("Undefined client %s", client_name)
-            continue
 
-        test.procs.append( (procinfo, client_name ))        
 
 canonicalizers = {
     "geth" : VMUtils.GethVM.canonicalized, 
@@ -540,7 +517,11 @@ def end_processes(test):
             full_trace_filename = os.path.abspath("%s/%s-%s.trace.log" % (cfg['LOGS_PATH'],test.id(), client_name))
             test.traceFiles.append(full_trace_filename)
             canon_trace = finishProc(client_name, procinfo, canonicalizer, full_trace_filename)
+
             test.canon_traces.append(canon_trace)
+
+            logging.info("Processed %s steps for %s on test %s" % (len(canon_trace), client_name, test.name))
+
 
 def processTraces(test):
     if test is None:
@@ -584,6 +565,7 @@ def perform_tests(test_iterator):
 
     previous_test = None
 
+    start_time = time.time()
 
     n = 0
     for test in test_iterator():
@@ -592,11 +574,12 @@ def perform_tests(test_iterator):
         logger.info("Test id: %s" % test.id())
         test.writeToFile()
 
+        # Start new procs
+        start_processes(test)
+
         # End previous procs
         traceFiles = end_processes(previous_test)
 
-        # Start new procs
-        start_processes(test)
 
         # Process previous traces
         if processTraces(previous_test):
@@ -607,9 +590,13 @@ def perform_tests(test_iterator):
         # Do some reporting
 
         if n % 10 == 0:
-            logger.info("fail_count: %d" % fail_count)
-            logger.info("pass_count: %d" % pass_count)
-            logger.info("total:      %d" % (fail_count + pass_count))
+            time_elapsed = time.time() - start_time
+            logger.info("Fails: {}, Pass: {}, #test {} speed: {:f} tests/s".format(
+                    fail_count, 
+                    pass_count, 
+                    (fail_count + pass_count),
+                    (fail_count + pass_count) / time_elapsed
+                ))
             break
 
         previous_test = test
