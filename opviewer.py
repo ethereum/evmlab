@@ -356,7 +356,7 @@ class DebugViewer():
                                 wrap(mem_view,"Memory"), 
                                 wrap(stack_view, "Stack")
                                 ])
-                    ]),"Main")
+                    ]),"Retromix")
 
         horiz = urwid.Pile([top, wrap(help_view,"Help")])
         fill = urwid.Filler(horiz, 'top')
