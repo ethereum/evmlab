@@ -203,10 +203,14 @@ class Genesis(object):
 
     def addStorage(self, account, key, value):
         ac = self.alloc[account.lower()]
-        key = "0x{:02x}".format(int(key,16))
+        key = "0x{:064x}".format(int(key,16))
 
         if 'storage' not in ac.keys():
             ac['storage'] = {}
+
+       
+        value = "0x{:064x}".format(int(value,16)) 
+
         ac['storage'][key]=value
 
 
