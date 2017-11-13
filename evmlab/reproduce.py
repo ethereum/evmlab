@@ -126,15 +126,15 @@ def reproduceTx(txhash, vm, api):
 
     if blnum > 4370000:
         genesis.setConfigMetropolis()
-        print("Setting Metro config for block %d", blnum)
+        print("Setting Metro config for block", blnum)
     elif blnum > 2675000:
         genesis.setConfigSpuriousDragon()
-        print("Setting Spurious config for block %d", blnum)
+        print("Setting Spurious config for block", blnum)
     elif blnum > 2463000:
         genesis.setConfigTangerineWhistle()
-        print("Setting Tangerine config for block %d", blnum)
+        print("Setting Tangerine config for block", blnum)
     elif blnum > 1150000: 
-        print("Setting Homestead config for block %d", blnum)        
+        print("Setting Homestead config for block", blnum)
 
 
 
