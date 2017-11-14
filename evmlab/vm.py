@@ -291,8 +291,9 @@ class GethVM(VM):
             cmd.extend(['docker', 'run', '--rm'])
             # If any files are referenced, they need to be mounted
             if get('genesis') is not None:
+                genesis_mount = os.path.dirname(get('genesis'))
                 cmd.append('-v')
-                cmd.append('%s:%s' % (get('genesis'),get('genesis')))
+                cmd.append('%s:%s' % (genesis_mount,genesis_mount))
 #                kwargs['genesis'] = "mounted_genesis"
 #                cmd.append('%s:%s' % (get('genesis'),"/mounted_genesis"))
  #               kwargs['genesis'] = "mounted_genesis"
@@ -416,10 +417,10 @@ class ParityVM(VM):
         if self.docker: 
             cmd = ['docker', 'run','--rm']
             # If any files are referenced, they need to be mounted
-            if genesis is not None:
+            if get('genesis') is not None:
+                genesis_mount = os.path.dirname(get('genesis'))
                 cmd.append('-v')
-                cmd.append('%s:%s' % (genesis,"/mounted_genesis"))
-                genesis = "mounted_genesis"
+                cmd.append('%s:%s' % (genesis_mount,genesis_mount))
 
             cmd.append( self.executable ) 
         else:
