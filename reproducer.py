@@ -201,10 +201,16 @@ def main(args):
         sys.exit(0)
 
     if app and args.www:
+        if ':' in args.www:
+            host, port = args.www.split(':')
+        else:
+            host = args.www
+            port = 5000
+
         app.debug = args.debug
         app.api = api
         app.vm = vm
-        app.run(host=args.www)
+        app.run(host=host, port=port)
     elif args.hash:
         artefacts, vm_args = reproduce.reproduceTx(args.hash, vm, api)
         saved_files = saveFiles(artefacts)
