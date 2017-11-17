@@ -118,7 +118,7 @@ def startProc(cmd):
     #pyeth_process = subprocess.Popen(pyeth_docker_cmd, shell=False, stdout=subprocess.PIPE, close_fds=True)
 
     # need to pass a string to Popen and shell=True to get stdout from docker container
-    #print(" ".join(cmd))
+    print(" ".join(cmd))
     return Popen(" ".join(cmd), stdout=PIPE,shell=True, stderr=PIPE, preexec_fn=os.setsid)
 
 

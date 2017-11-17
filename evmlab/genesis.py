@@ -1,4 +1,11 @@
 import json
+
+def mktemp(prefix = "", suffix=""):
+    import random, string, tempfile
+    rand = ''.join([random.choice(string.ascii_letters + string.digits) for n in range(8)])
+    temp_path = "%s/%s%s%s" % (tempfile.gettempdir(), prefix, rand, suffix)
+    return temp_path
+
 class Genesis(object):
     """ Utility to create genesis files"""
 
@@ -221,19 +228,15 @@ class Genesis(object):
         return (geth_genesis, parity_genesis)
 
     def export_geth(self, prefix = None):
-        import tempfile, os
-        fd, temp_path = tempfile.mkstemp(prefix = prefix, suffix=".json")
+        temp_path = mktemp(prefix = prefix, suffix=".json")
         with open(temp_path, 'w') as f :
             json.dump(self.geth(),f)
-        os.close(fd)
         return temp_path
 
     def export_parity(self, prefix = None):
-        import tempfile, os
-        fd, temp_path = tempfile.mkstemp(prefix = prefix, suffix=".json")
+        temp_path = mktemp(prefix = prefix, suffix=".json")
         with open(temp_path, 'w') as f :
             json.dump(self.parity(),f)
-        os.close(fd)
         return temp_path
 
     def prettyprint(self):
