@@ -62,7 +62,7 @@ web_or_direct = parser.add_mutually_exclusive_group()
 web_or_direct.add_argument('-x','--hash' , type=str , 
     help  ="Don't run webapp, just lookup hash")
 if app:
-    web_or_direct.add_argument('-w','--www' ,  type=str, 
+    web_or_direct.add_argument('-w','--www', type=str, default='127.0.0.1:5000',
         help ="Run webapp on given interface (interface:port)")
     parser.add_argument('-d','--debug', action="store_true", default=False, 
         help="Run flask in debug mode (WARNING: debug on in production is insecure)")
@@ -201,10 +201,16 @@ def main(args):
         sys.exit(0)
 
     if app and args.www:
+        if ':' in args.www:
+            host, port = args.www.split(':')
+        else:
+            host = args.www
+            port = 5000
+
         app.debug = args.debug
         app.api = api
         app.vm = vm
-        app.run(host=args.www)
+        app.run(host=host, port=port)
     elif args.hash:
         artefacts, vm_args = reproduce.reproduceTx(args.hash, vm, api)
         saved_files = saveFiles(artefacts)
