@@ -62,7 +62,7 @@ web_or_direct = parser.add_mutually_exclusive_group()
 web_or_direct.add_argument('-x','--hash' , type=str , 
     help  ="Don't run webapp, just lookup hash")
 if app:
-    web_or_direct.add_argument('-w','--www' ,  type=str, 
+    web_or_direct.add_argument('-w','--www', type=str, default='127.0.0.1:5000',
         help ="Run webapp on given interface (interface:port)")
     parser.add_argument('-d','--debug', action="store_true", default=False, 
         help="Run flask in debug mode (WARNING: debug on in production is insecure)")
