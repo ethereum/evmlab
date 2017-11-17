@@ -483,29 +483,30 @@ class DebugViewer():
 
 
 def loadJsonDebugStackTrace(fname):
-    """Parse the output from debug_getTrace"""
+    """Parse the output from debug_traceTransaction"""
     from evmlab.opcodes import reverse_opcodes
-    
-    ops = []
+
     try:
         with open(fname) as f:
             one_json_blob = json.load(f)
-            xops = one_json_blob['result']['structLogs']
-            for op in xops:
-                op['opName'] = op['op']
-                op['op'] = reverse_opcodes[op['op']]
-                if 'memory' in op.keys():
-                    if op['memory'] == None:
-                        op['memory'] = "0x"
-                    else:
-                        op['memory'] = "0x"+"".join(op['memory'])
-                        print("Memory set to ", op['memory'])
-                ops.append(op)
-            print("Loaded %d items from structlogs" % len(ops))
-            return ops
-    except Exception as e:
-        traceback.print_exc()
-    return None
+    except json.decoder.JSONDecodeError:
+        print('Failed to parse file in debug_traceTransaction format')
+        return None
+
+    ops = []
+    xops = one_json_blob['result']['structLogs']
+    for op in xops:
+        op['opName'] = op['op']
+        op['op'] = reverse_opcodes[op['op']]
+        if 'memory' in op.keys():
+            if op['memory'] == None:
+                op['memory'] = "0x"
+            else:
+                op['memory'] = "0x"+"".join(op['memory'])
+                print("Memory set to ", op['memory'])
+        ops.append(op)
+    print("Loaded %d items from structlogs" % len(ops))
+    return ops
 
 def loadJsonObjects(fname):
     """Load the json from geth `evm`"""
