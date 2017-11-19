@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import urwid, argparse, traceback
 import json,sys
+from evmlab.source_map import SourceMap
 # Python3 support
 try:
     xrange(0,1);
@@ -24,6 +25,9 @@ python3 traceviewer.py -f example.json
 
 parser = argparse.ArgumentParser(description=description,epilog = examples,formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("-f","--file", type=str, help="File to load")
+parser.add_argument("-s","--source", type=str, help="Contract source code")
+parser.add_argument("-j","--json", type=str, help="Compiler standard-json output")
+parser.add_argument("-c","--contract", type=str, help="Contract label in the standard-json output")
 
 def getStackAnnotations(opcode):
     """ 
@@ -319,14 +323,18 @@ class DebugViewer():
         self.trace_view = None
         self.help_view = None
 
+        self.show_source = False
 
-    def setTrace(self,trace):
+
+    def setTrace(self,trace, source=None, jsonOutput=None, contract=None):
         self.operations = trace
+        self.source = source
+        self.jsonOutput = jsonOutput
 
         ops_view   = urwid.Text(self.getOp())
         mem_view   = urwid.Text(self.getMem())
         stack_view = urwid.Text(self.getStack())
-        trace_view = urwid.Text(self.getTrace())
+        trace_view = urwid.Text(self.getTraceOrSource())
         help_view  = urwid.Text(self.getHelp())
         # palettes are currently not used
         palette = [
@@ -362,6 +370,9 @@ class DebugViewer():
         fill = urwid.Filler(horiz, 'top')
         
         #self.dbg("Loaded %d operations" % len(self.operations) )
+
+        if source and jsonOutput:
+            self.sm = SourceMap.from_standard_json(source, jsonOutput, contract)
 
         loop = urwid.MainLoop(fill, palette, unhandled_input=lambda input: self.show_or_exit(input))
         loop.run()
@@ -408,6 +419,11 @@ class DebugViewer():
         opcode = self._op('op',None)
         return stackdump(st, start=self.stackptr, opcode = opcode)
 
+    def getTraceOrSource(self):
+        if hasattr(self, 'sm') and self.show_source:
+            return self.getSource()
+        return self.getTrace()
+
     def getTrace(self):
         # Trace 2 * pad + 1 lines
 
@@ -421,6 +437,32 @@ class DebugViewer():
         ops = self.operations[start : end]
         return opTrace(ops = ops, sel = sel, offset = start)
 
+    def getSource(self):
+        # pc is a byte offset
+        pc = self._op('pc') or 0
+
+        # get instruction a that offset
+        instr = self.sm.instr_for_pc(pc)
+
+        # get line number for instruction
+        current_ln = self.sm.line_number_for_instr(instr)
+
+        # get lines around current line
+        lines = self.source.splitlines()
+        start = max(0, current_ln - 5)
+        end = current_ln + 5
+
+        try:
+            output = []
+            for i in range(start, end):
+                if i == current_ln:
+                    output.append(' -> ' + lines[i-1])
+                else:
+                    output.append('{:>3} '.format(i) + lines[i-1])
+            return '\n'.join(output)
+        except:
+            return str({'pc': pc, 'current_ln': current_ln, 'instr': instr})
+
     def getHelp(self):
         return """Key navigation
         a: Trace up        s: Mem up     d: Stack up
@@ -429,7 +471,7 @@ class DebugViewer():
         """
     def _refresh(self):
         self.ops_view.set_text(self.getOp())
-        self.trace_view.set_text(self.getTrace())
+        self.trace_view.set_text(self.getTraceOrSource())
         self.mem_view.set_text(self.getMem())
         self.stack_view.set_text(self.getStack())
 
@@ -477,6 +519,10 @@ class DebugViewer():
         if key in ('c','C'):
             self.stackptr = self.stackptr+step
             self.stack_view.set_text(self.getStack())
+
+        if key in ('p', 'P'):
+            self.show_source = not self.show_source
+            self.trace_view.set_text(self.getTraceOrSource())
 
         if key in ('g','G'):
             self.dbg("TODO: Implement GOTO")
@@ -556,7 +602,19 @@ def main(args):
             print("Trying alternate loader")
             ops = loadWeirdJson(fname)
 
-    DebugViewer().setTrace(ops)
+    source, jsonOutput = None, None
+    if args.source and args.json:
+        with open(args.source) as f:
+            source = f.read()
+        with open(args.json) as f:
+            jsonOutput = json.load(f)
+
+        if not args.contract:
+            print('Must specify contract with -c [contract]')
+            print('Options: ' + ', '.join(jsonOutput['contracts'].keys()))
+            return
+
+    DebugViewer().setTrace(ops, source, jsonOutput, args.contract)
 
 if __name__ == '__main__':
     options = parser.parse_args()
