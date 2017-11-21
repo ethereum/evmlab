@@ -1,5 +1,6 @@
 import os, signal, json, itertools, traceback, sys
 from subprocess import Popen, PIPE, TimeoutExpired
+import platform
 from ethereum.utils import parse_int_or_hex,decode_hex,remove_0x_head
 import logging
 from . import opcodes
@@ -293,7 +294,10 @@ class GethVM(VM):
             if get('genesis') is not None:
                 genesis_mount = os.path.dirname(get('genesis'))
                 cmd.append('-v')
-                cmd.append('%s:%s' % (genesis_mount,genesis_mount))
+                if platform.system() == 'Darwin':
+                    cmd.append('%s:%s' % (os.path.join('/private', genesis_mount.strip('/')), genesis_mount))
+                else:
+                    cmd.append('%s:%s' % (genesis_mount, genesis_mount))
 #                kwargs['genesis'] = "mounted_genesis"
 #                cmd.append('%s:%s' % (get('genesis'),"/mounted_genesis"))
  #               kwargs['genesis'] = "mounted_genesis"
@@ -420,7 +424,10 @@ class ParityVM(VM):
             if get('genesis') is not None:
                 genesis_mount = os.path.dirname(get('genesis'))
                 cmd.append('-v')
-                cmd.append('%s:%s' % (genesis_mount,genesis_mount))
+                if platform.system() == 'Darwin':
+                    cmd.append('%s:%s' % (os.path.join('/private', genesis_mount.strip('/')), genesis_mount))
+                else:
+                    cmd.append('%s:%s' % (genesis_mount, genesis_mount))
 
             cmd.append( self.executable ) 
         else:
