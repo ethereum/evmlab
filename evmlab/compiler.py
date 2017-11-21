@@ -148,6 +148,7 @@ class Program():
 		self.create       = lambda v,p,s:self.push(s).push(p).push(v).op(CREATE)
 		self.codecopy     = lambda t,f,s:self.push(s).push(f).push(t).op(CODECOPY)
 		self.extcodecopy  = lambda a,t,f,s:self.push(s).push(f).push(t).push(a).op(CODECOPY)
+		self.extcoodesize = lambda a:self.push(a).op(EXTCODESIZE)
 		self.selfdestruct = lambda a: self.push(a).op(SUICIDE)
 
 		#log without topics and data mem[p..(p+s))
@@ -196,6 +197,8 @@ class Program():
 
 		self._addOp(PUSH1+(length-1), bytecode(value));
 		return self
+
+
 
 	def call(self,gas ,address,value = 0,instart = 0, insize = 0, out = 0, outsize = 0):
 		self.push(outsize)
