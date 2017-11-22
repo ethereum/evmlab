@@ -1,7 +1,6 @@
 import os, signal, json, itertools, traceback, sys
 from subprocess import Popen, PIPE, TimeoutExpired
 import platform
-from ethereum.utils import parse_int_or_hex,decode_hex,remove_0x_head
 import logging
 from . import opcodes
 logger = logging.getLogger()
@@ -11,6 +10,38 @@ FNULL = open(os.devnull, 'w')
 valid_opcodes = opcodes.reverse_opcodes.keys()
 
 
+
+try:
+    from ethereum.utils import parse_int_or_hex,decode_hex,remove_0x_head
+except:
+    print("ethereum.utils not available, using fallback methods")
+    def decode_hex(s):
+        if isinstance(s, str):
+            return bytes.fromhex(s)
+        if isinstance(s, (bytes, bytearray)):
+            import binascii
+            return binascii.unhexlify(s)
+        raise TypeError('Value must be an instance of str or bytes')
+
+    def is_numeric(x): return isinstance(x, int)
+
+    def remove_0x_head(s):
+        return s[2:] if s[:2] in (b'0x', '0x') else s
+
+    def big_endian_to_int(value):
+        return int.from_bytes(value, byteorder='big')
+
+    def parse_int_or_hex(s):
+        if is_numeric(s):
+            return s
+        elif s[:2] in (b'0x', '0x'):
+            s = to_string(s)
+            tail = (b'0' if len(s) % 2 else b'') + s[2:]
+            return big_endian_to_int(decode_hex(tail))
+        else:
+            return int(s)
+
+
 def add_0x(str):
     if str in [None, "0x", ""]:
         return ""
@@ -18,11 +49,13 @@ def add_0x(str):
         return str
     return "0x" + str
 
-def strip_0x(txt):
-    if len(txt) >= 2 and txt[:2] == '0x':
-        return txt[2:]
-    return txt
+strip_0x = remove_0x_head
 
+#def strip_0x(txt):
+#    if len(txt) >= 2 and txt[:2] == '0x':
+#        return txt[2:]
+#    return txt
+#
 def toHexQuantities(vals):
     quantities = []
     for val in vals:

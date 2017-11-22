@@ -25,7 +25,7 @@ def generateInitcode(addr):
     p.op(c.SWAP2)
     p.op(c.SWAP3)
     p.op(c.EXTCODECOPY)
-    p.push(0x1338)
+    p.push(0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef)
     p.op(c.DUP3)
     p.op(c.MSTORE)
 
@@ -52,7 +52,8 @@ def main():
 
     initcode = generateInitcode(cloneaddr)
 
-    geth = vm.GethVM("/home/martin/go/src/github.com/ethereum/go-ethereum/build/bin/evm")
+#    geth = vm.GethVM("/home/martin/go/src/github.com/ethereum/go-ethereum/build/bin/evm")
+    geth = vm.GethVM("holiman/gethvm", docker=True)
     print("Bytecode: ", initcode)
 
     g_out = geth.execute(code = initcode, genesis = geth_g, json=True, gas=0xFFFF, memory=True)
