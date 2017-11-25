@@ -600,7 +600,6 @@ def perform_tests(test_iterator):
                     (fail_count + pass_count),
                     (fail_count + pass_count) / time_elapsed
                 ))
-            break
 
         previous_test = test
 
