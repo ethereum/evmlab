@@ -188,7 +188,8 @@ class StateTest():
         return "{:0>4}-{}-{}-{}".format(self.number,self.subfolder,self.name,self.tx_i)
 
     def writeToFile(self):
-
+        # write to unique tmpfile
+        self.tmpfile = "%s-test.json" % self.id()
         with open(self.tmpfile, 'w') as outfile:
             json.dump(self.statetest, outfile)
 
@@ -531,6 +532,8 @@ def processTraces(test):
     (equivalent, trace_output) = VMUtils.compare_traces(test.canon_traces, cfg['DO_CLIENTS']) 
 
     if equivalent:
+        tmpfile_path = os.path.abspath(test.tmpfile)
+        os.remove(tmpfile_path)
         #delete non-failed traces
         for f in test.traceFiles:
             os.remove(f)
@@ -555,7 +558,7 @@ def processTraces(test):
             logger.info("Summary trace: %s" , summary_log_filename)
             f.write("\n".join(trace_summary))
 
-        return equivalent
+    return equivalent
 
 def perform_tests(test_iterator):
 
