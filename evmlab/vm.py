@@ -357,6 +357,8 @@ class GethVM(VM):
             cmd.append("--json")
         if get('statdump'):
             cmd.append("--statdump")
+        if get('create'):
+            cmd.append("--create")
 
         cmd.append("run")
 

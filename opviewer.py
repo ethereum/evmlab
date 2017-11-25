@@ -258,7 +258,7 @@ def toText(op):
             return "END" 
         if 'stateRoot' in op.keys():
             return "stateRoot {}".format(op['stateRoot'])
-        if 'error' in op.keys() and op['error'] is not None:
+        if 'error' in op.keys() and op['error'] not in [None, '']:
             if str(op['error']).find('gas') > -1:
                 return "OOG" 
             return "Err: {}".format(op['error']) 

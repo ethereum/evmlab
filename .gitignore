@@ -4,3 +4,5 @@ output/*.json
 output/*.zip
 tracerLogs/*.log.txt
 tracerLogs/*.trace.log
+
+.api_cache

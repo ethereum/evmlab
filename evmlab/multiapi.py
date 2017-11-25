@@ -44,6 +44,10 @@ class MultiApi(object):
             acc['nonce']   = self.web3.eth.getTransactionCount(address, blnum)
             acc['address'] = address
 
+            # testrpc will return 0x0 if no code, geth expects 0x
+            if acc['code'] == '0x0':
+                acc['code'] = '0x'
+
             # cache it, but only if it's at a specific block number
             if blnum is not None:
                 self._putCached(cachekey, acc)
