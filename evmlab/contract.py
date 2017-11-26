@@ -35,72 +35,91 @@ def parseSourceMap(maptext):
 
 
 class Contract():
+    _create = False
+
     bin = None
     ins = None
     binRuntime = None
     insRuntime = None
-    create = False
+
     content = []
+    contractText = ""
 
     def __init__(self, sourcelist, contract=None):
         self.sourcelist = sourcelist
 
-        def load(key):
-            try:
-                return contract[key]
-            except KeyError:
-                print("Contract JSON missing key: %s" % key)
-                return None
-
-        if contract:
-            self._addBinRuntime(load('bin-runtime'))
-            self.mappingRuntime = parseSourceMap(load('srcmap-runtime'))
-            self._addBin(load('bin'))
-            self.mapping = parseSourceMap(load('srcmap'))
-
         self._loadSources()
+        self._loadContract(contract)
+
+    @property
+    def create(self):
+        return self._create
+
+    @create.setter
+    def create(self, val):
+        self._create = val
+        self._loadContractText()
 
     def isInitialized(self):
         return self.bin is not None or self.binRuntime is not None
 
     def getSourceCode(self, pc):
-        i = self._getMappingIndex(pc)
+        [s, l, f, j] = self._getInstructionMapping(0)
 
-        if i == -1:
+        try:
+            code_mapping = self._getInstructionMapping(pc)
+        except KeyError:
             return "Missing code"
+        s = int(s)
+        l = int(l)
 
-        mapping = self.mapping if self.create else self.mappingRuntime
+        # code_mapping offsets will be in relation to the entire contract file
+        # this could be multiple contracts in a single .sol file, since we are
+        # returning only the contract text, we need to update code_mapping offsets
+        # to match the contractText
+        transformed_mapping = [int(code_mapping[0]) - s, int(code_mapping[1]) - l]
 
-        [s, l, f, j] = mapping[i]
-        # Where
-        # s is the byte-offset to the start of the range in the source file,
-        # l is the length of the source range in bytes and
-        # f is the source index mentioned above.
-        # j can be either i, o or -
-        #   i   signifying whether a jump instruction goes into a function,
-        #   o   returns from a function or
-        #   -   is a regular jump as part of e.g. a loop.
+        return self.contractText[s:s + l], transformed_mapping
+
+    def getCode(self, pc):
+        try:
+            [s, l, f, j] = self._getInstructionMapping(pc)
+        except KeyError:
+            return "Missing code"
 
         s = int(s)
         l = int(l)
-        f = int(f)
-        text = self.content[f]
-        return text[s:s + l]
+        return self.contractText[s:s + l]
 
     def getSource(self, pc):
-        i = self._getMappingIndex(pc)
-
-        # if pc > len(self.mapping):
-        if i == -1:
+        try:
+            [s, l, f, j] = self._getInstructionMapping(pc)
+        except KeyError:
             return ""
 
-        [s, l, f, j] = self.mapping[i]
         s = int(s)
         l = int(l)
         f = int(f)
         text = self.content[f]
 
         return (text[:s], text[s:s + l], text[s + l:])
+
+    def _getInstructionMapping(self, pc):
+        """
+        :param pc: programCounter to fetch mapping for
+        :return: [s, l, f, j] where:
+             s is the byte-offset to the start of the range in the source file,
+             l is the length of the source range in bytes and
+             f is the source index mentioned above.
+             j can be either i, o or -
+               i   signifying whether a jump instruction goes into a function,
+               o   returns from a function or
+               -   is a regular jump as part of e.g. a loop.
+        """
+        i = self._getMappingIndex(pc)
+        mapping = self.mapping if self.create else self.mappingRuntime
+
+        return mapping[i]
 
     def _getMappingIndex(self, pc):
         ins = self.ins if self.create else self.insRuntime
@@ -109,7 +128,7 @@ class Contract():
         if pc in pcs:
             return pcs.index(pc)
 
-        return -1
+        raise KeyError
 
     def _loadSources(self):
         for file in self.sourcelist:
@@ -117,10 +136,36 @@ class Contract():
                 print(s.name)
                 self.content.append(s.read())
 
-    def _addBinRuntime(self, bytecode):
-        self.binRuntime = bytecode
-        self.insRuntime = parseCode(bytecode)
+    def _loadContract(self, contract):
+        if not contract:
+            return
 
-    def _addBin(self, bytecode):
-        self.bin = bytecode
-        self.ins = parseCode(bytecode)
+        def load(key):
+            try:
+                return contract[key]
+            except KeyError:
+                print("Contract JSON missing key: %s" % key)
+                return None
+
+        bytecode = load('bin-runtime')
+        if bytecode:
+            self.binRuntime = bytecode
+            self.insRuntime = parseCode(bytecode)
+
+        bytecode = load('bin')
+        if bytecode:
+            self.bin = bytecode
+            self.ins = parseCode(bytecode)
+
+        self.mappingRuntime = parseSourceMap(load('srcmap-runtime'))
+        self.mapping = parseSourceMap(load('srcmap'))
+
+        if self.isInitialized():
+            self._loadContractText()
+
+    def _loadContractText(self):
+        [s, l, f, j] = self._getInstructionMapping(0)
+
+        f = int(f)
+
+        self.contractText = self.content[f]

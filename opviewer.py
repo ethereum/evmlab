@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import urwid, argparse, traceback
-import json,sys, os
+import urwid, argparse, traceback, math
+import json,sys, os, re
 from evmlab.context import buildContexts
 from evmlab.contract import Contract
 from evmlab import reproduce, utils
@@ -335,14 +335,48 @@ def opTrace(ops = [], sel = 0, offset = 0):
     return "\n".join(result)
 
 
-def opSource(c, opcode):
+NEWLINE_PATTERN = re.compile('\n')
+def opSource(c, opcode, srcptr, track=True, length=12):
     """
     @brief formats an execution step to the corresponding source code
     """
     if 'pc' in opcode.keys():
-        return c.getSourceCode(opcode['pc'])
+        contract, code_pos = c.getSourceCode(opcode['pc'])
+
+        start = code_pos[0]
+        end = start + code_pos[1]
+        code = contract[start:end]
+
+        if start == end:
+            txt = contract
+        else:
+            txt = contract[:start] + "**" + code + "**" + contract[end:]
+
+        # determine which line the code is on
+        start_code_line = len(re.findall(NEWLINE_PATTERN, txt[:start]))
+        code_lines = len(re.findall(NEWLINE_PATTERN, code)) + 1
+
+        split = txt.splitlines()
+
+        if track:
+            if start_code_line == 0 or code_lines >= length:
+                srcptr = start_code_line
+                view = split[start_code_line : start_code_line + length]
+            else:
+                offset = math.floor((length - code_lines)/2)
+                line_end = min(start_code_line + code_lines + offset, len(split))
+                line_start = max(line_end - length, 0)
+
+                srcptr = line_start
+                view = split[line_start : line_end]
+        else:
+            if srcptr + length > len(split):
+                srcptr = max(len(split) - length, 0)
+            view = split[srcptr: srcptr + length]
+
+        return srcptr, "\n".join(view)
     else:
-        return ""
+        return srcptr, ""
 
 
 wrap = lambda x, y : urwid.LineBox( x,y)
@@ -354,6 +388,8 @@ class DebugViewer():
         self.memptr = 0
         self.stackptr = 0
         self.opptr = 0
+        self.srcptr = 0
+        self.srctrack = True
 
         self.ops_view = None
         self.mem_view = None
@@ -468,7 +504,7 @@ class DebugViewer():
         ops = self.operations[start : end]
         return opTrace(ops = ops, sel = sel, offset = start)
 
-    def getSource(self):
+    def getSource(self, track=None):
         op = self.operations[self.opptr]
 
         if not self.contexts:
@@ -477,15 +513,24 @@ class DebugViewer():
         if 'depth' not in op:
             return ""
 
-        c = self.contexts[op['depth']]
+        prev_d = self._prevop('depth', None)
 
-        # ops = self.operations[start : end]
-        return opSource(c, op)
+        if prev_d and prev_d != op['depth']:
+            self.srcptr = 0
+
+        c = self.contexts[op['depth']]
+        # print(self.srcptr)
+
+        if track is None:
+            track = self.srctrack
+
+        self.srcptr, txt = opSource(c, op, self.srcptr, track=track)
+        return txt
 
     def getHelp(self):
         return """Key navigation
-        a: Trace up        s: Mem up     d: Stack up
-        z: Trace down      x: Mem down   c: Stack down        Use uppercase for large steps
+        a: Trace up        s: Mem up     d: Stack up    f: Source up    t: track source on/off
+        z: Trace down      x: Mem down   c: Stack down  v: Source down      Use uppercase for large steps
     press `q` to quit
         """
     def _refresh(self):
@@ -507,7 +552,7 @@ class DebugViewer():
             raise urwid.ExitMainLoop()
 
         step = 1
-        if key in ('A','Z','S','X','D','C'):
+        if key in ('A','Z','S','X','D','C','F','V'):
             step = 10
 
         # UP trace
@@ -539,6 +584,22 @@ class DebugViewer():
         if key in ('c','C'):
             self.stackptr = self.stackptr+step
             self.stack_view.set_text(self.getStack())
+
+        # UP source
+        if key in ('f','F'):
+            self.srcptr = max(0, self.srcptr-step)
+            self.source_view.set_text(self.getSource(track=False))
+
+        # DOWN source
+        if key in ('v','V'):
+            self.srcptr = self.srcptr+step
+            self.source_view.set_text(self.getSource(track=False))
+
+        if key in ('t', 'T'):
+            self.srctrack = not self.srctrack
+            if self.srctrack:
+                self.srcptr = 0
+            self.source_view.set_text(self.getSource())
 
         if key in ('g','G'):
             self.dbg("TODO: Implement GOTO")
