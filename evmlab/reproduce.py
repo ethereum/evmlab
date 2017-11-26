@@ -46,7 +46,8 @@ def findExternalCalls(list_of_output):
 
         if 'opName' in o and o['opName'] in externals.keys():
             accounts.add(externals[o['opName']](o))
-    
+
+    accounts.discard('0x0')
     return accounts
 
 def findStorageLookups(list_of_output, original_context):
@@ -124,6 +125,9 @@ def reproduceTx(txhash, vm, api):
     s = tx['from']
     r = tx['to']
     tx['input'] = tx['input'][2:]
+
+    if r == '0x0':
+        r = None
 
     create = r is None
 

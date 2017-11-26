@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 import urwid, argparse, traceback
-import json,sys
-from evmlab.source_map import SourceMap
+import json,sys, os
+from web3 import Web3, RPCProvider
+from urllib.parse import urlparse
+from evmlab import etherchain
+from evmlab import multiapi
+from evmlab.context import buildContexts
+from evmlab.contract import Contract
+
 # Python3 support
 try:
-    xrange(0,1);
+    xrange(0,1)
 except NameError:
-    xrange = range;
+    xrange = range
 
 
 def bold(text):
@@ -20,14 +26,25 @@ examples = """
 
 # Analyse a trace
 
-python3 traceviewer.py -f example.json
+python3 opviewer.py -f example.json
+
+# Analyse a trace with sources
+
+python3 opviewer.py -f example.json -s /path/to/contracts -j /path/to/combined.json --hash txHash
 """
 
 parser = argparse.ArgumentParser(description=description,epilog = examples,formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("-f","--file", type=str, help="File to load")
-parser.add_argument("-s","--source", type=str, help="Contract source code")
-parser.add_argument("-j","--json", type=str, help="Compiler standard-json output")
-parser.add_argument("-c","--contract", type=str, help="Contract label in the standard-json output")
+
+sourcesettings = parser.add_argument_group('Sources', 'Settings used to display contract sources')
+sourcesettings.add_argument("-s","--source", type=str, default="./", help="Contract source code directory")
+sourcesettings.add_argument("-j","--json", type=str, help="Compiler combined-json output")
+sourcesettings.add_argument('--hash', type=str, help="hash of the tx to view")
+
+web3settings = parser.add_argument_group('Web3', 'Settings about where to fetch information from when displaying contract sources (default infura)')
+web3settings.add_argument("--web3", type=str, default="https://mainnet.infura.io/",
+                          help="Web3 API url to fetch info from (default 'https://mainnet.infura.io/'")
+
 
 def getStackAnnotations(opcode):
     """ 
@@ -131,7 +148,7 @@ def hexdump( src, length=16, sep='.', minrows = 8 , start =0, prevsrc = ""):
 
     result = [];
 
-    
+
     result.append('           00 01 02 03 04 05 06 07  08 09 0A 0B 0C 0D 0E 0F  |  [ --ascii--]')
     result.append('')
     rows = []
@@ -236,7 +253,7 @@ def opDump(obj):
     result.append(attr('gas'))
     result.append(attr('memSize'))
     result.append(attr('depth'))
-    
+
     return result
 
 def toText(op):
@@ -259,13 +276,13 @@ def toText(op):
 
     def precheck(op):
         if not op.keys():
-            return "END" 
+            return "END"
         if 'stateRoot' in op.keys():
             return "stateRoot {}".format(op['stateRoot'])
         if 'error' in op.keys() and op['error'] not in [None, '']:
             if str(op['error']).find('gas') > -1:
-                return "OOG" 
-            return "Err: {}".format(op['error']) 
+                return "OOG"
+            return "Err: {}".format(op['error'])
         return None
 
     abort = precheck(op)
@@ -306,6 +323,15 @@ def opTrace(ops = [], sel = 0, offset = 0):
     return "\n".join(result)
 
 
+def opSource(c, opcode):
+    """
+    @brief formats an execution step to the corresponding source code
+    """
+    if 'pc' in opcode.keys():
+        return c.getSourceCode(opcode['pc'])
+    else:
+        return ""
+
 
 wrap = lambda x, y : urwid.LineBox( x,y)
 
@@ -313,7 +339,7 @@ class DebugViewer():
 
     def __init__(self):
 
-        self.memptr = 0 
+        self.memptr = 0
         self.stackptr = 0
         self.opptr = 0
 
@@ -321,20 +347,19 @@ class DebugViewer():
         self.mem_view = None
         self.stack_view = None
         self.trace_view = None
+        self.source_view = None
         self.help_view = None
 
-        self.show_source = False
 
-
-    def setTrace(self,trace, source=None, jsonOutput=None, contract=None):
+    def setTrace(self, trace, contexts):
         self.operations = trace
-        self.source = source
-        self.jsonOutput = jsonOutput
+        self.contexts = contexts
 
         ops_view   = urwid.Text(self.getOp())
         mem_view   = urwid.Text(self.getMem())
         stack_view = urwid.Text(self.getStack())
-        trace_view = urwid.Text(self.getTraceOrSource())
+        trace_view = urwid.Text(self.getTrace())
+        source_view = urwid.Text(self.getSource())
         help_view  = urwid.Text(self.getHelp())
         # palettes are currently not used
         palette = [
@@ -352,6 +377,7 @@ class DebugViewer():
         self.mem_view = mem_view
         self.stack_view = stack_view
         self.trace_view = trace_view
+        self.source_view = source_view
         self.help_view = help_view
 
 
@@ -361,18 +387,16 @@ class DebugViewer():
                                 wrap(trace_view, "Trace")]
                                 ),
                             urwid.Pile([
-                                wrap(mem_view,"Memory"), 
-                                wrap(stack_view, "Stack")
+                                wrap(mem_view,"Memory"),
+                                wrap(stack_view, "Stack"),
+                                wrap(source_view, "Source"),
                                 ])
                     ]),"Retromix")
 
         horiz = urwid.Pile([top, wrap(help_view,"Help")])
         fill = urwid.Filler(horiz, 'top')
-        
-        #self.dbg("Loaded %d operations" % len(self.operations) )
 
-        if source and jsonOutput:
-            self.sm = SourceMap.from_standard_json(source, jsonOutput, contract)
+        #self.dbg("Loaded %d operations" % len(self.operations) )
 
         loop = urwid.MainLoop(fill, palette, unhandled_input=lambda input: self.show_or_exit(input))
         loop.run()
@@ -419,18 +443,13 @@ class DebugViewer():
         opcode = self._op('op',None)
         return stackdump(st, start=self.stackptr, opcode = opcode)
 
-    def getTraceOrSource(self):
-        if hasattr(self, 'sm') and self.show_source:
-            return self.getSource()
-        return self.getTrace()
-
     def getTrace(self):
         # Trace 2 * pad + 1 lines
 
         pad = 12
         sel = self.opptr
         start = max(sel-pad, 0)
-     
+
         end = min(start+2*pad+1, len(self.operations)-1)
 
 
@@ -438,30 +457,18 @@ class DebugViewer():
         return opTrace(ops = ops, sel = sel, offset = start)
 
     def getSource(self):
-        # pc is a byte offset
-        pc = self._op('pc') or 0
+        op = self.operations[self.opptr]
 
-        # get instruction a that offset
-        instr = self.sm.instr_for_pc(pc)
+        if not self.contexts:
+            return "No Source Provided"
 
-        # get line number for instruction
-        current_ln = self.sm.line_number_for_instr(instr)
+        if 'depth' not in op:
+            return ""
 
-        # get lines around current line
-        lines = self.source.splitlines()
-        start = max(0, current_ln - 5)
-        end = current_ln + 5
+        c = self.contexts[op['depth']]
 
-        try:
-            output = []
-            for i in range(start, end):
-                if i == current_ln:
-                    output.append(' -> ' + lines[i-1])
-                else:
-                    output.append('{:>3} '.format(i) + lines[i-1])
-            return '\n'.join(output)
-        except:
-            return str({'pc': pc, 'current_ln': current_ln, 'instr': instr})
+        # ops = self.operations[start : end]
+        return opSource(c, op)
 
     def getHelp(self):
         return """Key navigation
@@ -471,7 +478,8 @@ class DebugViewer():
         """
     def _refresh(self):
         self.ops_view.set_text(self.getOp())
-        self.trace_view.set_text(self.getTraceOrSource())
+        self.trace_view.set_text(self.getTrace())
+        self.source_view.set_text(self.getSource())
         self.mem_view.set_text(self.getMem())
         self.stack_view.set_text(self.getStack())
 
@@ -485,11 +493,11 @@ class DebugViewer():
         """
         if key in ('q', 'Q'):
             raise urwid.ExitMainLoop()
-        
+
         step = 1
         if key in ('A','Z','S','X','D','C'):
             step = 10
-        
+
         # UP trace
         if key in ('a','A'):
             self.opptr = max(0, self.opptr-step)
@@ -519,10 +527,6 @@ class DebugViewer():
         if key in ('c','C'):
             self.stackptr = self.stackptr+step
             self.stack_view.set_text(self.getStack())
-
-        if key in ('p', 'P'):
-            self.show_source = not self.show_source
-            self.trace_view.set_text(self.getTraceOrSource())
 
         if key in ('g','G'):
             self.dbg("TODO: Implement GOTO")
@@ -558,7 +562,7 @@ def loadJsonObjects(fname):
     """Load the json from geth `evm`"""
     print("Trying to load geth format")
     ops = []
-    
+
     with open(fname) as f:
         for l in f:
             l = l.strip()
@@ -588,6 +592,23 @@ def loadWeirdJson(fname):
 
 ##python3 opviewer.py -f test.json
 def main(args):
+    parsed_web3 = urlparse(args.web3)
+    if not parsed_web3.hostname:
+        # User probably omitted 'http://'
+        parsed_web3 = urlparse("http://%s" % args.web3)
+
+    ssl = (parsed_web3.scheme == 'https')
+    port = parsed_web3.port
+
+    if not port:
+        # Not explicitly defined
+        if ssl:
+            port = 443
+        else:
+            port = 80
+    web3 = Web3(RPCProvider(host=parsed_web3.hostname, port=port, ssl=ssl))
+    api = multiapi.MultiApi(web3=web3, etherchain=etherchain.EtherChainAPI())
+
     ops = []
 
     fname = args.file
@@ -603,19 +624,25 @@ def main(args):
             print("Trying alternate loader")
             ops = loadWeirdJson(fname)
 
-    source, jsonOutput = None, None
-    if args.source and args.json:
-        with open(args.source) as f:
-            source = f.read()
+    if (args.hash and not args.json) or (args.json and not args.hash):
+        parser.error('json and hash arguments must be used together')
+
+    contexts = None
+    if args.json:
+        contracts = []
         with open(args.json) as f:
-            jsonOutput = json.load(f)
+            combined = json.load(f)
 
-        if not args.contract:
-            print('Must specify contract with -c [contract]')
-            print('Options: ' + ', '.join(jsonOutput['contracts'].keys()))
-            return
+            sourceList = [os.path.join(args.source, s) for s in combined['sourceList']]
 
-    DebugViewer().setTrace(ops, source, jsonOutput, args.contract)
+            for contract in combined['contracts'].keys():
+                val = combined['contracts'][contract]
+                c = Contract(sourceList, val)
+                contracts.append(c)
+
+        contexts = buildContexts(ops, api, contracts, args.hash)
+
+    DebugViewer().setTrace(ops, contexts)
 
 if __name__ == '__main__':
     options = parser.parse_args()

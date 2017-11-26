@@ -234,6 +234,9 @@ def main(args):
         print("\nFor opviewing:\n")
         print("python3 opviewer.py -f %s/%s" % (saved_files['json-trace']['path'],saved_files['json-trace']['name']))
 
+        print("\nFor opviewing with sources:\n")
+        print("python3 opviewer.py -f %s/%s --web3 '%s' -s path_to_contract_dir -j path_to_solc_combined_json %s" % (saved_files['json-trace']['path'],saved_files['json-trace']['name'], args.web3, args.hash))
+
         (zipfilepath, zipfilename) = zipFiles(saved_files, args.hash[:8])
         print("\nZipped files into %s%s" % (zipfilepath, zipfilename))
 
