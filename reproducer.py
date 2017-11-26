@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
-import sys,os, shutil
+import sys,os
 import argparse
-from web3 import Web3, RPCProvider, HTTPProvider
-from urllib.parse import urlparse
 import re
-from evmlab import reproduce
-from evmlab import etherchain
-from evmlab import multiapi
+from evmlab import reproduce, utils
 from evmlab import vm as VMUtils
 
 description= """
@@ -54,7 +50,7 @@ evmchoice.add_argument('-p','--parity-evm',  type=str, default=None,
     help="Parity EVM binary or docker image name")
 
 parser.add_argument("--no-docker", action="store_true",
-    help="Set to true if using a docker image instead of a local binary")
+    help="Set to true if using a local binary instead of a docker image")
 
 
 
@@ -62,7 +58,7 @@ web_or_direct = parser.add_mutually_exclusive_group()
 web_or_direct.add_argument('-x','--hash' , type=str , 
     help  ="Don't run webapp, just lookup hash")
 if app:
-    web_or_direct.add_argument('-w','--www', type=str, default='127.0.0.1:5000',
+    web_or_direct.add_argument('-w','--www', type=str,
         help ="Run webapp on given interface (interface:port)")
     parser.add_argument('-d','--debug', action="store_true", default=False, 
         help="Run flask in debug mode (WARNING: debug on in production is insecure)")
@@ -94,7 +90,7 @@ if app:
         except Exception as e:
             return flask.render_template("index.html", message=str(e))
 
-        saved_files = saveFiles(artefacts)
+        saved_files = utils.saveFiles(OUTPUT_DIR, artefacts)
 
         #Some tricks to get the right command for local replay
         p_gen = saved_files['parity genesis']['name']
@@ -111,29 +107,6 @@ if app:
     def download_file(filename):
         return flask.send_from_directory(OUTPUT_DIR,filename, as_attachment=True)
 
-def saveFiles(artefacts):
-    """ 
-    Copies the supplied artefacts to the right folder
-
-    TODO: Add option to save files into a zip file for download instead
-    """
-
-    print("Saving files") 
-    print("")
-    saved = {}
-
-    destination = OUTPUT_DIR
-
-    for desc, path in artefacts.items():
-        if os.path.isfile(path):
-            fname = os.path.basename(path)
-            shutil.copy(path, destination)
-            saved[desc] = {'path': destination,'name': fname}
-            print("* %s -> %s%s" % (desc, destination, fname) )
-        else:
-            print("Failed to save %s - not a file" % path)
-
-    return saved
 
 def zipFiles(artefacts, fname):
     """ 
@@ -174,24 +147,7 @@ def main(args):
     else:
         vm = VMUtils.GethVM(args.geth_evm, not args.no_docker)
 
-    parsed_web3 = urlparse(args.web3)
-    if not parsed_web3.hostname:
-        #User probably omitted 'http://'
-        parsed_web3 = urlparse("http://%s" % args.web3)
-
-    ssl = (parsed_web3.scheme == 'https')
-    port = parsed_web3.port
-
-    if not port:
-        #Not explicitly defined
-        if ssl:
-            port = 443
-        else:
-            port = 80
-    web3 = Web3(RPCProvider(host = parsed_web3.hostname,port= port ,ssl= ssl)) 
-    api = multiapi.MultiApi(web3 = web3, etherchain = etherchain.EtherChainAPI())
-
-
+    api = utils.getApi(args.web3)
 
     if args.test:
         artefacts = test(vm, api)
@@ -213,7 +169,7 @@ def main(args):
         app.run(host=host, port=port)
     elif args.hash:
         artefacts, vm_args = reproduce.reproduceTx(args.hash, vm, api)
-        saved_files = saveFiles(artefacts)
+        saved_files = utils.saveFiles(OUTPUT_DIR, artefacts)
 
         #Some tricks to get the right command for local replay
         p_gen = saved_files['parity genesis']['name']
@@ -235,7 +191,7 @@ def main(args):
         print("python3 opviewer.py -f %s/%s" % (saved_files['json-trace']['path'],saved_files['json-trace']['name']))
 
         print("\nFor opviewing with sources:\n")
-        print("python3 opviewer.py -f %s/%s --web3 '%s' -s path_to_contract_dir -j path_to_solc_combined_json %s" % (saved_files['json-trace']['path'],saved_files['json-trace']['name'], args.web3, args.hash))
+        print("python3 opviewer.py -f %s/%s --web3 '%s' -s path_to_contract_dir -j path_to_solc_combined_json --hash %s" % (saved_files['json-trace']['path'],saved_files['json-trace']['name'], args.web3, args.hash))
 
         (zipfilepath, zipfilename) = zipFiles(saved_files, args.hash[:8])
         print("\nZipped files into %s%s" % (zipfilepath, zipfilename))

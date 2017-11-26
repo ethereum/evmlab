@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 import urwid, argparse, traceback
 import json,sys, os
-from web3 import Web3, RPCProvider
-from urllib.parse import urlparse
-from evmlab import etherchain
-from evmlab import multiapi
 from evmlab.context import buildContexts
 from evmlab.contract import Contract
+from evmlab import reproduce, utils
+from evmlab import vm as VMUtils
 
 # Python3 support
 try:
@@ -19,10 +17,16 @@ def bold(text):
     return '\033[1m{}\033[0m'.format(text)
 
 
+OUTPUT_DIR = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
+
 description = """
 Tool to explore a json-trace in a debug-like interface
 """
 examples = """
+
+# Generate a trace and analyze with sources
+
+python3 opviewer.py -s /path/to/contracts -j /path/to/combined.json --hash txHash
 
 # Analyse a trace
 
@@ -34,7 +38,15 @@ python3 opviewer.py -f example.json -s /path/to/contracts -j /path/to/combined.j
 """
 
 parser = argparse.ArgumentParser(description=description,epilog = examples,formatter_class=argparse.RawDescriptionHelpFormatter)
-parser.add_argument("-f","--file", type=str, help="File to load")
+evmchoice = parser.add_mutually_exclusive_group()
+evmchoice.add_argument("-f","--file", type=str, help="Trace file to load")
+evmchoice.add_argument('-g','--geth-evm', type=str,
+                       help="Geth EVM binary or docker image name", default="holiman/gethvm")
+evmchoice.add_argument('-p','--parity-evm',  type=str, default=None,
+                       help="Parity EVM binary or docker image name")
+
+parser.add_argument("--no-docker", action="store_true",
+                    help="Set to true if using a local binary instead of a docker image")
 
 sourcesettings = parser.add_argument_group('Sources', 'Settings used to display contract sources')
 sourcesettings.add_argument("-s","--source", type=str, default="./", help="Contract source code directory")
@@ -592,26 +604,26 @@ def loadWeirdJson(fname):
 
 ##python3 opviewer.py -f test.json
 def main(args):
-    parsed_web3 = urlparse(args.web3)
-    if not parsed_web3.hostname:
-        # User probably omitted 'http://'
-        parsed_web3 = urlparse("http://%s" % args.web3)
 
-    ssl = (parsed_web3.scheme == 'https')
-    port = parsed_web3.port
-
-    if not port:
-        # Not explicitly defined
-        if ssl:
-            port = 443
-        else:
-            port = 80
-    web3 = Web3(RPCProvider(host=parsed_web3.hostname, port=port, ssl=ssl))
-    api = multiapi.MultiApi(web3=web3, etherchain=etherchain.EtherChainAPI())
-
-    ops = []
-
+    vm = None
     fname = args.file
+    api = utils.getApi(args.web3)
+
+    if not fname:
+        if not args.hash:
+            parser.error('hash is required to reproduce the tx if a trace file is not provided')
+
+        #reproduce the tx
+        if args.parity_evm:
+            vm = VMUtils.ParityVM(args.parity_evm, not args.no_docker)
+        else:
+            vm = VMUtils.GethVM(args.geth_evm, not args.no_docker)
+
+        artefacts, vm_args = reproduce.reproduceTx(args.hash, vm, api)
+        saved_files = utils.saveFiles(OUTPUT_DIR, artefacts)
+
+        fname = os.path.join(saved_files['json-trace']['path'], saved_files['json-trace']['name'])
+
 
     ops = loadJsonDebugStackTrace(fname)
     if ops == None:
@@ -624,11 +636,12 @@ def main(args):
             print("Trying alternate loader")
             ops = loadWeirdJson(fname)
 
-    if (args.hash and not args.json) or (args.json and not args.hash):
-        parser.error('json and hash arguments must be used together')
 
     contexts = None
     if args.json:
+        if not args.hash:
+            parser.error('hash is required if contract json is provided')
+
         contracts = []
         with open(args.json) as f:
             combined = json.load(f)
@@ -641,6 +654,13 @@ def main(args):
                 contracts.append(c)
 
         contexts = buildContexts(ops, api, contracts, args.hash)
+
+    if vm:
+        print("\nTo view the generated trace:\n")
+        cmd = "python3 opviewer.py -f %s" % fname
+        if args.json:
+            cmd += " --web3 %s -s %s -j %s --hash %s" % (args.web3, args.source, args.json, args.hash)
+        print(cmd)
 
     DebugViewer().setTrace(ops, contexts)
 
