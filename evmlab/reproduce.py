@@ -82,11 +82,15 @@ def findStorageLookups(list_of_output, original_context):
             # All call-lookalikes are 'gas,address,value' on stack, 
             # so address is second item of prev line
             #
-            # There's one exception, though; DELEGATECALL
+            # There's two exceptions, though; CREATE and DELEGATECALL
+            # With a CREATE, we don't know the address until after the RETURN
+            # and it isn't necessary to load storage b/c it hasn't been initialized
             # After a DELEGATECALL, we've increased the depth, 
             # but still operating on the same context, regardless of the
             # address that was invoked
-            if prev_op['op'] != 0xf4:
+            if prev_op['op'] == 0xf0:
+                cur_address = None
+            elif prev_op['op'] != 0xf4:
                 cur_address = prev_op['stack'][-2]
 
         if cur_depth < prev_depth:
@@ -94,7 +98,7 @@ def findStorageLookups(list_of_output, original_context):
             cur_address = callstack.pop()
 
         # Sload tracking
-        if o['opName'] in ['SLOAD','SSTORE'] or o['op'] in [0x54, 0x55]:
+        if cur_address and (o['opName'] in ['SLOAD','SSTORE'] or o['op'] in [0x54, 0x55]):
 
             key  = o['stack'][-1]
             entry = (cur_address, key)
@@ -121,6 +125,8 @@ def reproduceTx(txhash, vm, api):
     r = tx['to']
     tx['input'] = tx['input'][2:]
 
+    create = r is None
+
     #debugdump(tx)
     blnum = int(tx['blockNumber'])
 
@@ -140,6 +146,7 @@ def reproduceTx(txhash, vm, api):
 
     externals_fetched = set()
     externals_tofetch = set([s,r])
+    externals_tofetch.discard(None)
 
     storage_slots_fetched = set()
     slots_to_fetch = set()
@@ -149,7 +156,7 @@ def reproduceTx(txhash, vm, api):
         done = True
         # Add accounts that we know of 
         for addr in list(externals_tofetch):
-            acc = api.getAccountInfo( addr , blnum)
+            acc = api.getAccountInfo( addr , blnum - 1)  # need to load accountInfo at block before tx
             genesis.add(acc)
             #debugdump(acc)
             done = False
@@ -157,7 +164,7 @@ def reproduceTx(txhash, vm, api):
         externals_fetched.update(externals_tofetch)
 
         for (addr,key) in list(slots_to_fetch):
-            val = api.getStorageSlot( addr, int(key,16), blnum)
+            val = api.getStorageSlot( addr, int(key,16), blnum - 1)  # need to load storage at block before tx
             genesis.addStorage(addr, key, val)
             done = False
         storage_slots_fetched.update(slots_to_fetch)
@@ -175,6 +182,7 @@ def reproduceTx(txhash, vm, api):
             "input"     : tx['input'],
             "gas"       : tx['gas'], 
             "memory"    : False,
+            "create"    : create,
         }
         if not done:
             print("Executing tx...")
