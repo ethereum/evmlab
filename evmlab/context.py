@@ -56,7 +56,6 @@ def findContextChanges(ops, original_context):
         # this will set the prev_depth from the first op
         if not prev_op:
             prev_depth = cur_depth
-            # TODO this might not work for deploys
             contexts[cur_depth] = cur_address
 
         if cur_depth > prev_depth:
@@ -73,10 +72,10 @@ def findContextChanges(ops, original_context):
                 contexts[cur_depth] = cur_address
 
         if cur_depth < prev_depth:
-            if cur_address is None:
-                print(prev_op)
-                print(o)
-                # TODO set context for cur_depth here. Should be RETURN opcode & get address from that
+            # RETURN op. we now know the prev_depth address, so add to context
+            if cur_address is None and prev_op['op'] == 0xf3:
+                prev_address = o['stack'][-1]
+                contexts[prev_depth] = prev_address
             # Returned from a call
             cur_address = contexts[cur_depth]
 
@@ -106,4 +105,4 @@ class Context(object):
         if self.contract:
             return self.contract.getSourceCode(pc)
 
-        return "Missing Contract"
+        return "Missing Contract", (0, 0)

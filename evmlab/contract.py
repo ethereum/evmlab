@@ -43,10 +43,10 @@ class Contract():
     insRuntime = None
 
     content = []
-    contractText = ""
 
     def __init__(self, sourcelist, contract=None):
         self.sourcelist = sourcelist
+        self._contractText = None
 
         self._loadSources()
         self._loadContract(contract)
@@ -60,6 +60,13 @@ class Contract():
         self._create = val
         self._loadContractText()
 
+    @property
+    def contractText(self):
+        if self._contractText == None:
+            self._loadContractText()
+
+        return self._contractText
+
     def isInitialized(self):
         return self.bin is not None or self.binRuntime is not None
 
@@ -69,7 +76,7 @@ class Contract():
         try:
             code_mapping = self._getInstructionMapping(pc)
         except KeyError:
-            return "Missing code"
+            return "Missing code", (0,0)
         s = int(s)
         l = int(l)
 
@@ -85,7 +92,7 @@ class Contract():
         try:
             [s, l, f, j] = self._getInstructionMapping(pc)
         except KeyError:
-            return "Missing code"
+            return "Missing code", (0,0)
 
         s = int(s)
         l = int(l)
@@ -160,12 +167,9 @@ class Contract():
         self.mappingRuntime = parseSourceMap(load('srcmap-runtime'))
         self.mapping = parseSourceMap(load('srcmap'))
 
-        if self.isInitialized():
-            self._loadContractText()
-
     def _loadContractText(self):
         [s, l, f, j] = self._getInstructionMapping(0)
 
         f = int(f)
 
-        self.contractText = self.content[f]
+        self._contractText = self.content[f]
