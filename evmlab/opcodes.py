@@ -137,10 +137,6 @@ def parseCode(code):
     code = remove_0x_head(code)
     codes = [c for c in decode_hex(code)]
 
-    # Remove the last 43 bytes, which is the contract metadata
-    # TODO: Make this conditional, as it's assumed the metadata exists.
-    # codes = codes[:-43]
-
     instructions = collections.OrderedDict()
     pc = 0
     length = None
