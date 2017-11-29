@@ -1,3 +1,6 @@
+from ethereum.utils import decode_hex, remove_0x_head, bytearray_to_bytestr, encode_hex
+from copy import copy
+import collections
 # Taken from https://github.com/ethereum/pyethereum/blob/develop/ethereum/opcodes.py
 # Done this way to reduce dependencies a bit
 # schema: [opcode, ins, outs, gas]
@@ -128,3 +131,32 @@ BALANCE_SUPPLEMENTAL_GAS = 380
 CALL_CHILD_LIMIT_NUM = 63
 CALL_CHILD_LIMIT_DENOM = 64
 SUICIDE_SUPPLEMENTAL_GAS = 5000
+
+
+def parseCode(code):
+    code = remove_0x_head(code)
+    codes = [c for c in decode_hex(code)]
+
+    instructions = collections.OrderedDict()
+    pc = 0
+    length = None
+    while pc < len(codes):
+        try:
+            opcode = opcodes[codes[pc]]
+        except KeyError:
+            opcode = ['INVALID', 0, 0, 0]
+        if opcode[0][:4] == 'PUSH':
+            opcode = copy(opcode)
+            length = codes[pc] - 0x5f
+            pushData = codes[pc + 1 : pc + length + 1]
+            pushData = "0x" + encode_hex(bytearray_to_bytestr(pushData)).decode()
+            opcode.append(pushData)
+
+        instructions[pc] = opcode
+
+        if length is not None:
+            pc += length
+            length = None
+        pc += 1
+
+    return instructions
