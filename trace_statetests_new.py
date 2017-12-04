@@ -243,14 +243,8 @@ def generateTests():
     uname = getpass.getuser()
     host_id = "%s-%s-%d" % (uname, time.strftime("%a_%H_%M_%S"), os.getpid())
     here = os.path.dirname(os.path.realpath(__file__))
-
     cfg['TESTS_PATH'] = "%s/generatedTests/" % here
-    # cpp needs the tests to be placed according to certain rules... 
-    testfile_dir = "%s/generatedTests/GeneralStateTests/stRandom" % here
-    filler_dir = "%s/generatedTests/src/GeneralStateTestsFiller/stRandom" % here 
-
-    os.makedirs( testfile_dir , exist_ok = True)
-    os.makedirs( filler_dir, exist_ok = True)
+    os.makedirs( cfg['TESTS_PATH'] , exist_ok = True)
     import pathlib
 
     counter = 0
@@ -261,19 +255,15 @@ def generateTests():
             continue
 
         identifier = "%s-%d" %(host_id, counter)
-        test_fullpath = "%s/randomStatetest%s.json" % (testfile_dir, identifier)
-        filler_fullpath = "%s/randomStatetest%sFiller.json" % (filler_dir, identifier)
+        test_fullpath = "%s/randomStatetest%s.json" % (cfg['TESTS_PATH'], identifier)
         test_json['randomStatetest%s' % identifier] =test_json.pop('randomStatetest', None) 
 
         
         with open(test_fullpath, "w+") as f:
             json.dump(test_json, f)
-            pathlib.Path(filler_fullpath).touch()
 
         yield test_fullpath
         counter = counter +1
-
-
 
 
 
@@ -443,30 +433,26 @@ def startParity(test):
 
 def startCpp(test):
 
-    [d,g,v] = test.tx_dgv
-
+    testfile_path = os.path.abspath(test.tmpfile)
 
     (name, isDocker) = getBaseCmd("cpp")
     if isDocker:
-        cpp_mount_tests = cfg['TESTS_PATH'] + ":" + "/mounted_tests"
-        cmd = ["docker", "run", "--rm", "-t", "-v", cpp_mount_tests, name
-                ,'-t',"GeneralStateTests/%s" %  test.subfolder
-                ,'--'
-                ,'--singletest', test.name
-                ,'--jsontrace',"'{ \"disableStorage\":true, \"disableMemory\":true }'"
-                ,'--singlenet',cfg['FORK_CONFIG']
-                ,'-d',str(d),'-g',str(g), '-v', str(v)
-                ,'--testpath', '"/mounted_tests"']
+        mounted_testfile = testfile_path + ":" + "/mounted_testfile"
+        cmd = ["docker", "run", "--rm", "-t", "-v", mounted_testfile]
+        testfile_to_execute = "/mounted_testfile"
     else:
-        cmd = [name
-                ,'-t',"GeneralStateTests/%s" %  test.subfolder
+        cmd = []
+        testfile_to_execute = testfile_path
+
+    cmd.extend([name
+                ,'-t',"GeneralStateTests"
                 ,'--'
-                ,'--singletest', test.name
+                ,'--singletest'
+                ,testfile_to_execute
+                ,test.name
                 ,'--jsontrace',"'{ \"disableStorage\":true, \"disableMemory\":true }'"
                 ,'--singlenet',cfg['FORK_CONFIG']
-                ,'-d',str(d),'-g',str(g), '-v', str(v)
-                ,'--testpath',  cfg['TESTS_PATH']]
-
+                ,'-d',"0",'-g',"0", '-v', "0"])
 
     if cfg['FORK_CONFIG'] == 'Homestead' or cfg['FORK_CONFIG'] == 'Frontier':
         cmd.extend(['--all']) # cpp requires this for some reason
