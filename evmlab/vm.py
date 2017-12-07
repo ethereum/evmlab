@@ -201,6 +201,10 @@ class CppVM(VM):
                         steps = json.loads(x)
 
                 if x[0:2] == "{\"":
+                    # A bug in testeth
+                    if x[-1] == '.':
+                        x = x[:-1]
+
                     step = json.loads(x)
                     if 'stateRoot' in step.keys():
                         steps.append(step)
