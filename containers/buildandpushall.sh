@@ -3,10 +3,12 @@
 docker_repo="holiman"
 #docker_repo="cdetrio"
 
-#(cd geth && docker build --no-cache . -t $docker_repo/gethvm && docker push $docker_repo/gethvm)
-#(cd parity && docker build --no-cache . -t $docker_repo/parityvm && docker push $docker_repo/parityvm)
+(cd geth && docker build --no-cache . -t $docker_repo/gethvm && docker push $docker_repo/gethvm)
+(cd parity && docker build --no-cache . -t $docker_repo/parityvm && docker push $docker_repo/parityvm)
 (cd testeth && docker build --no-cache . -t $docker_repo/testeth && docker push $docker_repo/testeth)
 
+# build ethereumjs docker images
+(cd ethereumjs && docker build --no-cache . -t jwasinger/ethereumjs-vm)
 # build geth docker image
 #(cd std-geth && docker build --no-cache . -t $docker_repo/std-gethvm)
 # build cpp docker image

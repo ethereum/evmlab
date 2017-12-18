@@ -286,6 +286,18 @@ def generateTests():
         yield test_fullpath
         counter = counter +1
 
+def startJs(single_test_tmp_file):
+    logger.info("running state test in EthereumJS.")
+
+    testfile_path = os.path.abspath(single_test_tmp_file)
+    mount_testfile = testfile_path+":/ethereum/"+single_test_tmp_file
+    js_docker_cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, getBaseCmd('js')[0], "-s", "--customStateTest", single_test_tmp_file]
+    js_docker_cmd.extend(['--jsontrace'])
+    js_docker_cmd.extend(['--fork', cfg['FORK_CONFIG']])
+
+    logger.info("js_cmd: %s " % " ".join(js_docker_cmd))
+    return {'proc':VMUtils.startProc(js_docker_cmd), 'cmd': " ".join(js_docker_cmd), 'output' : 'stdout'}
+
 def startParity(test_file):
 
     testfile_path = os.path.abspath(test_file)
@@ -592,6 +604,7 @@ def perform_test(testfile, test_name, test_number = 0):
             "cpp"  : VMUtils.CppVM.canonicalized, 
             "py"   : VMUtils.PyVM.canonicalized, 
             "parity"  :  VMUtils.ParityVM.canonicalized ,
+            "js"  :  VMUtils.JsVM.canonicalized ,
         }
         logger.info("Starting processes for %s" % clients)
 
@@ -606,6 +619,8 @@ def perform_test(testfile, test_name, test_number = 0):
                 procinfo = startPython(prestate_tmpfile, tx)
             elif client_name == 'parity':
                 procinfo = startParity(test_tmpfile)
+            elif client_name == 'js':
+                procinfo = startJs(test_tmpfile)
             else:
                 logger.warning("Undefined client %s", client_name)
                 continue

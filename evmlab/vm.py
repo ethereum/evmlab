@@ -187,6 +187,17 @@ class VM(object):
         self.lastCommand = " ".join(cmd)
         return startProc(cmd)
 
+class JsVM(VM):
+    @staticmethod
+    def canonicalized(output):
+        steps = []
+        for index, line in enumerate(output):
+            if line and line.startswith('# {'):
+                result = json.loads(line.strip('# '))
+                steps.append(result)
+        return steps
+
+
 class CppVM(VM):
 
     @staticmethod
