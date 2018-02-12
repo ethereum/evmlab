@@ -5,6 +5,7 @@ from evmlab.context import buildContexts
 from evmlab.contract import Contract
 from evmlab import reproduce, utils
 from evmlab import vm as VMUtils
+from evmlab.opcodes import opcodes
 
 # Python3 support
 try:
@@ -232,7 +233,7 @@ def stackdump(st, length = 16, minrows=8, start =0, opcode = None):
 
     return '\n'.join(result)
 
-def opDump(obj):
+def opDump(obj, addr):
     """
     @brief returns information about current exeution step
     """
@@ -265,6 +266,7 @@ def opDump(obj):
     result.append(attr('gas'))
     result.append(attr('memSize'))
     result.append(attr('depth'))
+    result.append([('bold',"{:10}: ".format("addr")), addr])
 
     return result
 
@@ -304,6 +306,15 @@ def toText(op):
         return " ".join(result)
 
     result.append(attr('pc', '{:>5d}'))
+
+    # support ganache-cli debug_traceTransaction
+    if ('op' in op and 'opName' not in op):
+        op['opName'] = op['op']
+        for k,v in opcodes.items():
+            if v[0] == op['op']:
+                op['op'] = k
+                break
+
     result.append(attr('opName','{:>12}', False))
     result.append(attr('op', '{:>5x}'))
     result.append(attr('gas', '{:>8x}'))
@@ -390,6 +401,8 @@ class DebugViewer():
         self.opptr = 0
         self.srcptr = 0
         self.srctrack = True
+        self.forward = True
+        self.step = 1
 
         self.ops_view = None
         self.mem_view = None
@@ -399,9 +412,10 @@ class DebugViewer():
         self.help_view = None
 
 
-    def setTrace(self, trace, contexts):
+    def setTrace(self, trace, contract_stack):
         self.operations = trace
-        self.contexts = contexts
+        self.contract_stack = contract_stack
+        self.cptr = 0
 
         ops_view   = urwid.Text(self.getOp())
         mem_view   = urwid.Text(self.getMem())
@@ -473,17 +487,21 @@ class DebugViewer():
             return op
         if key not in op.keys():
             return default
-        if op[key]:
+        if op[key] is not None:
             return op[key]
         return default
 
 
     def getOp(self):
-        return opDump(self._op(default={'pc':1}))
+        return opDump(self._op(default={'pc':1}), self.contract_stack[self.cptr].address)
 
     def getMem(self):
         m = self._op('memory',"0x")
+        if type(m) is list:
+            m = "0x%s" % "".join(m)
         prev_m = self._prevop('memory',"0x")
+        if type(prev_m) is list:
+            prev_m = "0x%s" % "".join(prev_m)
         return hexdump(m[2:], start = self.memptr, prevsrc = prev_m[2:])
 
     def getStack(self):
@@ -507,24 +525,29 @@ class DebugViewer():
     def getSource(self, track=None):
         op = self.operations[self.opptr]
 
-        if not self.contexts:
+        if len(self.contract_stack) == 0:
             return "No Source Provided"
 
         if 'depth' not in op:
             return ""
 
-        prev_d = self._prevop('depth', None)
+        prev_op = self.operations[self.opptr - self.step] if self.forward else self.operations[self.opptr + self.step]
+        prev_d = prev_op['depth'] if 'depth' in prev_op else None
 
-        if prev_d and prev_d != op['depth']:
+        if prev_d is not None and prev_d != op['depth']:
             self.srcptr = 0
+            if self.forward:
+                self.cptr += 1
+            else:
+                 self.cptr -= 1
 
-        c = self.contexts[op['depth']]
-        # print(self.srcptr)
+        if not self.contract_stack[self.cptr]:
+            return "Missing context"
 
         if track is None:
             track = self.srctrack
 
-        self.srcptr, txt = opSource(c, op, self.srcptr, track=track)
+        self.srcptr, txt = opSource(self.contract_stack[self.cptr], op, self.srcptr, track=track)
         return txt
 
     def getHelp(self):
@@ -534,9 +557,9 @@ class DebugViewer():
     press `q` to quit
         """
     def _refresh(self):
+        self.source_view.set_text(self.getSource()) # needs to occur before getOp to print correct addr
         self.ops_view.set_text(self.getOp())
         self.trace_view.set_text(self.getTrace())
-        self.source_view.set_text(self.getSource())
         self.mem_view.set_text(self.getMem())
         self.stack_view.set_text(self.getStack())
 
@@ -551,48 +574,50 @@ class DebugViewer():
         if key in ('q', 'Q'):
             raise urwid.ExitMainLoop()
 
-        step = 1
+        self.step = 1
         if key in ('A','Z','S','X','D','C','F','V'):
-            step = 10
+            self.step = 10
 
         # UP trace
         if key in ('a','A'):
-            self.opptr = max(0, self.opptr-step)
+            self.opptr = max(0, self.opptr-self.step)
+            self.forward = False
             self._refresh()
 
         # DOWN trace
         if key in ('z','Z'):
-            self.opptr = min(self.opptr+step, len(self.operations)-1)
+            self.opptr = min(self.opptr+self.step, len(self.operations)-1)
+            self.forward = True
             self._refresh()
 
         # UP mem
         if key in ('s','S'):
-            self.memptr = max(0, self.memptr-step)
+            self.memptr = max(0, self.memptr-self.step)
             self.mem_view.set_text(self.getMem())
 
         # DOWN mem
         if key in ('x','X'):
-            self.memptr = self.memptr+step
+            self.memptr = self.memptr+self.step
             self.mem_view.set_text(self.getMem())
 
         # UP stack
         if key in ('d','D'):
-            self.stackptr = max(0, self.stackptr-step)
+            self.stackptr = max(0, self.stackptr-self.step)
             self.stack_view.set_text(self.getStack())
 
         # DOWN stack
         if key in ('c','C'):
-            self.stackptr = self.stackptr+step
+            self.stackptr = self.stackptr+self.step
             self.stack_view.set_text(self.getStack())
 
         # UP source
         if key in ('f','F'):
-            self.srcptr = max(0, self.srcptr-step)
+            self.srcptr = max(0, self.srcptr-self.step)
             self.source_view.set_text(self.getSource(track=False))
 
         # DOWN source
         if key in ('v','V'):
-            self.srcptr = self.srcptr+step
+            self.srcptr = self.srcptr+self.step
             self.source_view.set_text(self.getSource(track=False))
 
         if key in ('t', 'T'):
@@ -698,7 +723,7 @@ def main(args):
             ops = loadWeirdJson(fname)
 
 
-    contexts = None
+    contract_stack = []
     if args.json:
         if not args.hash:
             parser.error('hash is required if contract json is provided')
@@ -714,7 +739,7 @@ def main(args):
                 c = Contract(sourceList, val)
                 contracts.append(c)
 
-        contexts = buildContexts(ops, api, contracts, args.hash)
+        contract_stack = buildContexts(ops, api, contracts, args.hash)
 
     if vm:
         print("\nTo view the generated trace:\n")
@@ -723,7 +748,7 @@ def main(args):
             cmd += " --web3 %s -s %s -j %s --hash %s" % (args.web3, args.source, args.json, args.hash)
         print(cmd)
 
-    DebugViewer().setTrace(ops, contexts)
+    DebugViewer().setTrace(ops, contract_stack)
 
 if __name__ == '__main__':
     options = parser.parse_args()
