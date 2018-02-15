@@ -384,7 +384,26 @@ def opSource(c, opcode, srcptr, track=True, length=12):
                 srcptr = max(len(split) - length, 0)
             view = split[srcptr: srcptr + length]
 
-        return srcptr, "\n".join(view)
+        viewtxt = "\n".join(view)
+        viewtxt_split = viewtxt.split('**')
+
+        if len(viewtxt_split) == 1:
+            # entire view is the current code
+            viewtxt = viewtxt_split
+            viewtxt_split[0] = ('source', viewtxt_split[0])
+        elif len(viewtxt_split) == 2:
+            # part of the view is the current code
+            viewtxt = viewtxt_split
+            if viewtxt[0].strip() == '':
+                viewtxt_split[1] = ('source', viewtxt_split[1])
+            else:
+                viewtxt_split[0] = ('source', viewtxt_split[0])
+        elif len(viewtxt_split) == 3:
+            # current code is a slice of the view
+            viewtxt = viewtxt_split
+            viewtxt_split[1] = ('source', viewtxt_split[1])
+
+        return srcptr, viewtxt
     else:
         return srcptr, ""
 
@@ -432,6 +451,7 @@ class DebugViewer():
             ('body_text', 'dark cyan', 'light gray'),
             ('buttons', 'yellow', 'dark green', 'standout'),
             ('section_text', 'body_text'), # alias to body_text
+            ('source', 'white', 'black', 'bold'), # bold text in monochrome mode
             ]
 
         self.ops_view = ops_view
