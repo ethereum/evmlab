@@ -82,13 +82,13 @@ class Contract():
         if f < 0:
             while True:
                 pc -= 1
-                [s, l, f, j] = self._getInstructionMapping(pc)
+                try:
+                    [s, l, f, j] = self._getInstructionMapping(pc)
+                except KeyError:
+                    f = -1
                 f = int(f)
                 if f > 0:
-                    try:
-                        c = self.contractTexts[f]
-                    except KeyError:
-                        return "Missing code", (0,0)
+                    c = self.contractTexts[f]
                     s = int(s)
                     l = int(l)
                     break
