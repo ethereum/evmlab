@@ -266,7 +266,8 @@ def opDump(obj, addr):
     result.append(attr('gas'))
     result.append(attr('memSize'))
     result.append(attr('depth'))
-    result.append([('bold',"{:10}: ".format("addr")), addr])
+    if addr:
+        result.append([('bold',"{:10}: ".format("addr")), addr])
 
     return result
 
@@ -307,14 +308,6 @@ def toText(op):
 
     result.append(attr('pc', '{:>5d}'))
 
-    # support ganache-cli debug_traceTransaction
-    if ('op' in op and 'opName' not in op):
-        op['opName'] = op['op']
-        for k,v in opcodes.items():
-            if v[0] == op['op']:
-                op['op'] = k
-                break
-
     result.append(attr('opName','{:>12}', False))
     result.append(attr('op', '{:>5x}'))
     result.append(attr('gas', '{:>8x}'))
@@ -346,6 +339,9 @@ def opTrace(ops = [], sel = 0, offset = 0):
     return "\n".join(result)
 
 
+class SourceException(Exception):
+    pass
+
 NEWLINE_PATTERN = re.compile('\n')
 def opSource(c, opcode, srcptr, track=True, length=12):
     """
@@ -353,6 +349,9 @@ def opSource(c, opcode, srcptr, track=True, length=12):
     """
     if 'pc' in opcode.keys():
         contract, code_pos = c.getSourceCode(opcode['pc'])
+
+        if code_pos == [-1, -1]:
+            raise SourceException()
 
         start = code_pos[0]
         end = start + code_pos[1]
@@ -493,7 +492,8 @@ class DebugViewer():
 
 
     def getOp(self):
-        return opDump(self._op(default={'pc':1}), self.contract_stack[self.cptr].address)
+        addr = self.contract_stack[self.cptr].address if self.cptr < len(self.contract_stack) else None
+        return opDump(self._op(default={'pc':1}), addr)
 
     def getMem(self):
         m = self._op('memory',"0x")
@@ -547,8 +547,11 @@ class DebugViewer():
         if track is None:
             track = self.srctrack
 
-        self.srcptr, txt = opSource(self.contract_stack[self.cptr], op, self.srcptr, track=track)
-        return txt
+        try:
+            self.srcptr, txt = opSource(self.contract_stack[self.cptr], op, self.srcptr, track=track)
+            return txt
+        except SourceException:
+            return self.source_view.text
 
     def getHelp(self):
         return """Key navigation
@@ -732,11 +735,15 @@ def main(args):
         with open(args.json) as f:
             combined = json.load(f)
 
-            sourceList = [os.path.join(args.source, s) for s in combined['sourceList']]
+            sources = []
+            for file in [os.path.join(args.source, s) for s in combined['sourceList']]:
+                with open(file) as s:
+                    print(s.name)
+                    sources.append(s.read())
 
             for contract in combined['contracts'].keys():
                 val = combined['contracts'][contract]
-                c = Contract(sourceList, val)
+                c = Contract(sources, val)
                 contracts.append(c)
 
         contract_stack = buildContexts(ops, api, contracts, args.hash)

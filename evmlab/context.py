@@ -102,7 +102,7 @@ def findContractChanges(ops, original_contract):
         prev_op = o
         prev_depth = cur_depth
 
-    # handle ganache-cli debug_traceTransaction output
+    # handle debug_traceTransaction output
     def fixAddr(a):
         if len(a) > 40:
             if (a.startswith('0x') and len(a) == 42):
