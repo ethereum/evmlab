@@ -134,8 +134,13 @@ SUICIDE_SUPPLEMENTAL_GAS = 5000
 
 
 def parseCode(code):
-    code = remove_0x_head(code)
-    codes = [c for c in decode_hex(code)]
+    code = code[2:] if code[:2] == '0x' else code
+
+    try:
+        codes = [c for c in decode_hex(code)]
+    except ValueError as e:
+        print(code)
+        raise Exception("Did you forget to link any libraries?") from e
 
     instructions = collections.OrderedDict()
     pc = 0
@@ -149,7 +154,9 @@ def parseCode(code):
             opcode = copy(opcode)
             length = codes[pc] - 0x5f
             pushData = codes[pc + 1 : pc + length + 1]
-            pushData = "0x" + encode_hex(bytearray_to_bytestr(pushData)).decode()
+            pushData = "0x" + encode_hex(bytearray_to_bytestr(pushData))
+            if type(pushData) is not str:
+                pushData = pushData.decode()
             opcode.append(pushData)
 
         instructions[pc] = opcode

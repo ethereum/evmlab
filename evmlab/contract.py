@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import re
 
 from evmlab.opcodes import parseCode
 
@@ -42,13 +43,10 @@ class Contract():
     binRuntime = None
     insRuntime = None
 
-    content = []
+    def __init__(self, sources, contract=None):
+        self.sources = sources or []
+        self._contractTexts = {}
 
-    def __init__(self, sourcelist, contract=None):
-        self.sourcelist = sourcelist
-        self._contractText = None
-
-        self._loadSources()
         self._loadContract(contract)
 
     @property
@@ -58,58 +56,84 @@ class Contract():
     @create.setter
     def create(self, val):
         self._create = val
-        self._loadContractText()
+        self._loadContractTexts()
 
     @property
-    def contractText(self):
-        if self._contractText == None:
-            self._loadContractText()
+    def contractTexts(self):
+        if len(self._contractTexts.keys()) == 0:
+            self._loadContractTexts()
 
-        return self._contractText
+        return self._contractTexts
 
     def isInitialized(self):
         return self.bin is not None or self.binRuntime is not None
 
     def getSourceCode(self, pc):
-        [s, l, f, j] = self._getInstructionMapping(0)
-
         try:
-            code_mapping = self._getInstructionMapping(pc)
+            [s, l, f, j] = self._getInstructionMapping(pc)
+            f = int(f)
+            c = self.contractTexts[f]
         except KeyError:
             return "Missing code", (0,0)
         s = int(s)
         l = int(l)
 
-        # code_mapping offsets will be in relation to the entire contract file
-        # this could be multiple contracts in a single .sol file, since we are
-        # returning only the contract text, we need to update code_mapping offsets
-        # to match the contractText
-        transformed_mapping = [int(code_mapping[0]) - s, int(code_mapping[1]) - l]
+        # contract is missing, return the last valid ins mapping
+        if f < 0:
+            while True:
+                pc -= 1
+                try:
+                    [s, l, f, j] = self._getInstructionMapping(pc)
+                except KeyError:
+                    f = -1
+                f = int(f)
+                if f > 0:
+                    c = self.contractTexts[f]
+                    s = int(s)
+                    l = int(l)
+                    break
 
-        return self.contractText[s:s + l], transformed_mapping
+        # see if text contains multiple contracts
+        contract_start_indices = [m.start(0)
+                                  for m in re.finditer('contract ', c)]
 
-    def getCode(self, pc):
-        try:
-            [s, l, f, j] = self._getInstructionMapping(pc)
-        except KeyError:
-            return "Missing code", (0,0)
+        # for multi contract files, get the start of the contract for the current instruction
+        if len(contract_start_indices) > 1:
+            contract_start = 0
+            contract_end = -1
 
-        s = int(s)
-        l = int(l)
-        return self.contractText[s:s + l]
+            for i in contract_start_indices:
+                if i == s:
+                    contract_start = s
+                    break
+                elif i > s:
+                    # get the previous index
+                    ci = contract_start_indices.index(i) - 1
+                    if ci >= 0:
+                        contract_start = contract_start_indices[ci]
+                    break
+                elif s > i and i == contract_start_indices[-1]:
+                    contract_start = contract_start_indices[-1]
+            
+            pos = contract_start + c[contract_start:].find('{')
+            openBr = 0
+            while pos < len(c):
+                if c[pos] == '{':
+                    openBr += 1
+                elif c[pos] == '}':
+                    openBr -= 1
+                
+                if openBr == 0:
+                    contract_end = pos + 1
+                    break
 
-    def getSource(self, pc):
-        try:
-            [s, l, f, j] = self._getInstructionMapping(pc)
-        except KeyError:
-            return ""
+                pos += 1
 
-        s = int(s)
-        l = int(l)
-        f = int(f)
-        text = self.content[f]
-
-        return (text[:s], text[s:s + l], text[s + l:])
+            # return only the contract we're interested in
+            # we need to update the bytes start & end pos to reflect the truncated text we are returning
+            return c[contract_start:contract_end], [s - contract_start, l]
+        else:
+            return c, [s, l]
 
     def _getInstructionMapping(self, pc):
         """
@@ -137,12 +161,6 @@ class Contract():
 
         raise KeyError
 
-    def _loadSources(self):
-        for file in self.sourcelist:
-            with open(file) as s:
-                print(s.name)
-                self.content.append(s.read())
-
     def _loadContract(self, contract):
         if not contract:
             return
@@ -159,6 +177,7 @@ class Contract():
             self.binRuntime = bytecode
             self.insRuntime = parseCode(bytecode)
 
+
         bytecode = load('bin')
         if bytecode:
             self.bin = bytecode
@@ -167,9 +186,13 @@ class Contract():
         self.mappingRuntime = parseSourceMap(load('srcmap-runtime'))
         self.mapping = parseSourceMap(load('srcmap'))
 
-    def _loadContractText(self):
-        [s, l, f, j] = self._getInstructionMapping(0)
+    def _loadContractTexts(self):
+        mapping = self.mapping if self.create else self.mappingRuntime
 
-        f = int(f)
+        contract_indexes = set()
+        for [s, l, f, j] in mapping:
+            f = int(f)
+            contract_indexes.add(f)
 
-        self._contractText = self.content[f]
+        for i in contract_indexes:
+            self._contractTexts[i] = self.sources[f]
