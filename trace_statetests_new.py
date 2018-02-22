@@ -86,14 +86,10 @@ def getBaseCmd(bin_or_docker):
 
         
 parse_config()
-
-
 class GeneralTest():
 
     def __init__(self, json_data, filename):
-
-        self.fork_name = cfg['FORK_CONFIG']
-        
+        self.fork_name = cfg['FORK_CONFIG']        
         self.subfolder = filename.split(os.sep)[-2]
         # same default as evmlab/genesis.py
         metroBlock = 2000
@@ -215,28 +211,6 @@ def dumpJson(obj, dir = None, prefix = None):
     os.close(fd)
     return temp_path
 
-def createRandomStateTest():
-    (name, isDocker) = getBaseCmd("testeth")
-    if isDocker:
-        cmd = ['docker', "run", "--rm",name]
-    else:
-        cmd = [name]
-
-    cmd.extend(["-t","GeneralStateTests","--","--createRandomTest"])
-    outp = "".join(VMUtils.finishProc(VMUtils.startProc(cmd)))
-    #Validate that it's json
-    try:
-        test = json.loads(outp)
-        test['randomStatetest']['_info'] = {'sourceHash': "0000000000000000000000000000000000000000000000000000000000001337", "comment":"x"}
-
-        return test
-    except:
-        print("Exception generating test")
-        print('-'*60)
-        traceback.print_exc(file=sys.stdout)
-        print('-'*60)
-    return None
-
 
 def generateTests():
     import getpass, time
@@ -249,10 +223,11 @@ def generateTests():
 
     counter = 0
     while True: 
-        test_json =  createRandomStateTest()
+        test_json =  invokeTesteth()
         if test_json == None: 
             time.sleep(2)
             continue
+
 
         identifier = "%s-%d" %(host_id, counter)
         test_fullpath = "%s/randomStatetest%s.json" % (cfg['TESTS_PATH'], identifier)
@@ -264,6 +239,7 @@ def generateTests():
 
         yield test_fullpath
         counter = counter +1
+        #break
 
 
 
@@ -346,13 +322,11 @@ START_I = 0
 
 
 
-
 def randomTestIterator():
 
     number = 0
 
     for f in generateTests():
-
         with open(f) as json_data:
             general_test = GeneralTest(json.load(json_data),f)
 
@@ -362,6 +336,8 @@ def randomTestIterator():
             yield state_test
 
 def main():
+    # Start all docker daemons that we'll use during the execution
+    startDaemons()
     perform_tests(randomTestIterator)
 
 
@@ -404,14 +380,111 @@ def get_summary(combined_trace, n=20):
 
     return list(buf)
 
-def startGeth(test):
+def startDaemon(clientname, imagename):
 
-    testfile_path = os.path.abspath(test.tmpfile)
-    mount_testfile = testfile_path + ":" + "/mounted_testfile"
+    cmd = ["docker", "run", "--rm", "-t",
+            "--name", clientname, 
+             "-v", "/tmp/testfiles/:/testfiles/", 
+             "--entrypoint","sleep", imagename, "356d"]
+    return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
 
-    (name, isDocker) = getBaseCmd("geth")
+def killDaemon(clientname):
+    VMUtils.finishProc(VMUtils.startProc(["docker", "kill",clientname]))
+
+def startDaemons():
+    """ startDaemons starts docker processes for all clients. The actual execution of 
+    testcases is then performed via docker exec. Means that executing a specific testcase
+    does not require starting a whole new docker context, instead we just reuse the existing
+    docker process. 
+    The startDaemon basically does this: 
+
+    ```
+    docker run ethereum/client-go:alltools-latest sleep 356d    
+    ```
+
+    """
+    # Start testeth
+    daemons = []
+    (name, isDocker) = getBaseCmd("testeth")
     if isDocker:
-        cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, name, "--json", "--nomemory", "statetest", "/mounted_testfile"]
+        # First, kill off any existing daemons
+        killDaemon("testeth")
+        procinfo = startDaemon("testeth", name)
+        daemons.append( (procinfo, "testeth" ))        
+    else:
+        logger.warning("Not a docker client %s", client_name)
+
+
+    clients = cfg['DO_CLIENTS']
+
+    logger.info("Starting daemons for %s" % clients)
+    #Start the processes
+    for client_name in clients:
+        (name, isDocker) = getBaseCmd(client_name)
+        if isDocker:
+            # First, kill off any existing daemons
+            killDaemon(client_name)
+            procinfo = startDaemon(client_name, name)
+            daemons.append( (procinfo, client_name ))        
+        else:
+            logger.warning("Not a docker client %s", client_name)
+
+def invokeTesteth():
+
+    """
+    With daemonized docker images, we execute basically the following
+    
+    docker exec -it <name> <command>
+
+    """
+    # docker exec -it suspicious_bassi /usr/bin/testeth -t GeneralStateTests -- --createRandomTest
+    (name, isDocker) = getBaseCmd("testeth")
+    if isDocker:
+        cmd = ['docker', "exec", "-it","testeth","/usr/bin/testeth"]
+    else:
+        cmd = [name]
+
+    cmd.extend(["-t","GeneralStateTests","--","--createRandomTest"])
+    output_lines = VMUtils.finishProc(VMUtils.startProc(cmd))
+    
+    # A quirk in testeth... 
+    if output_lines[-1].find("*** No errors detected") > -1:
+        output_lines[-1] = ""
+
+    outp = "".join(output_lines)
+
+    #Validate that it's json
+    try:
+        test = json.loads(outp)
+        #test['randomStatetest']['_info'] = {'sourceHash': "0000000000000000000000000000000000000000000000000000000000001337", "comment":"x"}
+        return test
+    except:
+        print("Exception generating test")
+        print('-'*60)
+        traceback.print_exc(file=sys.stdout)
+        print('-'*60)
+        print("Output from testeth (0-100):")
+        print(outp[:100])
+        print('-'*60)
+    return None
+
+
+def startGeth(test):
+    """
+    With daemonized docker images, we execute basically the following
+
+    docker exec -it ggeth2 evm --json --code "6060" run
+    
+    or
+    
+    docker exec -it <name> <command>
+
+    """
+    isDocker = True
+
+    if isDocker:
+        testfile_name = os.path.basename(test.tmpfile)
+        cmd = ["docker", "exec", "-it", "geth","evm","--json","--nomemory","statetest","/testfiles/%s" % testfile_name]
         return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
     else:
         cmd = [name,"--json", "--nomemory", "statetest", testfile_path]
@@ -434,12 +507,12 @@ def startParity(test):
 def startCpp(test):
 
     testfile_path = os.path.abspath(test.tmpfile)
+    testfile_name = os.path.basename(test.tmpfile)
 
     (name, isDocker) = getBaseCmd("cpp")
     if isDocker:
-        mounted_testfile = testfile_path + ":" + "/mounted_testfile"
-        cmd = ["docker", "run", "--rm", "-t", "-v", mounted_testfile]
-        testfile_to_execute = "/mounted_testfile"
+        cmd = ["docker", "exec", "-it", "eth"]
+        testfile_to_execute="/testfiles/%s" % tesfile_name
     else:
         cmd = []
         testfile_to_execute = testfile_path
