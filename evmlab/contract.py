@@ -43,12 +43,13 @@ class Contract():
     binRuntime = None
     insRuntime = None
     lastSource = None
+    name = ""
 
-    def __init__(self, sources, contract=None, name=None):
+    def __init__(self, sources, contract=None, name=""):
         self.sources = sources or []
         self._contractTexts = {}
         self._sourceCache = {}
-        self._contract = name 
+        self.name = name 
 
         self._loadContract(contract)
 

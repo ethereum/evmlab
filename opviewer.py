@@ -516,7 +516,11 @@ class DebugViewer():
 
 
     def getOp(self):
-        addr = self.op_contracts[self.opptr].address if len(self.op_contracts) > 0 else None
+        addr = None
+        if (len(self.op_contracts) > 0):
+            c = self.op_contracts[self.opptr]
+            addr = "{} ({})".format(c.address, c.name.split(':')[-1])
+        
         return opDump(self._op(default={'pc':1}), addr)
 
     def getMem(self):

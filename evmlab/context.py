@@ -155,3 +155,7 @@ class Context(object):
             return self.contract.getSourceCode(pc)
 
         return "Missing Contract", (0, 0)
+
+    @property
+    def name(self):
+        return self.contract.name if self.contract else "?"
