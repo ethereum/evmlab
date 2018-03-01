@@ -596,8 +596,10 @@ class DebugViewer():
             raise urwid.ExitMainLoop()
 
         step = 1
-        if key in ('A','Z','S','X','D','C','F','V'):
+        if key in ('A','Z'):
             step = 10 if len(self.operations) <= 1000 else 100
+        elif key in ('S','X','D','C','F','V'):
+            step = 10
 
         # UP trace
         if key in ('a','A'):

@@ -167,23 +167,3 @@ def parseCode(code):
         pc += 1
 
     return instructions
-
-def compare(c, c2):
-    r = re.compile('0x0*([1-9a-f]+)')
-    codes = c.strip().split(' ')
-    codes2 = c2.strip().split(' ')
-
-    i = 0
-    for v in codes:
-        v = v.lower()
-        v2 = codes2[i].lower()
-
-        if v.startswith('0x'):
-            v = r.sub('0x\\1', v)
-        if v2.startswith('0x'):
-            v2 = r.sub('0x\\1', v2)
-
-        if v != v2:
-            print('{}: {} !== {}'.format(i, v, v2))
-        i += 1
-

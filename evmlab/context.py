@@ -26,12 +26,13 @@ def buildContexts(ops, api, contracts, txhash):
             c = cache[addr]
 
             if create and addr == to:
-                # if it's cached, then the contract is already created so we need to return the Contract instance w/ create = False
                 if addr + '_created' in c:
                     c = cache[addr + '_created']
                 else:
+                    # if it's cached, then the contract is already created so we need
+                    # to return the Contract instance w/ create = False
                     newc = object.__new__(Contract)
-                    newc.__dict__ = c.__dict__.copy() 
+                    newc.__dict__ = c.__dict__.copy()
                     newc.create = False
                     c = newc
                     cache[addr + '_created'] = c
@@ -59,6 +60,7 @@ def buildContexts(ops, api, contracts, txhash):
 
     return contract_stack
 
+
 def getAddresses(ops, original_contract):
     """ determine the address of the sourceCode for each operation
      Returns an array of addresses, 1 for each op in ops
@@ -69,8 +71,8 @@ def getAddresses(ops, original_contract):
     prev_depth = None
     prev_op = None
     cur_address = original_contract
-    place_holders = [] # stores the index of where CREATE op addr should go in the addr_stack
-    depth_to_addr = {} # mapping to track depth to an addr so we can easily push the current addr on the stack when we return from a call
+    place_holders = []  # stores the index of where CREATE op addr should go in the addr_stack
+    depth_to_addr = {}  # mapping to track depth to an addr so we can easily push the current addr on the stack when we return from a call
 
     step = 0
     for o in ops:
@@ -94,7 +96,7 @@ def getAddresses(ops, original_contract):
             #
             # There's one exception, though; CREATE
             # With a CREATE, we don't know the address until after the RETURN
-            # so we push a placeholder and update on the Return 
+            # so we push a placeholder and update on the Return
             if prev_op['op'] == 0xf0:
                 cur_address = None
                 place_holders.append([len(addresses)])
@@ -107,8 +109,7 @@ def getAddresses(ops, original_contract):
             # RETURN op. we now know the prev_depth address, so add to context
             if cur_address is None and prev_op['op'] == 0xf3:
                 prev_address = o['stack'][-1]
-                to_update = place_holders.pop()
-                for i in to_update:
+                for i in place_holders.pop():
                     addresses[i] = prev_address
             # Returned from a call
             cur_address = depth_to_addr[cur_depth]
@@ -124,13 +125,13 @@ def getAddresses(ops, original_contract):
     def fixAddr(a):
         if a and len(a) > 40:
             if (a.startswith('0x') and len(a) == 42):
-               return a 
+                return a
             else:
                 return "0x%s" % a[24:]
-    
+
     addresses = [fixAddr(a) for a in addresses]
 
-    return addresses 
+    return addresses
 
 
 def findContractForBytecode(contracts, bytecode):
