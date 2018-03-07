@@ -199,7 +199,7 @@ class StateTest():
 
 
 def iterate_tests(path = '/GeneralStateTests/', ignore = []):
-    logging.info (cfg['TESTS_PATH'] + path)
+    logger.info (cfg['TESTS_PATH'] + path)
     for subdir, dirs, files in sorted(os.walk(cfg['TESTS_PATH'] + path)):
         for f in files:
             if f.endswith('json'):
@@ -463,8 +463,6 @@ def invokeTesteth():
     if isDocker:    
         container = dockerclient.containers.get('testeth')
         (exitcode, output) = container.exec_run(['/usr/bin/testeth',"-t","GeneralStateTests","--","--createRandomTest"])  
-        print("testeth output ")
-        print(output.decode())
         output_lines = output.decode().strip().split("\n")
     else:
         cmd = [name]
@@ -496,9 +494,9 @@ def invokeTesteth():
     return None
 
 def execInDocker(name, cmd):
-    print("executing in %s", name)
+    print("executing in %s: %s" %  (name," ".join(cmd)))
     container = dockerclient.containers.get(name)
-    (exitcode, output) = container.exec_run(cmd, stream=True) 
+    (exitcode, output) = container.exec_run(cmd, stream=True,stdout=False) 
     return {'output': output, 'cmd':" ".join(cmd)}
 
 def startGeth(test):
@@ -515,7 +513,7 @@ def startGeth(test):
     
 
 def startParity(test):
-    cmd = ["state-test", "--json","/testfiles/%s" % os.path.basename(test.tmpfile)]
+    cmd = ["/parity-evm","state-test", "--json","/testfiles/%s" % os.path.basename(test.tmpfile)]
     return execInDocker("parity", cmd)
 
 def startPython(test):
@@ -564,7 +562,7 @@ def end_processes(test):
 
             test.canon_traces.append(canon_trace)
 
-            logging.info("Processed %s steps for %s on test %s" % (len(canon_trace), client_name, test.name))
+            logger.info("Processed %s steps for %s on test %s" % (len(canon_trace), client_name, test.name))
 
 
 def processTraces(test):

@@ -8,7 +8,8 @@ RUN \
   binutils pkg-config openssl libssl-dev libudev-dev
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH /root/.cargo/bin:$PATH
-RUN git clone --depth 1 --branch evmlab-trace https://github.com/cdetrio/parity
+RUN  git clone --depth 1 https://github.com/paritytech/parity
+#RUN git clone --depth 1 --branch evmlab-trace https://github.com/cdetrio/parity
 RUN cd parity && cargo build --release -p evmbin
 RUN cd parity && echo "{}"                                       \
   | jq ".+ {\"repo\":\"$(git config --get remote.origin.url)\"}" \

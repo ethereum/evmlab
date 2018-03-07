@@ -137,7 +137,7 @@ def compare_traces(clients_canon_traces, names):
             log('[*] {:>8} {}'.format("", step[0]))
         else:
             equivalent = False
-            logger.info("")
+            
             for i in range(0, num_clients):
                 if i in wrong_clients or len(wrong_clients) == num_clients-1:
                     log('[!!] {:>7} {}'.format(names[i], step[i]))
