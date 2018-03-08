@@ -493,10 +493,10 @@ def invokeTesteth():
         print('-'*60)
     return None
 
-def execInDocker(name, cmd):
+def execInDocker(name, cmd, stdout = True, stderr=True):
     print("executing in %s: %s" %  (name," ".join(cmd)))
     container = dockerclient.containers.get(name)
-    (exitcode, output) = container.exec_run(cmd, stream=True,stdout=False) 
+    (exitcode, output) = container.exec_run(cmd, stream=True,stdout=stdout, stderr = stderr) 
     return {'output': output, 'cmd':" ".join(cmd)}
 
 def startGeth(test):
@@ -509,7 +509,7 @@ def startGeth(test):
 
     """
     cmd = ["evm","--json","--nomemory","statetest","/testfiles/%s" % os.path.basename(test.tmpfile)]
-    return execInDocker("geth", cmd)
+    return execInDocker("geth", cmd, stdout = False)
     
 
 def startParity(test):
@@ -562,7 +562,7 @@ def end_processes(test):
 
             test.canon_traces.append(canon_trace)
 
-            logger.info("Processed %s steps for %s on test %s" % (len(canon_trace), client_name, test.name))
+            logger.info("Processed %s steps for %s on test %s (file %s) " % (len(canon_trace), client_name, test.name, full_trace_filename))
 
 
 def processTraces(test):
