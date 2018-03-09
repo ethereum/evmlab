@@ -357,16 +357,12 @@ def opSource(c, opcode, srcptr, track=True, length=12):
         end = start + code_pos[1]
         code = contract[start:end]
 
-        if start == end:
-            txt = contract
-        else:
-            txt = contract[:start] + "**" + code + "**" + contract[end:]
-
         # determine which line the code is on
-        start_code_line = len(re.findall(NEWLINE_PATTERN, txt[:start]))
+        start_code_line = len(re.findall(NEWLINE_PATTERN, contract[:start]))
+        # num of lines of code
         code_lines = len(re.findall(NEWLINE_PATTERN, code)) + 1
 
-        split = txt.splitlines()
+        split = contract.splitlines()
 
         if track:
             if start_code_line == 0 or code_lines >= length:
@@ -385,23 +381,34 @@ def opSource(c, opcode, srcptr, track=True, length=12):
             view = split[srcptr: srcptr + length]
 
         viewtxt = "\n".join(view)
-        viewtxt_split = viewtxt.split('**')
 
-        if len(viewtxt_split) == 1:
-            # entire view is the current code
-            viewtxt = viewtxt_split
-            viewtxt_split[0] = ('source', viewtxt_split[0])
-        elif len(viewtxt_split) == 2:
-            # part of the view is the current code
-            viewtxt = viewtxt_split
-            if viewtxt[0].strip() == '':
-                viewtxt_split[1] = ('source', viewtxt_split[1])
+        # highlight the current code in the view
+
+        # determine the code start offset for the view
+        code_start_offset = start - len("\n".join(split[:srcptr])) - 1
+        code_end_offset = code_start_offset + code_pos[1]
+        if (code_start_offset <= 0):
+            # current code starts before the view
+            if (code_end_offset < 0):
+                # current code is before the view
+                pass
+            elif (code_end_offset > len(viewtxt)):
+                # entire view is current code
+                viewtxt = [('source', viewtxt)]
             else:
-                viewtxt_split[0] = ('source', viewtxt_split[0])
-        elif len(viewtxt_split) == 3:
-            # current code is a slice of the view
-            viewtxt = viewtxt_split
-            viewtxt_split[1] = ('source', viewtxt_split[1])
+                # first part of view is current code
+                viewtxt = [('source', viewtxt[:code_end_offset]), viewtxt[code_end_offset:]]
+        else:
+            # current code starts within or after the view
+            if (code_start_offset > len(viewtxt)):
+                # current code is after the view
+                pass
+            elif (code_end_offset > len(viewtxt)):
+                # second part of view is current code
+                viewtxt = [viewtxt[:code_start_offset], ('source', viewtxt[code_start_offset:])]
+            else:
+                # current code is within the current view
+                viewtxt = [viewtxt[:code_start_offset], ('source', viewtxt[code_start_offset:code_end_offset]), viewtxt[code_end_offset:]]
 
         return srcptr, viewtxt
     else:
@@ -419,8 +426,6 @@ class DebugViewer():
         self.opptr = 0
         self.srcptr = 0
         self.srctrack = True
-        self.forward = True
-        self.step = 1
 
         self.ops_view = None
         self.mem_view = None
@@ -430,10 +435,9 @@ class DebugViewer():
         self.help_view = None
 
 
-    def setTrace(self, trace, contract_stack):
+    def setTrace(self, trace, op_contracts=[]):
         self.operations = trace
-        self.contract_stack = contract_stack
-        self.cptr = 0
+        self.op_contracts = op_contracts
 
         ops_view   = urwid.Text(self.getOp())
         mem_view   = urwid.Text(self.getMem())
@@ -512,7 +516,11 @@ class DebugViewer():
 
 
     def getOp(self):
-        addr = self.contract_stack[self.cptr].address if self.cptr < len(self.contract_stack) else None
+        addr = None
+        if (len(self.op_contracts) > 0):
+            c = self.op_contracts[self.opptr]
+            addr = "{} ({})".format(c.address, c.name.split(':')[-1])
+        
         return opDump(self._op(default={'pc':1}), addr)
 
     def getMem(self):
@@ -545,30 +553,20 @@ class DebugViewer():
     def getSource(self, track=None):
         op = self.operations[self.opptr]
 
-        if len(self.contract_stack) == 0:
+        if len(self.op_contracts) == 0:
             return "No Source Provided"
 
         if 'depth' not in op:
             return ""
 
-        prev_op = self.operations[self.opptr - self.step] if self.forward else self.operations[self.opptr + self.step]
-        prev_d = prev_op['depth'] if 'depth' in prev_op else None
-
-        if prev_d is not None and prev_d != op['depth']:
-            self.srcptr = 0
-            if self.forward:
-                self.cptr += 1
-            else:
-                 self.cptr -= 1
-
-        if not self.contract_stack[self.cptr]:
+        if not self.op_contracts[self.opptr]:
             return "Missing context"
 
         if track is None:
             track = self.srctrack
 
         try:
-            self.srcptr, txt = opSource(self.contract_stack[self.cptr], op, self.srcptr, track=track)
+            self.srcptr, txt = opSource(self.op_contracts[self.opptr], op, self.srcptr, track=track)
             return txt
         except SourceException:
             return self.source_view.text
@@ -597,50 +595,50 @@ class DebugViewer():
         if key in ('q', 'Q'):
             raise urwid.ExitMainLoop()
 
-        self.step = 1
-        if key in ('A','Z','S','X','D','C','F','V'):
-            self.step = 10
+        step = 1
+        if key in ('A','Z'):
+            step = 10 if len(self.operations) <= 1000 else 100
+        elif key in ('S','X','D','C','F','V'):
+            step = 10
 
         # UP trace
         if key in ('a','A'):
-            self.opptr = max(0, self.opptr-self.step)
-            self.forward = False
+            self.opptr = max(0, self.opptr-step)
             self._refresh()
 
         # DOWN trace
         if key in ('z','Z'):
-            self.opptr = min(self.opptr+self.step, len(self.operations)-1)
-            self.forward = True
+            self.opptr = min(self.opptr+step, len(self.operations)-1)
             self._refresh()
 
         # UP mem
         if key in ('s','S'):
-            self.memptr = max(0, self.memptr-self.step)
+            self.memptr = max(0, self.memptr-step)
             self.mem_view.set_text(self.getMem())
 
         # DOWN mem
         if key in ('x','X'):
-            self.memptr = self.memptr+self.step
+            self.memptr = self.memptr+step
             self.mem_view.set_text(self.getMem())
 
         # UP stack
         if key in ('d','D'):
-            self.stackptr = max(0, self.stackptr-self.step)
+            self.stackptr = max(0, self.stackptr-step)
             self.stack_view.set_text(self.getStack())
 
         # DOWN stack
         if key in ('c','C'):
-            self.stackptr = self.stackptr+self.step
+            self.stackptr = self.stackptr+step
             self.stack_view.set_text(self.getStack())
 
         # UP source
         if key in ('f','F'):
-            self.srcptr = max(0, self.srcptr-self.step)
+            self.srcptr = max(0, self.srcptr-step)
             self.source_view.set_text(self.getSource(track=False))
 
         # DOWN source
         if key in ('v','V'):
-            self.srcptr = self.srcptr+self.step
+            self.srcptr = self.srcptr+step
             self.source_view.set_text(self.getSource(track=False))
 
         if key in ('t', 'T'):
@@ -746,7 +744,7 @@ def main(args):
             ops = loadWeirdJson(fname)
 
 
-    contract_stack = []
+    op_contracts = []
     if args.json:
         if not args.hash:
             parser.error('hash is required if contract json is provided')
@@ -763,10 +761,10 @@ def main(args):
 
             for contract in combined['contracts'].keys():
                 val = combined['contracts'][contract]
-                c = Contract(sources, val)
+                c = Contract(sources, val, contract)
                 contracts.append(c)
 
-        contract_stack = buildContexts(ops, api, contracts, args.hash)
+        op_contracts = buildContexts(ops, api, contracts, args.hash)
 
     if vm:
         print("\nTo view the generated trace:\n")
@@ -775,7 +773,7 @@ def main(args):
             cmd += " --web3 %s -s %s -j %s --hash %s" % (args.web3, args.source, args.json, args.hash)
         print(cmd)
 
-    DebugViewer().setTrace(ops, contract_stack)
+    DebugViewer().setTrace(ops, op_contracts)
 
 if __name__ == '__main__':
     options = parser.parse_args()

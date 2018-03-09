@@ -132,4 +132,4 @@ Minor changes to how things work is ok, we can handle discrepancies in format an
 The 'opviewer.py' is a simple debugger-like trace-viewer. It can be used against an `evm`-trace and navigate the data in a bit more friendly manner than raw json. 
 Invoke via e.g. `python opviewer.py -f example2.json`
 
-![screenshot](https://raw.githubusercontent.com/holiman/evmlab/master/docs/example.png)
+![screenshot](https://raw.githubusercontent.com/holiman/evmlab/master/docs/example2.png)

@@ -42,10 +42,14 @@ class Contract():
     ins = None
     binRuntime = None
     insRuntime = None
+    lastSource = None
+    name = ""
 
-    def __init__(self, sources, contract=None):
+    def __init__(self, sources, contract=None, name=""):
         self.sources = sources or []
         self._contractTexts = {}
+        self._sourceCache = {}
+        self.name = name 
 
         self._loadContract(contract)
 
@@ -74,9 +78,17 @@ class Contract():
             f = int(f)
             c = self.contractTexts[f]
         except KeyError:
-            return "Missing code", (0,0)
+            if self.lastSource:
+                return self._sourceCache[self.lastSource][0], self._sourceCache[self.lastSource][1]
+            
+            return "Missing code", (0, 0)
         s = int(s)
         l = int(l)
+
+        h = hash((s, l, f, j))
+        if h in self._sourceCache:
+            self.lastSource = h
+            return self._sourceCache[h][0], self._sourceCache[h][1]
 
         # contract is missing, return the last valid ins mapping
         if f < 0:
@@ -95,7 +107,7 @@ class Contract():
 
         # see if text contains multiple contracts
         contract_start_indices = [m.start(0)
-                                  for m in re.finditer('contract ', c)]
+                                  for m in re.finditer('^ *contract ', c)]
 
         # for multi contract files, get the start of the contract for the current instruction
         if len(contract_start_indices) > 1:
@@ -114,7 +126,7 @@ class Contract():
                     break
                 elif s > i and i == contract_start_indices[-1]:
                     contract_start = contract_start_indices[-1]
-            
+
             pos = contract_start + c[contract_start:].find('{')
             openBr = 0
             while pos < len(c):
@@ -122,7 +134,7 @@ class Contract():
                     openBr += 1
                 elif c[pos] == '}':
                     openBr -= 1
-                
+
                 if openBr == 0:
                     contract_end = pos + 1
                     break
@@ -131,8 +143,14 @@ class Contract():
 
             # return only the contract we're interested in
             # we need to update the bytes start & end pos to reflect the truncated text we are returning
-            return c[contract_start:contract_end], [s - contract_start, l]
+            res = (c[contract_start:contract_end], [s - contract_start, l])
+            self._sourceCache[h] = res
+
+            self.lastSource = h
+            return res[0], res[1]
         else:
+            self._sourceCache[h] = (c, [s, l])
+            self.lastSource = h
             return c, [s, l]
 
     def _getInstructionMapping(self, pc):
@@ -177,7 +195,6 @@ class Contract():
             self.binRuntime = bytecode
             self.insRuntime = parseCode(bytecode)
 
-
         bytecode = load('bin')
         if bytecode:
             self.bin = bytecode
@@ -187,12 +204,14 @@ class Contract():
         self.mapping = parseSourceMap(load('srcmap'))
 
     def _loadContractTexts(self):
+        self._sourceCache = {}
         mapping = self.mapping if self.create else self.mappingRuntime
 
         contract_indexes = set()
         for [s, l, f, j] in mapping:
             f = int(f)
-            contract_indexes.add(f)
+            if (f > 0):
+                contract_indexes.add(f)
 
         for i in contract_indexes:
-            self._contractTexts[i] = self.sources[f]
+            self._contractTexts[i] = self.sources[i]
