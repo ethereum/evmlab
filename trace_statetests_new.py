@@ -352,9 +352,12 @@ def finishProc(name, processInfo, canonicalizer, fulltrace_filename = None):
     """ Ends the process, returns the canonical trace and also writes the 
     full process output to a file, along with the command used to start the process"""
 
+    outp = ""
+    for chunk in processInfo['output']:
+        outp = outp + chunk.decode()
 
-    outp = "".join([l.decode() for l in processInfo['output']])
     outp = outp.split("\n")
+
 
     if fulltrace_filename is not None:
         #logging.info("Writing %s full trace to %s" % (name, fulltrace_filename))
@@ -459,22 +462,28 @@ def invokeTesteth():
     """
     # docker exec -it suspicious_bassi /usr/bin/testeth -t GeneralStateTests -- --createRandomTest
     (name, isDocker) = getBaseCmd("testeth")
-    outputlines = []
-    if isDocker:    
-        container = dockerclient.containers.get('testeth')
-        (exitcode, output) = container.exec_run(['/usr/bin/testeth',"-t","GeneralStateTests","--","--createRandomTest"])  
-        output_lines = output.decode().strip().split("\n")
+    output_lines = []
+    if isDocker:
+        cmd = ['/usr/bin/testeth',"-t","GeneralStateTests","--","--createRandomTest"]
+        
+        processInfo = execInDocker('testeth', cmd, stderr=False)
+        outp = ""
+        for chunk in processInfo['output']:
+            outp = outp + chunk.decode()
+
+        output_lines = outp.split("\n")
+        #start_time = time.time()
+        #container = dockerclient.containers.get('testeth')
+        #(exitcode, output) = container.exec_run(cmd, stderr = False)  
+        #lapsed_time = time.time() - start_time
+        #logger.info("Generating test took %f seconds" % elapsed_time)
+        #output_lines = output.decode().strip().split("\n")
     else:
         cmd = [name]
 
         cmd.extend(["-t","GeneralStateTests","--","--createRandomTest"])
         output_lines = VMUtils.finishProc(VMUtils.startProc(cmd))
     
-    # A quirk in testeth... 
-    if output_lines[-1].find("*** No errors detected") > -1:
-        output_lines[-1] = ""
-    if output_lines[0].find("*** No errors detected") > -1:
-        output_lines[0] = ""
 
     outp = "".join(output_lines)
 
@@ -494,10 +503,14 @@ def invokeTesteth():
     return None
 
 def execInDocker(name, cmd, stdout = True, stderr=True):
-    print("executing in %s: %s" %  (name," ".join(cmd)))
+    start_time = time.time()
+    #logger.info("executing in %s: %s" %  (name," ".join(cmd)))
     container = dockerclient.containers.get(name)
-    (exitcode, output) = container.exec_run(cmd, stream=True,stdout=stdout, stderr = stderr) 
+    (exitcode, output) = container.exec_run(cmd, stream=True,stdout=stdout, stderr = stderr)     
+    logger.info("Executing %s : done in %f seconds" % (name, time.time() - start_time))
+
     return {'output': output, 'cmd':" ".join(cmd)}
+
 
 def startGeth(test):
     """
@@ -516,22 +529,34 @@ def startParity(test):
     cmd = ["/parity-evm","state-test", "--json","/testfiles/%s" % os.path.basename(test.tmpfile)]
     return execInDocker("parity", cmd)
 
-def startPython(test):
+def startCpp(test):
+    
+    #docker exec -it cpp /usr/bin/testeth -t GeneralStateTests -- --singletest /testfiles/0001--randomStatetestmartin-Fri_09_42_57-7812-0-1-test.json randomStatetestmartin-Fri_09_42_57-7812-0   --jsontrace '{ "disableStorage" : false, "disableMemory" : false, "disableStack" : false, "fullStorage" : true }' 
+    #docker exec -it cpp /usr/bin/testeth -t GeneralStateTests -- --singletest /testfiles/0015--randomStatetestmartin-Fri_10_15_53-13070-3-3-test.json randomStatetestmartin-Fri_10_15_53-13070-3 --jsontrace '{"disableStack": false, "fullStorage": false, "disableStorage": false, "disableMemory": false}'
 
-    tx_encoded = json.dumps(test.tx)
-    tx_double_encoded = json.dumps(tx_encoded) # double encode to escape chars for command line
+    cmd = ["/usr/bin/testeth",
+            "-t","GeneralStateTests","--",
+            "--singletest", "/testfiles/%s" % os.path.basename(test.tmpfile), test.name,
+            "--jsontrace", "'%s'" % json.dumps({"disableStorage": True, "disableMemory": True, "disableStack": False, "fullStorage": False}) 
+            ]
+    return execInDocker("cpp", cmd, stderr=False)
 
-    prestate_path = os.path.abspath(test.prestate_tmpfile)
-    mount_flag = prestate_path + ":" + "/mounted_prestate"
-    cmd = ["docker", "run", "--rm", "-t", "-v", mount_flag, cfg['PYETH_DOCKER_NAME'], "run_statetest.py", "/mounted_prestate", tx_double_encoded]
-
-    return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd), 'output' : 'stdout'}
-
+#def startPython(test):
+#
+#    tx_encoded = json.dumps(test.tx)
+#    tx_double_encoded = json.dumps(tx_encoded) # double encode to escape chars for command line
+#
+#    prestate_path = os.path.abspath(test.prestate_tmpfile)
+#    mount_flag = prestate_path + ":" + "/mounted_prestate"
+#    cmd = ["docker", "run", "--rm", "-t", "-v", mount_flag, cfg['PYETH_DOCKER_NAME'], "run_statetest.py", "/mounted_prestate", tx_double_encoded]
+#
+#    return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd), 'output' : 'stdout'}
+#
 
 def start_processes(test):
     clients = cfg['DO_CLIENTS']
 
-    starters = {'geth': startGeth, 'py': startPython, 'parity': startParity}
+    starters = {'geth': startGeth, 'cpp': startCpp, 'parity': startParity}
 
     logger.info("Starting processes for %s on test %s" % ( clients, test.name))
     #Start the processes
@@ -580,7 +605,6 @@ def processTraces(test):
             os.remove(f)
     else:
         logger.warning("CONSENSUS BUG!!!")
-
         # save the state-test
         statetest_filename = "%s/%s-test.json" %(cfg['LOGS_PATH'], test.id())
         os.rename(test.tmpfile,statetest_filename)
@@ -598,6 +622,7 @@ def processTraces(test):
         with open(summary_log_filename, "w+") as f:
             logger.info("Summary trace: %s" , summary_log_filename)
             f.write("\n".join(trace_summary))
+        sys.exit(1)
 
     return equivalent
 
