@@ -424,6 +424,13 @@ class GethVM(VM):
                     
                     continue
 
+
+                # Ignored for now
+                if 'error' in step.keys() and 'output' in step.keys():
+                    continue
+                if 'time' in step.keys():
+                    continue
+
                 if not 'op' in step.keys():
                     logger.warn("Missing 'op': %s" % str(step))
                     continue

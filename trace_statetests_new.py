@@ -230,11 +230,11 @@ def generateTests():
 
     counter = 0
     while True: 
-        test_json =  invokeTesteth()
+        proc_info =  invokeTesteth()
+        test_json =  finalizeTestEth(proc_info)
         if test_json == None: 
             time.sleep(2)
             continue
-
 
         identifier = "%s-%d" %(host_id, counter)
         test_fullpath = "%s/randomStatetest%s.json" % (cfg['TESTS_PATH'], identifier)
@@ -431,9 +431,10 @@ def startDaemons():
     (name, isDocker) = getBaseCmd("testeth")
     if isDocker:
         # First, kill off any existing daemons
-        killDaemon("testeth")
-        procinfo = startDaemon("testeth", name)
-        daemons.append( (procinfo, "testeth" ))        
+        #killDaemon("testeth")
+        #procinfo = startDaemon("testeth", name)
+        #daemons.append( (procinfo, "testeth" ))        
+        pass
     else:
         logger.warning("Not a docker client %s", client_name)
 
@@ -463,28 +464,17 @@ def invokeTesteth():
     # docker exec -it suspicious_bassi /usr/bin/testeth -t GeneralStateTests -- --createRandomTest
     (name, isDocker) = getBaseCmd("testeth")
     output_lines = []
-    if isDocker:
-        cmd = ['/usr/bin/testeth',"-t","GeneralStateTests","--","--createRandomTest"]
-        
-        processInfo = execInDocker('testeth', cmd, stderr=False)
-        outp = ""
-        for chunk in processInfo['output']:
-            outp = outp + chunk.decode()
-
-        output_lines = outp.split("\n")
-        #start_time = time.time()
-        #container = dockerclient.containers.get('testeth')
-        #(exitcode, output) = container.exec_run(cmd, stderr = False)  
-        #lapsed_time = time.time() - start_time
-        #logger.info("Generating test took %f seconds" % elapsed_time)
-        #output_lines = output.decode().strip().split("\n")
-    else:
-        cmd = [name]
-
-        cmd.extend(["-t","GeneralStateTests","--","--createRandomTest"])
-        output_lines = VMUtils.finishProc(VMUtils.startProc(cmd))
+    cmd = ['/usr/bin/testeth',"-t","GeneralStateTests","--","--createRandomTest"]
     
+    processInfo = execInDocker('testeth', cmd, stderr=False)
+    return processInfo
 
+def finalizeTestEth(processInfo):
+    outp = ""
+    for chunk in processInfo['output']:
+        outp = outp + chunk.decode()
+
+    output_lines = outp.split("\n")
     outp = "".join(output_lines)
 
     #Validate that it's json
@@ -497,8 +487,8 @@ def invokeTesteth():
         print('-'*60)
         traceback.print_exc(file=sys.stdout)
         print('-'*60)
-        print("Output from testeth (0-100):")
-        print(outp[:100])
+        print("Output from testeth (0-1000):")
+        print(outp[:1000])
         print('-'*60)
     return None
 
@@ -592,7 +582,7 @@ def end_processes(test):
 
 def processTraces(test):
     if test is None:
-        return
+        return True
 
     # Process previous traces
     (equivalent, trace_output) = VMUtils.compare_traces(test.canon_traces, cfg['DO_CLIENTS']) 
