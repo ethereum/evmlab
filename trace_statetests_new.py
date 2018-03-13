@@ -464,7 +464,7 @@ def invokeTesteth():
     # docker exec -it suspicious_bassi /usr/bin/testeth -t GeneralStateTests -- --createRandomTest
     (name, isDocker) = getBaseCmd("testeth")
     output_lines = []
-    cmd = ['/usr/bin/testeth',"-t","GeneralStateTests","--","--createRandomTest"]
+    cmd = ['/usr/bin/testeth',"-t","GeneralStateTests","--","--createRandomTest","--jsontrace","''"]
     
     processInfo = execInDocker('testeth', cmd, stderr=False)
     return processInfo
@@ -475,7 +475,25 @@ def finalizeTestEth(processInfo):
         outp = outp + chunk.decode()
 
     output_lines = outp.split("\n")
-    outp = "".join(output_lines)
+
+    # When we're running with --jsontrace '', which is a hack to stop testeth from waiting an additional second for another thread to finish, 
+    # we need to remove a lot of crap lines in the start of the output
+    
+    skip = True
+    outp = ""
+    for l in output_lines:
+        if skip == True and l.startswith("    \"randomStatetest\" :"):
+            l = "{" + l
+            skip = False
+        if skip:
+            continue
+        outp += l
+
+#    outp = "\n".join(output_lines)
+    #print (outp)
+    #sys.exit(1)
+
+#    outp = [x for x in outp if not x.]
 
     #Validate that it's json
     try:
@@ -494,12 +512,14 @@ def finalizeTestEth(processInfo):
 
 def execInDocker(name, cmd, stdout = True, stderr=True):
     start_time = time.time()
+    stream = False
     #logger.info("executing in %s: %s" %  (name," ".join(cmd)))
     container = dockerclient.containers.get(name)
-    (exitcode, output) = container.exec_run(cmd, stream=True,stdout=stdout, stderr = stderr)     
+    (exitcode, output) = container.exec_run(cmd, stream=stream,stdout=stdout, stderr = stderr)     
     logger.info("Executing %s : done in %f seconds" % (name, time.time() - start_time))
 
-    return {'output': output, 'cmd':" ".join(cmd)}
+
+    return {'output': [output], 'cmd':" ".join(cmd)}
 
 
 def startGeth(test):
@@ -516,7 +536,7 @@ def startGeth(test):
     
 
 def startParity(test):
-    cmd = ["/parity-evm","state-test", "--json","/testfiles/%s" % os.path.basename(test.tmpfile)]
+    cmd = ["/parity-evm","state-test", "--std-json","/testfiles/%s" % os.path.basename(test.tmpfile)]
     return execInDocker("parity", cmd)
 
 def startCpp(test):
