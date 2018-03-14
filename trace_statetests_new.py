@@ -488,13 +488,6 @@ def finalizeTestEth(processInfo):
         if skip:
             continue
         outp += l
-
-#    outp = "\n".join(output_lines)
-    #print (outp)
-    #sys.exit(1)
-
-#    outp = [x for x in outp if not x.]
-
     #Validate that it's json
     try:
         test = json.loads(outp)
