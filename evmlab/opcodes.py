@@ -1,4 +1,3 @@
-from ethereum.utils import decode_hex, remove_0x_head, bytearray_to_bytestr, encode_hex
 from copy import copy
 import collections
 # Taken from https://github.com/ethereum/pyethereum/blob/develop/ethereum/opcodes.py
@@ -131,6 +130,28 @@ BALANCE_SUPPLEMENTAL_GAS = 380
 CALL_CHILD_LIMIT_NUM = 63
 CALL_CHILD_LIMIT_DENOM = 64
 SUICIDE_SUPPLEMENTAL_GAS = 5000
+
+def bytearray_to_bytestr(value):
+    return bytes(value)
+
+def encode_hex(b):
+    if isinstance(b, str):
+        b = bytes(b, 'utf-8')
+    if isinstance(b, (bytes, bytearray)):
+        return str(binascii.hexlify(b), 'utf-8')
+
+    raise TypeError('Value must be an instance of str or bytes')
+
+def remove_0x_head(s):
+    return s[2:] if s[:2] in (b'0x', '0x') else s
+
+
+def decode_hex(s):
+    if isinstance(s, str):
+        return bytes.fromhex(s)
+    if isinstance(s, (bytes, bytearray)):
+        return binascii.unhexlify(s)
+    raise TypeError('Value must be an instance of str or bytes')
 
 
 def parseCode(code):
