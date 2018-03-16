@@ -9,7 +9,9 @@ FNULL = open(os.devnull, 'w')
 
 valid_opcodes = opcodes.reverse_opcodes.keys()
 
-
+# The 'stateRoot' output is missing from some clients (parity). 
+# Enable this once they implement it
+INCLUDE_STATEROOT=False
 
 try:
     from ethereum.utils import parse_int_or_hex,decode_hex,remove_0x_head
@@ -137,7 +139,6 @@ def compare_traces(clients_canon_traces, names):
             log('[*] {:>8} {}'.format("", step[0]))
         else:
             equivalent = False
-            logger.info("")
             for i in range(0, num_clients):
                 if i in wrong_clients or len(wrong_clients) == num_clients-1:
                     log('[!!] {:>7} {}'.format(names[i], step[i]))
@@ -217,14 +218,14 @@ class CppVM(VM):
                         x = x[:-1]
 
                     step = json.loads(x)
-                    if 'stateRoot' in step.keys():
+                    if 'stateRoot' in step.keys() and INCLUDE_STATEROOT:
                         steps.append(step)
 
             except Exception as e:
                 logger.info('Exception parsing cpp json:')
                 logger.info(e)
                 logger.info('problematic line:')
-                logger.info(x)
+                logger.info(x[:500])
 
         canon_steps = []
 
@@ -250,6 +251,15 @@ class CppVM(VM):
                     'stack' : toHexQuantities(step['stack']),
                 }
                 canon_steps.append(trace_step)
+
+                # Sometimes, the last one is duplicated. let's just remove that, if so
+
+                if len(canon_steps) > 1:
+                    last = canon_steps[-1]
+                    slast = canon_steps[-2]
+                    if slast['depth'] == last['depth'] and slast['pc'] == last['pc']:
+                        canon_steps = canon_steps[:-1]
+
         except Exception as e:
             logger.info('Exception parsing cpp step:')
             logger.info(e)
@@ -287,7 +297,7 @@ class PyVM(VM):
             #print (step)
             if 'stateRoot' in step.keys():
                 # dont log stateRoot when tx doesnt execute, to match cpp and parity
-                if len(canon_steps):
+                if len(canon_steps) and INCLUDE_STATEROOT:
                     canon_steps.append(step)
                 continue
             if 'event' not in step.keys():               
@@ -346,9 +356,6 @@ class GethVM(VM):
                     cmd.append('%s:%s' % (os.path.join('/private', genesis_mount.strip('/')), genesis_mount))
                 else:
                     cmd.append('%s:%s' % (genesis_mount, genesis_mount))
-#                kwargs['genesis'] = "mounted_genesis"
-#                cmd.append('%s:%s' % (get('genesis'),"/mounted_genesis"))
- #               kwargs['genesis'] = "mounted_genesis"
 
         cmd.append( self.executable ) 
 
@@ -412,9 +419,16 @@ class GethVM(VM):
                 if 'stateRoot' in step.keys() :
                     # don't log stateRoot when tx doesnt execute, to match cpp and parity
                     # should be last step
-                    if len(canon_steps):
+                    if len(canon_steps) and INCLUDE_STATEROOT:
                         canon_steps.append(step)
                     
+                    continue
+
+
+                # Ignored for now
+                if 'error' in step.keys() and 'output' in step.keys():
+                    continue
+                if 'time' in step.keys():
                     continue
 
                 if not 'op' in step.keys():
@@ -535,8 +549,8 @@ class ParityVM(VM):
                 if 'stateRoot' in p_step.keys():
                     # dont log the stateRoot for basic tx's (that have no EVM steps)
                     # should be last step
-                    if len(canon_steps):
-                        canon_steps.append(p_step)
+                    if len(canon_steps) and INCLUDE_STATEROOT:
+                        canon_steps.append(step)
                     continue
 
                 # Ignored for now
