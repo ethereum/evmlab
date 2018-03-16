@@ -1,24 +1,27 @@
-#Download base image ubuntu 14.04
-FROM ubuntu:14.04
+# Build stage 
+FROM alpine:latest as builder
+RUN apk add --no-cache \
+        git \
+        cmake \
+        g++ \
+        make \
+        linux-headers \
+        leveldb-dev --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing/
+RUN git clone --recursive https://github.com/ethereum/testeth --branch develop --single-branch --depth 1
+RUN sed -i '1s/^/\#define EVM_OPTIMIZE false\n/' testeth/libevm/VMConfig.h
+RUN mkdir /build
+# See https://github.com/ethereum/cpp-ethereum/issues/4834
+RUN cd /build && cmake /testeth -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=RelWithDebInfo -DTOOLS=OFF -DEVM_OPTIMIZE=0
+#RUN cd /build && cmake /testeth -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=RelWithDebInfo -DTOOLS=OFF -DEVM_OPTIMIZE=0 -DSTATIC_LINKING=1
+RUN cmake --version
+RUN cd /build && make -j1 && make install; exit 0
+RUN cd /build && cp -r deps/lib64/libbinaryen.a deps/lib/; cp -r deps/lib64/libmpir.a deps/lib/
+RUN cd /build && make -j1 && make install
+# Install stage 
+FROM alpine:latest
+RUN apk add --no-cache \
+        libstdc++ \
+        leveldb --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing/
+COPY --from=builder /build/test/testeth /usr/bin/testeth
 
-# Update Ubuntu Software repository
-RUN     apt-get update \
-    &&  apt-get install git -y \
-    &&  cd /home && git clone --depth 1 --recursive https://github.com/ethereum/cpp-ethereum.git \
-    &&  sed -i '1s/^/\#define EVM_OPTIMIZE false\n/' cpp-ethereum/libevm/VMConfig.h \ 
-    &&  git clone --depth 1 --recursive https://github.com/winsvega/solidity.git \
-    &&  apt-get install curl libboost-all-dev libleveldb-dev libcurl4-openssl-dev libmicrohttpd-dev libminiupnpc-dev libgmp-dev -y \
-    &&  cd cpp-ethereum && ./scripts/install_cmake.sh --prefix /usr/local \
-    &&  ./scripts/install_deps.sh \
-    &&  mkdir build && cd build && cmake .. -DSTATIC_LINKING=1 && make \
-    &&  cp ./test/testeth ../../testeth \
-    &&  cd /home/solidity \
-    &&  ./scripts/install_deps.sh \
-    &&  mkdir build && cd build && cmake .. -DSTATIC_LINKING=1 && make \
-    &&  cp ./lllc/lllc /bin/lllc \
-    &&  cd /home && rm -r /home/cpp-ethereum && rm -r /home/solidity \
-    &&  apt-get remove curl libboost-all-dev libcurl4-openssl-dev libmicrohttpd-dev libminiupnpc-dev libgmp-dev -y \
-    &&  apt-get autoremove -y \
-    &&  apt purge
-
-ENTRYPOINT ["/home/testeth"]
+#ENTRYPOINT ["/usr/bin/testeth"]

@@ -13,6 +13,9 @@ from evmlab import genesis as gen
 from evmlab import vm as VMUtils
 from evmlab import opcodes
 
+import docker
+dockerclient = docker.from_env()
+
 import logging
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -25,6 +28,7 @@ logger.addHandler(ch)
 
 cfg ={}
 local_cfg = {}
+
 
 def parse_config():
     """Parses 'statetests.ini'-file, which 
@@ -53,6 +57,10 @@ def parse_config():
     cfg['SINGLE_TEST_TMP_FILE'] ="%s-%d" % (config[uname]['single_test_tmp_file'], os.getpid())
 
     cfg['LOGS_PATH'] = config[uname]['logs_path']
+
+    here = os.path.dirname(os.path.realpath(__file__))
+    cfg['INDIVIDUAL_TESTS_PATH'] = "%s/testfiles/" % here
+    os.makedirs( cfg['INDIVIDUAL_TESTS_PATH'] , exist_ok = True)
 
     logger.info("Config")
     logger.info("\tActive clients:")
@@ -86,14 +94,10 @@ def getBaseCmd(bin_or_docker):
 
         
 parse_config()
-
-
 class GeneralTest():
 
     def __init__(self, json_data, filename):
-
-        self.fork_name = cfg['FORK_CONFIG']
-        
+        self.fork_name = cfg['FORK_CONFIG']        
         self.subfolder = filename.split(os.sep)[-2]
         # same default as evmlab/genesis.py
         metroBlock = 2000
@@ -182,21 +186,20 @@ class StateTest():
         self.canon_traces = []
         self.procs = []
         self.traceFiles = []
-        self.tmpfile = cfg['SINGLE_TEST_TMP_FILE']
 
     def id(self):
         return "{:0>4}-{}-{}-{}".format(self.number,self.subfolder,self.name,self.tx_i)
 
     def writeToFile(self):
         # write to unique tmpfile
-        self.tmpfile = "%s-test.json" % self.id()
+        self.tmpfile = "%s/%s-test.json" % (cfg['INDIVIDUAL_TESTS_PATH'],self.id())
         with open(self.tmpfile, 'w') as outfile:
             json.dump(self.statetest, outfile)
 
 
 
 def iterate_tests(path = '/GeneralStateTests/', ignore = []):
-    logging.info (cfg['TESTS_PATH'] + path)
+    logger.info (cfg['TESTS_PATH'] + path)
     for subdir, dirs, files in sorted(os.walk(cfg['TESTS_PATH'] + path)):
         for f in files:
             if f.endswith('json'):
@@ -215,28 +218,6 @@ def dumpJson(obj, dir = None, prefix = None):
     os.close(fd)
     return temp_path
 
-def createRandomStateTest():
-    (name, isDocker) = getBaseCmd("testeth")
-    if isDocker:
-        cmd = ['docker', "run", "--rm",name]
-    else:
-        cmd = [name]
-
-    cmd.extend(["-t","GeneralStateTests","--","--createRandomTest"])
-    outp = "".join(VMUtils.finishProc(VMUtils.startProc(cmd)))
-    #Validate that it's json
-    try:
-        test = json.loads(outp)
-        test['randomStatetest']['_info'] = {'sourceHash': "0000000000000000000000000000000000000000000000000000000000001337", "comment":"x"}
-
-        return test
-    except:
-        print("Exception generating test")
-        print('-'*60)
-        traceback.print_exc(file=sys.stdout)
-        print('-'*60)
-    return None
-
 
 def generateTests():
     import getpass, time
@@ -249,7 +230,8 @@ def generateTests():
 
     counter = 0
     while True: 
-        test_json =  createRandomStateTest()
+        proc_info =  invokeTesteth()
+        test_json =  finalizeTestEth(proc_info)
         if test_json == None: 
             time.sleep(2)
             continue
@@ -264,6 +246,7 @@ def generateTests():
 
         yield test_fullpath
         counter = counter +1
+        #break
 
 
 
@@ -346,13 +329,11 @@ START_I = 0
 
 
 
-
 def randomTestIterator():
 
     number = 0
 
     for f in generateTests():
-
         with open(f) as json_data:
             general_test = GeneralTest(json.load(json_data),f)
 
@@ -362,6 +343,8 @@ def randomTestIterator():
             yield state_test
 
 def main():
+    # Start all docker daemons that we'll use during the execution
+    startDaemons()
     perform_tests(randomTestIterator)
 
 
@@ -369,13 +352,12 @@ def finishProc(name, processInfo, canonicalizer, fulltrace_filename = None):
     """ Ends the process, returns the canonical trace and also writes the 
     full process output to a file, along with the command used to start the process"""
 
-    process = processInfo['proc']
+    outp = ""
+    for chunk in processInfo['output']:
+        outp = outp + chunk.decode()
 
-    extraTime = False
-    if name == "py":
-        extraTime = True
+    outp = outp.split("\n")
 
-    outp = VMUtils.finishProc(processInfo['proc'], extraTime, processInfo['output'])
 
     if fulltrace_filename is not None:
         #logging.info("Writing %s full trace to %s" % (name, fulltrace_filename))
@@ -404,77 +386,180 @@ def get_summary(combined_trace, n=20):
 
     return list(buf)
 
-def startGeth(test):
+def startDaemon(clientname, imagename):
 
-    testfile_path = os.path.abspath(test.tmpfile)
-    mount_testfile = testfile_path + ":" + "/mounted_testfile"
 
-    (name, isDocker) = getBaseCmd("geth")
+    dockerclient.containers.run(image = imagename, 
+        entrypoint="sleep",
+        command = ["356d"],
+        name=clientname,
+        detach=True, 
+        remove=True,
+        volumes={cfg["INDIVIDUAL_TESTS_PATH"]:{ 'bind':'/testfiles/', 'mode':"rw"}})
+
+        ##    cmd = ["docker", "run", "--rm", "-t",
+        ##          "--name", clientname, 
+        ##         "-v", "/tmp/testfiles/:/testfiles/", 
+        ##       "--entrypoint","sleep", imagename, "356d"]
+        ##  return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
+    logger.info("Started docker daemon %s %s" % (imagename, clientname))
+
+def killDaemon(clientname):
+    try:
+        c = dockerclient.containers.get(clientname)
+        c.kill()
+        c.stop()
+    except Exception as e:
+        pass
+
+ #   VMUtils.finishProc(VMUtils.startProc(["docker", "kill",clientname]))
+
+def startDaemons():
+    """ startDaemons starts docker processes for all clients. The actual execution of 
+    testcases is then performed via docker exec. Means that executing a specific testcase
+    does not require starting a whole new docker context, instead we just reuse the existing
+    docker process. 
+    The startDaemon basically does this: 
+
+    ```
+    docker run ethereum/client-go:alltools-latest sleep 356d    
+    ```
+
+    """
+    # Start testeth
+    daemons = []
+    (name, isDocker) = getBaseCmd("testeth")
     if isDocker:
-        cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, name, "--json", "--nomemory", "statetest", "/mounted_testfile"]
-        return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
+        # First, kill off any existing daemons
+        #killDaemon("testeth")
+        #procinfo = startDaemon("testeth", name)
+        #daemons.append( (procinfo, "testeth" ))        
+        pass
     else:
-        cmd = [name,"--json", "--nomemory", "statetest", testfile_path]
-        return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stderr'}
+        logger.warning("Not a docker client %s", client_name)
+
+
+    clients = cfg['DO_CLIENTS']
+
+    logger.info("Starting daemons for %s" % clients)
+    #Start the processes
+    for client_name in clients:
+        (name, isDocker) = getBaseCmd(client_name)
+        if isDocker:
+            # First, kill off any existing daemons
+            killDaemon(client_name)
+            procinfo = startDaemon(client_name, name)
+            daemons.append( (procinfo, client_name ))        
+        else:
+            logger.warning("Not a docker client %s", client_name)
+
+def invokeTesteth():
+
+    """
+    With daemonized docker images, we execute basically the following
+    
+    docker exec -it <name> <command>
+
+    """
+    # docker exec -it suspicious_bassi /usr/bin/testeth -t GeneralStateTests -- --createRandomTest
+    (name, isDocker) = getBaseCmd("testeth")
+    output_lines = []
+    cmd = ['/usr/bin/testeth',"-t","GeneralStateTests","--","--createRandomTest","--jsontrace","''"]
+    
+    processInfo = execInDocker('testeth', cmd, stderr=False)
+    return processInfo
+
+def finalizeTestEth(processInfo):
+    outp = ""
+    for chunk in processInfo['output']:
+        outp = outp + chunk.decode()
+
+    output_lines = outp.split("\n")
+
+    # When we're running with --jsontrace '', which is a hack to stop testeth from waiting an additional second for another thread to finish, 
+    # we need to remove a lot of crap lines in the start of the output
+    
+    skip = True
+    outp = ""
+    for l in output_lines:
+        if skip == True and l.startswith("    \"randomStatetest\" :"):
+            l = "{" + l
+            skip = False
+        if skip:
+            continue
+        outp += l
+    #Validate that it's json
+    try:
+        test = json.loads(outp)
+        #test['randomStatetest']['_info'] = {'sourceHash': "0000000000000000000000000000000000000000000000000000000000001337", "comment":"x"}
+        return test
+    except:
+        print("Exception generating test")
+        print('-'*60)
+        traceback.print_exc(file=sys.stdout)
+        print('-'*60)
+        print("Output from testeth (0-1000):")
+        print(outp[:1000])
+        print('-'*60)
+    return None
+
+def execInDocker(name, cmd, stdout = True, stderr=True):
+    start_time = time.time()
+    stream = False
+    #logger.info("executing in %s: %s" %  (name," ".join(cmd)))
+    container = dockerclient.containers.get(name)
+    (exitcode, output) = container.exec_run(cmd, stream=stream,stdout=stdout, stderr = stderr)     
+    logger.info("Executing %s : done in %f seconds" % (name, time.time() - start_time))
+
+
+    return {'output': [output], 'cmd':" ".join(cmd)}
+
+
+def startGeth(test):
+    """
+    With daemonized docker images, we execute basically the following
+
+    docker exec -it ggeth2 evm --json --code "6060" run
+    or
+    docker exec -it <name> <command>
+
+    """
+    cmd = ["evm","--json","--nomemory","statetest","/testfiles/%s" % os.path.basename(test.tmpfile)]
+    return execInDocker("geth", cmd, stdout = False)
+    
 
 def startParity(test):
-
-    testfile_path = os.path.abspath(test.tmpfile)
-    mount_testfile = testfile_path + ":" + "/mounted_testfile"
-
-    (name, isDocker) = getBaseCmd("parity")
-    if isDocker:
-        cmd = ["docker", "run", "--rm", "-t", "-v", mount_testfile, name, "state-test", "/mounted_testfile", "--json"]
-    else:
-        cmd = [name,"state-test", testfile_path, "--json"]
-
-
-    return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
+    cmd = ["/parity-evm","state-test", "--std-json","/testfiles/%s" % os.path.basename(test.tmpfile)]
+    return execInDocker("parity", cmd)
 
 def startCpp(test):
+    
+    #docker exec -it cpp /usr/bin/testeth -t GeneralStateTests -- --singletest /testfiles/0001--randomStatetestmartin-Fri_09_42_57-7812-0-1-test.json randomStatetestmartin-Fri_09_42_57-7812-0   --jsontrace '{ "disableStorage" : false, "disableMemory" : false, "disableStack" : false, "fullStorage" : true }' 
+    #docker exec -it cpp /usr/bin/testeth -t GeneralStateTests -- --singletest /testfiles/0015--randomStatetestmartin-Fri_10_15_53-13070-3-3-test.json randomStatetestmartin-Fri_10_15_53-13070-3 --jsontrace '{"disableStack": false, "fullStorage": false, "disableStorage": false, "disableMemory": false}'
 
-    testfile_path = os.path.abspath(test.tmpfile)
+    cmd = ["/usr/bin/testeth",
+            "-t","GeneralStateTests","--",
+            "--singletest", "/testfiles/%s" % os.path.basename(test.tmpfile), test.name,
+            "--jsontrace", "'%s'" % json.dumps({"disableStorage": True, "disableMemory": True, "disableStack": False, "fullStorage": False}) 
+            ]
+    return execInDocker("cpp", cmd, stderr=False)
 
-    (name, isDocker) = getBaseCmd("cpp")
-    if isDocker:
-        mounted_testfile = testfile_path + ":" + "/mounted_testfile"
-        cmd = ["docker", "run", "--rm", "-t", "-v", mounted_testfile]
-        testfile_to_execute = "/mounted_testfile"
-    else:
-        cmd = []
-        testfile_to_execute = testfile_path
-
-    cmd.extend([name
-                ,'-t',"GeneralStateTests"
-                ,'--'
-                ,'--singletest'
-                ,testfile_to_execute
-                ,test.name
-                ,'--jsontrace',"'{ \"disableStorage\":true, \"disableMemory\":true }'"
-                ,'--singlenet',cfg['FORK_CONFIG']
-                ,'-d',"0",'-g',"0", '-v', "0"])
-
-    if cfg['FORK_CONFIG'] == 'Homestead' or cfg['FORK_CONFIG'] == 'Frontier':
-        cmd.extend(['--all']) # cpp requires this for some reason
-
-    return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
-
-def startPython(test):
-
-    tx_encoded = json.dumps(test.tx)
-    tx_double_encoded = json.dumps(tx_encoded) # double encode to escape chars for command line
-
-    prestate_path = os.path.abspath(test.prestate_tmpfile)
-    mount_flag = prestate_path + ":" + "/mounted_prestate"
-    cmd = ["docker", "run", "--rm", "-t", "-v", mount_flag, cfg['PYETH_DOCKER_NAME'], "run_statetest.py", "/mounted_prestate", tx_double_encoded]
-
-    return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd), 'output' : 'stdout'}
-
+#def startPython(test):
+#
+#    tx_encoded = json.dumps(test.tx)
+#    tx_double_encoded = json.dumps(tx_encoded) # double encode to escape chars for command line
+#
+#    prestate_path = os.path.abspath(test.prestate_tmpfile)
+#    mount_flag = prestate_path + ":" + "/mounted_prestate"
+#    cmd = ["docker", "run", "--rm", "-t", "-v", mount_flag, cfg['PYETH_DOCKER_NAME'], "run_statetest.py", "/mounted_prestate", tx_double_encoded]
+#
+#    return {'proc':VMUtils.startProc(cmd), 'cmd': " ".join(cmd), 'output' : 'stdout'}
+#
 
 def start_processes(test):
     clients = cfg['DO_CLIENTS']
 
-    starters = {'geth': startGeth, 'cpp': startCpp, 'py': startPython, 'parity': startParity}
+    starters = {'geth': startGeth, 'cpp': startCpp, 'parity': startParity}
 
     logger.info("Starting processes for %s on test %s" % ( clients, test.name))
     #Start the processes
@@ -496,23 +581,21 @@ canonicalizers = {
 def end_processes(test):
     # Handle the old processes
     if test is not None:
-        for (procinfo, client_name) in test.procs:
-            if procinfo['proc'] is None:
-                continue
+        for (proc_info, client_name) in test.procs:
 
             canonicalizer = canonicalizers[client_name]
             full_trace_filename = os.path.abspath("%s/%s-%s.trace.log" % (cfg['LOGS_PATH'],test.id(), client_name))
             test.traceFiles.append(full_trace_filename)
-            canon_trace = finishProc(client_name, procinfo, canonicalizer, full_trace_filename)
+            canon_trace = finishProc(client_name, proc_info, canonicalizer, full_trace_filename)
 
             test.canon_traces.append(canon_trace)
 
-            logging.info("Processed %s steps for %s on test %s" % (len(canon_trace), client_name, test.name))
+            logger.info("Processed %s steps for %s on test %s (file %s) " % (len(canon_trace), client_name, test.name, full_trace_filename))
 
 
 def processTraces(test):
     if test is None:
-        return
+        return True
 
     # Process previous traces
     (equivalent, trace_output) = VMUtils.compare_traces(test.canon_traces, cfg['DO_CLIENTS']) 
@@ -525,7 +608,6 @@ def processTraces(test):
             os.remove(f)
     else:
         logger.warning("CONSENSUS BUG!!!")
-
         # save the state-test
         statetest_filename = "%s/%s-test.json" %(cfg['LOGS_PATH'], test.id())
         os.rename(test.tmpfile,statetest_filename)
@@ -543,6 +625,7 @@ def processTraces(test):
         with open(summary_log_filename, "w+") as f:
             logger.info("Summary trace: %s" , summary_log_filename)
             f.write("\n".join(trace_summary))
+        sys.exit(1)
 
     return equivalent
 
