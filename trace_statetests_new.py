@@ -5,9 +5,6 @@ Executes state tests on multiple clients, checking for EVM trace equivalence
 """
 import json, sys, re, os, subprocess, io, itertools, traceback, time, collections
 from contextlib import redirect_stderr, redirect_stdout
-import ethereum.transactions as transactions
-from ethereum.utils import decode_hex, parse_int_or_hex, sha3, to_string, \
-    remove_0x_head, encode_hex, big_endian_to_int
 
 from evmlab import genesis as gen
 from evmlab import vm as VMUtils
