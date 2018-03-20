@@ -2,4 +2,4 @@ requests
 web3
 flask
 urwid
-'docker==3.0.0'
+docker==3.0.0
