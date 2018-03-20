@@ -428,10 +428,11 @@ def startDaemons():
     (name, isDocker) = getBaseCmd("testeth")
     if isDocker:
         # First, kill off any existing daemons
-        #killDaemon("testeth")
-        #procinfo = startDaemon("testeth", name)
-        #daemons.append( (procinfo, "testeth" ))        
-        pass
+        logger.info("Starting daemons for testeth")
+        killDaemon("testeth")
+        procinfo = startDaemon("testeth", name)
+        daemons.append( (procinfo, "testeth" ))        
+        #pass
     else:
         logger.warning("Not a docker client %s", client_name)
 
