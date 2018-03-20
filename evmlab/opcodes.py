@@ -15,6 +15,13 @@ except:
             return str(binascii.hexlify(b), 'utf-8')
         raise TypeError('Value must be an instance of str or bytes')
 
+    def to_string(value):
+        if isinstance(value, bytes):
+            return value
+        if isinstance(value, str):
+            return bytes(value, 'utf-8')
+        if isinstance(value, int):
+            return bytes(str(value), 'utf-8')
 
     def bytearray_to_bytestr(value):
         return bytes(value)

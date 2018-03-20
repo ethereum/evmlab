@@ -43,6 +43,13 @@ except:
         else:
             return int(s)
 
+    def to_string(value):
+        if isinstance(value, bytes):
+            return value
+        if isinstance(value, str):
+            return bytes(value, 'utf-8')
+        if isinstance(value, int):
+            return bytes(str(value), 'utf-8')
 
 def add_0x(str):
     if str in [None, "0x", ""]:
