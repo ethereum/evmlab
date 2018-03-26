@@ -195,17 +195,6 @@ class StateTest():
 
 
 
-def iterate_tests(path = '/GeneralStateTests/', ignore = []):
-    logger.info (cfg['TESTS_PATH'] + path)
-    for subdir, dirs, files in sorted(os.walk(cfg['TESTS_PATH'] + path)):
-        for f in files:
-            if f.endswith('json'):
-                for ignore_name in ignore:
-                    if f.find(ignore_name) != -1:
-                        continue
-                    yield os.path.join(subdir, f)
-
-
 def dumpJson(obj, dir = None, prefix = None):
     import tempfile
     fd, temp_path = tempfile.mkstemp(prefix = 'randomtest_', suffix=".json", dir = dir)
@@ -324,13 +313,14 @@ regex_skip = [skip.replace('*', '') for skip in SKIP_LIST if '*' in skip]
 # to resume running after interruptions
 START_I = 0
 
-
-
-def randomTestIterator():
+def iterate_tests():
+    test_generator = generateTests
+    if cfg['RANDOM_TESTS'] != 'Yes':
+      test_generator = getStateTests
 
     number = 0
 
-    for f in generateTests():
+    for f in test_generator():
         with open(f) as json_data:
             general_test = GeneralTest(json.load(json_data),f)
 
@@ -339,10 +329,20 @@ def randomTestIterator():
             number = number +1
             yield state_test
 
+def getStateTests(path = '/GeneralStateTests/', ignore = []):
+    logger.info (cfg['TESTS_PATH'] + path)
+    for subdir, dirs, files in sorted(os.walk(cfg['TESTS_PATH'] + path)):
+        for f in files:
+            if f.endswith('json'):
+                for ignore_name in ignore:
+                    if f.find(ignore_name) != -1:
+                        continue
+                yield os.path.join(subdir, f)
+
 def main():
     # Start all docker daemons that we'll use during the execution
     startDaemons()
-    perform_tests(randomTestIterator)
+    perform_tests(iterate_tests)
 
 
 def finishProc(name, processInfo, canonicalizer, fulltrace_filename = None):
