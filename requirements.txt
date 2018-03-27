@@ -2,4 +2,5 @@ requests
 web3
 flask
 urwid
+rlp
 docker==3.0.0

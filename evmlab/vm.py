@@ -3,6 +3,8 @@ from subprocess import Popen, PIPE, TimeoutExpired
 import platform
 import logging
 from . import opcodes
+from . import parse_int_or_hex,decode_hex,remove_0x_head
+
 logger = logging.getLogger()
 
 FNULL = open(os.devnull, 'w')
@@ -13,43 +15,9 @@ valid_opcodes = opcodes.reverse_opcodes.keys()
 # Enable this once they implement it
 INCLUDE_STATEROOT=False
 
-try:
-    from ethereum.utils import parse_int_or_hex,decode_hex,remove_0x_head
-except:
-    print("ethereum.utils not available, using fallback methods")
-    def decode_hex(s):
-        if isinstance(s, str):
-            return bytes.fromhex(s)
-        if isinstance(s, (bytes, bytearray)):
-            import binascii
-            return binascii.unhexlify(s)
-        raise TypeError('Value must be an instance of str or bytes')
-
-    def is_numeric(x): return isinstance(x, int)
-
-    def remove_0x_head(s):
-        return s[2:] if s[:2] in (b'0x', '0x') else s
-
-    def big_endian_to_int(value):
-        return int.from_bytes(value, byteorder='big')
-
-    def parse_int_or_hex(s):
-        if is_numeric(s):
-            return s
-        elif s[:2] in (b'0x', '0x'):
-            s = to_string(s)
-            tail = (b'0' if len(s) % 2 else b'') + s[2:]
-            return big_endian_to_int(decode_hex(tail))
-        else:
-            return int(s)
-
-    def to_string(value):
-        if isinstance(value, bytes):
-            return value
-        if isinstance(value, str):
-            return bytes(value, 'utf-8')
-        if isinstance(value, int):
-            return bytes(str(value), 'utf-8')
+strip_0x = remove_0x_head
+bstrToInt = lambda b_str: int(b_str.replace("b", "").replace("'", ""))
+bstrToHex = lambda b_str: '0x{0:01x}'.format(bstrToInt(b_str))
 
 def add_0x(str):
     if str in [None, "0x", ""]:
@@ -58,29 +26,10 @@ def add_0x(str):
         return str
     return "0x" + str
 
-strip_0x = remove_0x_head
-
-#def strip_0x(txt):
-#    if len(txt) >= 2 and txt[:2] == '0x':
-#        return txt[2:]
-#    return txt
-#
 def toHexQuantities(vals):
-    quantities = []
-    for val in vals:
-        val_int = parse_int_or_hex(val)
-        quantities.append('0x{0:01x}'.format(val_int))
-    return quantities
+    """ Formats a list of values into a list of hex-encoded values """
+    return ['0x{0:01x}'.format(parse_int_or_hex(val)) for val in vals]
 
-bstrToInt = lambda b_str: int(b_str.replace("b", "").replace("'", ""))
-bstrToHex = lambda b_str: '0x{0:01x}'.format(bstrToInt(b_str))
-
-def canon(str):
-    if str in [None, "0x", ""]:
-        return ""
-    if str[:2] == "0x":
-        return str
-    return "0x" + str
 
 def toText(op):
     if len(op.keys()) == 0:
@@ -100,7 +49,7 @@ def toText(op):
         if 'output' not in op.keys():
            op['output'] = ""
 
-        op['output'] = canon(op['output'])
+        op['output'] = strip_0x(op['output'])
         fmt = "output {output} gasUsed {gasUsed}"
         if 'error' in op.keys():
             e = op['error']
@@ -109,7 +58,7 @@ def toText(op):
             fmt = fmt + " err: OOG"
         return fmt.format(**op)
     return "N/A"
-
+""" Not used (??)
 def getIntrinsicGas(data):
     import ethereum.transactions as transactions
     tx = transactions.Transaction(
@@ -121,7 +70,7 @@ def getIntrinsicGas(data):
         data=decode_hex(remove_0x_head(data)))
     
     return tx.intrinsic_gas_used
-
+"""
 def compare_traces(clients_canon_traces, names):
 
     """ Compare 'canonical' traces from the clients"""

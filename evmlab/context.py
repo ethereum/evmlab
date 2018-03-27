@@ -1,6 +1,5 @@
-from ethereum.utils import mk_contract_address, encode_hex
 from .contract import Contract
-
+from . import mk_contract_address, encode_hex
 
 def buildContexts(ops, api, contracts, txhash):
     contract_stack = []

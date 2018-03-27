@@ -2,10 +2,6 @@ import os
 import json
 from .opcodes import opcodes
 from . import compiler
-#from opcodes import opcodes
-#import compiler
-
-#tracer = open(os.path.join(os.path.dirname(__file__), 'tracefunc.js')).read()
 
 OPCODE_FORMATS = {
     "ADD":          "{0} + {1}",
