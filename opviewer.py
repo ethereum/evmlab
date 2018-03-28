@@ -58,6 +58,51 @@ web3settings = parser.add_argument_group('Web3', 'Settings about where to fetch 
 web3settings.add_argument("--web3", type=str, default="https://mainnet.infura.io/",
                           help="Web3 API url to fetch info from (default 'https://mainnet.infura.io/'")
 
+def getMemoryReference(opcode):
+
+# opcodes with memory references:
+# CALLDATACOPY, CODECOPY, EXTCODECOPY, RETURNDATACOPY, MLOAD, MSTORE*
+# LOG*, CREATE, CALL, CALLCODE, RETURN, DELEGATECALL, STATICCALL, REVERT
+# format of mem_opcodes dict is [[mem_offset, data_size], default]
+
+    mem_opcodes = {
+        0x37 : [0, 2],
+        0x39 : [0, 2],
+        0x3c : [1, 3],
+        0x3e : [0, 2],
+        0x51 : [0, -1, 32],
+        0x52 : [0, -1, 32],
+        0x53 : [0, -1, 1],
+        0xa0 : [0, 1],
+        0xa1 : [0, 1],
+        0xa2 : [0, 1],
+        0xa3 : [0, 1],
+        0xa4 : [0, 1],
+        0xf0 : [1, 2],
+        0xf1 : [3, 4],
+        0xf2 : [3, 4],
+        0xf3 : [0, 1],
+        0xf4 : [2, 3],
+        0xfa : [2, 3],
+        0xfd : [0, 1]
+    }
+
+    if opcode in mem_opcodes.keys():
+        e = mem_opcodes[opcode]
+        return e
+    else:
+        return -1
+
+def memRefResolve(mem, refs, st, msg):
+        st = st[::-1]
+        mrefs = [0, 0]
+        mrefs[0] = int(st[refs[0]], 16)
+        if (refs[1] == -1):
+            mrefs[1] = refs[2]
+        else:
+            mrefs[1] = int(st[refs[1]], 16)
+        return msg + " op ref:\n" + "0x" + "".join(mem[(mrefs[0]*2)+2:(mrefs[0]+mrefs[1])*2+2]) + "\n"
+
 
 def getStackAnnotations(opcode):
     """ 
@@ -537,10 +582,17 @@ class DebugViewer():
         return hexdump(m[2:], start = self.memptr, prevsrc = prev_m[2:])
 
     def getMemref(self):
-        m = self._op('memory',"0x")
-        if type(m) is list:
-            m = "0x%s" % "".join(m)
-        return m
+        m = self._op('memory',[])
+        mc = ""
+        mc_prev = ""
+        ms = getMemoryReference(self._op('op', "0"))
+        ms_prev = getMemoryReference(self._prevop('op', "0"))
+        if type (ms) is list:
+            mc = memRefResolve(m, ms, self._op('stack', []), "Current")
+        if type (ms_prev) is list:
+            mc_prev = memRefResolve(m, ms_prev, self._prevop('stack', []), "Previous")
+        return mc+mc_prev
+        
 
     def getStack(self):
         st = self._op('stack',[])
