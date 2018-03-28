@@ -155,6 +155,59 @@ class JsVM(VM):
         return steps
 
 
+class HeraVM(VM):
+    @staticmethod
+    def canonicalized(output):
+        from . import opcodes
+        valid_opcodes = opcodes.reverse_opcodes.keys()
+
+        steps = []
+        for x in output:
+            try:
+                if x[0:2] == "{":
+                    step = json.loads(x)
+                    steps.append(step)
+
+            except Exception as e:
+                logger.info('Exception parsing cpp json:')
+                logger.info(e)
+                logger.info('problematic line:')
+                logger.info(x[:500])
+
+        canon_steps = []
+
+        import pdb; pdb.set_trace()
+        try:
+            for step in steps:
+                if 'stateRoot' in step.keys():
+                    if len(canon_steps): # dont log state root if no previous EVM steps
+                        canon_steps.append(step) # should happen last
+                    continue
+                if step['op'] in ['INVALID', 'STOP'] :
+                    # skip STOPs
+                    continue
+                if step['op'] not in valid_opcodes:
+                    logger.info("got cpp step for an unknown opcode:")
+                    logger.info(step)
+                    continue
+
+                trace_step = {
+                    'pc'  : step['pc'],
+                    'gas': '0x{0:01x}'.format(int(step['gas'])) ,
+                    'op': opcodes.reverse_opcodes[step['op']],
+                    'depth' : step['depth'],
+                    'stack' : toHexQuantities(step['stack']),
+                }
+                canon_steps.append(trace_step)
+
+                # Sometimes, the last one is duplicated. let's just remove that, if so
+
+                if len(canon_steps) > 1:
+                    last = canon_steps[-1]
+                    slast = canon_steps[-2]
+                    if slast['depth'] == last['depth'] and slast['pc'] == last['pc']:
+                        canon_steps = canon_steps[:-1]
+
 class CppVM(VM):
 
     @staticmethod
