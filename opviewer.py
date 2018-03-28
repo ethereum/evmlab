@@ -639,8 +639,8 @@ class DebugViewer():
 
     def getHelp(self):
         return """Key navigation
-        a: Trace up        s: Mem up     d: Stack up    f: Source up    t: track source on/off
-        z: Trace down      x: Mem down   c: Stack down  v: Source down      Use uppercase for large steps
+        a: Trace up        s: Mem up     d: Stack up    f: Source up    t: track source on/off    m: write data to snapshot file
+        z: Trace down      x: Mem down   c: Stack down  v: Source down  Use uppercase for large steps
     press `q` to quit
         """
 
