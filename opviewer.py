@@ -93,7 +93,7 @@ def getMemoryReference(opcode):
     else:
         return -1
 
-def memRefResolve(mem, refs, st, msg):
+def memRefResolve(mem, refs, st, msg, opname):
         st = st[::-1]
         mrefs = [0, 0]
         mrefs[0] = int(st[refs[0]], 16)
@@ -101,8 +101,11 @@ def memRefResolve(mem, refs, st, msg):
             mrefs[1] = refs[2]
         else:
             mrefs[1] = int(st[refs[1]], 16)
-        return msg + " op ref:\n" + "0x" + "".join(mem[(mrefs[0]*2)+2:(mrefs[0]+mrefs[1])*2+2]) + "\n"
+        return msg + " " + opname + " memory ref:\n" + "0x" + "".join(mem[(mrefs[0]*2)+2:(mrefs[0]+mrefs[1])*2+2]) + "\n"
 
+def dumpArea(f, name, content):
+        f.write(name + "\n\n")
+        f.write(content + "\n\n")
 
 def getStackAnnotations(opcode):
     """ 
@@ -471,6 +474,7 @@ class DebugViewer():
         self.opptr = 0
         self.srcptr = 0
         self.srctrack = True
+        self.snapn = 0
 
         self.ops_view = None
         self.mem_view = None
@@ -588,9 +592,9 @@ class DebugViewer():
         ms = getMemoryReference(self._op('op', "0"))
         ms_prev = getMemoryReference(self._prevop('op', "0"))
         if type (ms) is list:
-            mc = memRefResolve(m, ms, self._op('stack', []), "Current")
+            mc = memRefResolve(m, ms, self._op('stack', []), "Pre-exec", self._op('opName', 'op'))
         if type (ms_prev) is list:
-            mc_prev = memRefResolve(m, ms_prev, self._prevop('stack', []), "Previous")
+            mc_prev = memRefResolve(m, ms_prev, self._prevop('stack', []), "Post-exec", self._prevop('opName', 'op'))
         return mc+mc_prev
         
 
@@ -647,6 +651,7 @@ class DebugViewer():
         self.mem_view.set_text(self.getMem())
         self.memref_view.set_text(self.getMemref())
         self.stack_view.set_text(self.getStack())
+        self.help_view.set_text(self.getHelp())
 
     def dbg(self,text):
         if self.help_view is not None:
@@ -713,6 +718,22 @@ class DebugViewer():
 
         if key in ('g','G'):
             self.dbg("TODO: Implement GOTO")
+
+        if key in ('m','M'):
+            snap_name = OUTPUT_DIR + "state.snapshot" + str(self.snapn) + ".txt"
+            ops = "".join(str(e[0][1] + e[1]) for e in self.getOp())
+            try:
+                sf = open(snap_name, "w")
+                dumpArea(sf, "OP STATE", str(ops))
+                dumpArea(sf, "TRACE", self.getTrace())
+                dumpArea(sf, "MEMORY REFERENCE", self.getMemref())
+                dumpArea(sf, "MEMORY DUMP", self.getMem())
+                dumpArea(sf, "STACK", self.getStack())
+                sf.close()
+                self.dbg("Saved snapshot to %s" % snap_name)
+            except Exception as e:
+                self.dbg(str(e))
+            self.snapn += 1
 
 
 def loadJsonDebugStackTrace(fname):
