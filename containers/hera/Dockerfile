@@ -56,7 +56,7 @@ RUN git clone --recursive https://github.com/ewasm/evm2wasm && \
 RUN cp cpp-ethereum/scripts/jsonrpcproxy.py /jsonrpcproxy.py
 ADD ewasm-testnet-cpp-config.json /ewasm-testnet-cpp-config.json
 
-ADD cpp-eth.sh /cpp-eth.sh
+# ADD cpp-eth.sh /cpp-eth.sh
 
 #USER builder
 #WORKDIR /home/builder
