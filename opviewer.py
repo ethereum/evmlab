@@ -429,6 +429,7 @@ class DebugViewer():
 
         self.ops_view = None
         self.mem_view = None
+        self.memref_view = None
         self.stack_view = None
         self.trace_view = None
         self.source_view = None
@@ -441,6 +442,7 @@ class DebugViewer():
 
         ops_view   = urwid.Text(self.getOp())
         mem_view   = urwid.Text(self.getMem())
+        memref_view  = urwid.Text(self.getMemref())
         stack_view = urwid.Text(self.getStack())
         trace_view = urwid.Text(self.getTrace())
         source_view = urwid.Text(self.getSource())
@@ -460,6 +462,7 @@ class DebugViewer():
 
         self.ops_view = ops_view
         self.mem_view = mem_view
+        self.memref_view = memref_view
         self.stack_view = stack_view
         self.trace_view = trace_view
         self.source_view = source_view
@@ -473,6 +476,7 @@ class DebugViewer():
                                 ),
                             urwid.Pile([
                                 wrap(mem_view,"Memory"),
+                                wrap(memref_view, "Memory Reference by Opcode"),
                                 wrap(stack_view, "Stack"),
                                 wrap(source_view, "Source"),
                                 ])
@@ -532,6 +536,12 @@ class DebugViewer():
             prev_m = "0x%s" % "".join(prev_m)
         return hexdump(m[2:], start = self.memptr, prevsrc = prev_m[2:])
 
+    def getMemref(self):
+        m = self._op('memory',"0x")
+        if type(m) is list:
+            m = "0x%s" % "".join(m)
+        return m
+
     def getStack(self):
         st = self._op('stack',[])
         opcode = self._op('op',None)
@@ -577,11 +587,13 @@ class DebugViewer():
         z: Trace down      x: Mem down   c: Stack down  v: Source down      Use uppercase for large steps
     press `q` to quit
         """
+
     def _refresh(self):
         self.source_view.set_text(self.getSource()) # needs to occur before getOp to print correct addr
         self.ops_view.set_text(self.getOp())
         self.trace_view.set_text(self.getTrace())
         self.mem_view.set_text(self.getMem())
+        self.memref_view.set_text(self.getMemref())
         self.stack_view.set_text(self.getStack())
 
     def dbg(self,text):
