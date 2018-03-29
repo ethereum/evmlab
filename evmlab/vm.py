@@ -177,6 +177,7 @@ class HeraVM(VM):
         canon_steps = []
 
         import pdb; pdb.set_trace()
+        '''
         try:
             for step in steps:
                 if 'stateRoot' in step.keys():
@@ -207,6 +208,7 @@ class HeraVM(VM):
                     slast = canon_steps[-2]
                     if slast['depth'] == last['depth'] and slast['pc'] == last['pc']:
                         canon_steps = canon_steps[:-1]
+                        '''
 
 class CppVM(VM):
 

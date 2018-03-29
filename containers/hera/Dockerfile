@@ -1,27 +1,20 @@
-FROM alpine
+FROM ubuntu:xenial
 
-RUN apk add --no-cache \
-        libstdc++ \
-        gmp \
-        leveldb --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing/ \
-    && apk add --no-cache --virtual .build-deps \
+RUN apt update -y && apt install -y \
         git \
         cmake \
         g++ \
         make \
-        linux-headers \
-        leveldb-dev --repository http://dl-cdn.alpinelinux.org/alpine/edge/testing/ \
-    && sed -i -E -e 's|#warning|//#warning|' /usr/include/sys/poll.h
+        libleveldb-dev libsnappy-dev \
+        curl \
+        sudo
 
-RUN apk add --no-cache \
-        nodejs nodejs-npm \
+RUN curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash - && \
+    apt install -y \
+        nodejs \
         bash jq bc \
         python3 \
-        python \
-        libstdc++ \
-        gmp \
-        libcurl \
-        libmicrohttpd
+        python
 
 #RUN git clone --recursive https://github.com/ethereum/cpp-ethereum --branch develop --single-branch --depth 1
 RUN git clone https://github.com/ethereum/cpp-ethereum --branch ewasm --single-branch
@@ -53,8 +46,12 @@ RUN git clone --recursive https://github.com/ewasm/evm2wasm && \
           cmake -DBUILD_TESTS=OFF && \
           make -j8
 
+
 RUN cp cpp-ethereum/scripts/jsonrpcproxy.py /jsonrpcproxy.py
 ADD ewasm-testnet-cpp-config.json /ewasm-testnet-cpp-config.json
+
+# ADD shell_profile.sh /etc/profile.d/shell_profile.sh
+ENV PATH="${PATH}:/evm2wasm/bin"
 
 # ADD cpp-eth.sh /cpp-eth.sh
 

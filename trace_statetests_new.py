@@ -539,7 +539,6 @@ def startHera(test):
             "--vm", "hera",
             "--evmc", "evm2wasm.js=true", "--evmc", "fallback=false",
             "--singletest", "/testfiles/%s" % os.path.basename(test.tmpfile), test.name,
-            "--jsontrace", "'%s'" % json.dumps({"disableStorage": True, "disableMemory": True, "disableStack": False, "fullStorage": False}) 
             ]
     return execInDocker("hera", cmd, stderr=False)
 
