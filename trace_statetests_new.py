@@ -628,7 +628,7 @@ def processTraces(test):
     return equivalent
 
 def perform_tests(test_iterator):
-
+    
     pass_count = 0
     fail_count = 0
     failures = []
@@ -638,18 +638,13 @@ def perform_tests(test_iterator):
     start_time = time.time()
 
     n = 0
-    for test in test_iterator():
-        n = n+1
-        #Prepare the current test
-        logger.info("Test id: %s" % test.id())
-        test.writeToFile()
 
-        # Start new procs
-        start_processes(test)
+    def __end_previous_test():
+        nonlocal n, fail_count, pass_count
+        global traceFiles
 
         # End previous procs
         traceFiles = end_processes(previous_test)
-
 
         # Process previous traces
         if processTraces(previous_test):
@@ -668,8 +663,20 @@ def perform_tests(test_iterator):
                     (fail_count + pass_count) / time_elapsed
                 ))
 
+    for test in test_iterator():
+        n = n+1
+        #Prepare the current test
+        logger.info("Test id: %s" % test.id())
+        test.writeToFile()
+
+        # Start new procs
+        start_processes(test)
+
+        __end_previous_test()
+
         previous_test = test
 
+    __end_previous_test()
 
     return (n, len(failures), pass_count, failures)
 
