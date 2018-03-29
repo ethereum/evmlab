@@ -62,7 +62,6 @@ def parse_config():
     logger.info("Config")
     logger.info("\tActive clients:")
     for c in cfg['DO_CLIENTS']:
-        import pdb; pdb.set_trace()
         logger.info("\t* {} : {} docker:{}".format(c, getBaseCmd(c)[0],getBaseCmd(c)[1]) )
 
     logger.info("\tTest generator:")
@@ -507,7 +506,6 @@ def execInDocker(name, cmd, stdout = True, stderr=True):
     start_time = time.time()
     stream = False
     #logger.info("executing in %s: %s" %  (name," ".join(cmd)))
-    import pdb; pdb.set_trace()
     container = dockerclient.containers.get(name)
     (exitcode, output) = container.exec_run(cmd, stream=stream,stdout=stdout, stderr = stderr)     
     logger.info("Executing %s : done in %f seconds" % (name, time.time() - start_time))
