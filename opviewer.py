@@ -58,6 +58,65 @@ web3settings = parser.add_argument_group('Web3', 'Settings about where to fetch 
 web3settings.add_argument("--web3", type=str, default="https://mainnet.infura.io/",
                           help="Web3 API url to fetch info from (default 'https://mainnet.infura.io/'")
 
+def getMemoryReference(opcode):
+
+# opcodes with memory references:
+# CALLDATACOPY, CODECOPY, EXTCODECOPY, RETURNDATACOPY, MLOAD, MSTORE*
+# LOG*, CREATE, CALL, CALLCODE, RETURN, DELEGATECALL, STATICCALL, REVERT
+# format of mem_opcodes dict is [[mem_offset, data_size], default]
+
+    mem_opcodes = {
+        0x37 : [0, 2],
+        0x39 : [0, 2],
+        0x3c : [1, 3],
+        0x3e : [0, 2],
+        0x51 : [0, -1, 32],
+        0x52 : [0, -1, 32],
+        0x53 : [0, -1, 1],
+        0xa0 : [0, 1],
+        0xa1 : [0, 1],
+        0xa2 : [0, 1],
+        0xa3 : [0, 1],
+        0xa4 : [0, 1],
+        0xf0 : [1, 2],
+        0xf1 : [3, 4],
+        0xf2 : [3, 4],
+        0xf3 : [0, 1],
+        0xf4 : [2, 3],
+        0xfa : [2, 3],
+        0xfd : [0, 1]
+    }
+
+    if opcode in mem_opcodes.keys():
+        e = mem_opcodes[opcode]
+        return e
+    else:
+        return -1
+
+def memRefResolve(mem, refs, st, msg, opname, oplimit):
+        append = ""
+        st = st[::-1]
+        mem = mem[2:]
+        mrefs = [0, 0]
+        mrefs[0] = int(st[refs[0]], 16)
+        if (refs[1] == -1):
+            mrefs[1] = refs[2]
+        else:
+            mrefs[1] = int(st[refs[1]], 16)
+        if oplimit > 0 and mrefs[1] > oplimit:
+            mrefs[1] = oplimit
+            append = "..."
+        if mrefs[1] < 0 or mrefs[0] < 0 or mrefs[0] > len(mem)/2:
+            mrefs = [0, 0]
+            append = " - memory access beyond expansion"
+        if (mrefs[0] + mrefs[1]) > len(mem)/2:
+            mrefs[1] = len(mem/2) - mrefs[0]
+            append = " - attempted read beyond memory bound of %d bytes" % (mrefs[0] + mrefs[1] - len(mem/2))
+        return msg + " " + opname + " memory ref:\n" + "0x" + "".join(mem[(mrefs[0]*2):(mrefs[0]+mrefs[1])*2]) + append + "\n"
+
+def dumpArea(f, name, content):
+        f.write(name + "\n\n")
+        f.write(content + "\n\n")
 
 def getStackAnnotations(opcode):
     """ 
@@ -426,9 +485,11 @@ class DebugViewer():
         self.opptr = 0
         self.srcptr = 0
         self.srctrack = True
+        self.snapn = 0
 
         self.ops_view = None
         self.mem_view = None
+        self.memref_view = None
         self.stack_view = None
         self.trace_view = None
         self.source_view = None
@@ -441,6 +502,7 @@ class DebugViewer():
 
         ops_view   = urwid.Text(self.getOp())
         mem_view   = urwid.Text(self.getMem())
+        memref_view  = urwid.Text(self.getMemref())
         stack_view = urwid.Text(self.getStack())
         trace_view = urwid.Text(self.getTrace())
         source_view = urwid.Text(self.getSource())
@@ -460,6 +522,7 @@ class DebugViewer():
 
         self.ops_view = ops_view
         self.mem_view = mem_view
+        self.memref_view = memref_view
         self.stack_view = stack_view
         self.trace_view = trace_view
         self.source_view = source_view
@@ -473,6 +536,7 @@ class DebugViewer():
                                 ),
                             urwid.Pile([
                                 wrap(mem_view,"Memory"),
+                                wrap(memref_view, "Memory Reference by Opcode"),
                                 wrap(stack_view, "Stack"),
                                 wrap(source_view, "Source"),
                                 ])
@@ -532,6 +596,22 @@ class DebugViewer():
             prev_m = "0x%s" % "".join(prev_m)
         return hexdump(m[2:], start = self.memptr, prevsrc = prev_m[2:])
 
+    def _getMemref(self, bound):
+        m = self._op('memory',[])
+        mc = ""
+        mc_prev = ""
+        ms = getMemoryReference(self._op('op', "0"))
+        ms_prev = getMemoryReference(self._prevop('op', "0"))
+        if type (ms) is list:
+            mc = memRefResolve(m, ms, self._op('stack', []), "Pre-exec", self._op('opName', 'op'), bound)
+        if type (ms_prev) is list:
+            mc_prev = memRefResolve(m, ms_prev, self._prevop('stack', []), "Post-exec", self._prevop('opName', 'op'), bound)
+        return mc+mc_prev
+
+    def getMemref(self):
+        return self._getMemref(256)
+        
+
     def getStack(self):
         st = self._op('stack',[])
         opcode = self._op('op',None)
@@ -573,16 +653,19 @@ class DebugViewer():
 
     def getHelp(self):
         return """Key navigation
-        a: Trace up        s: Mem up     d: Stack up    f: Source up    t: track source on/off
-        z: Trace down      x: Mem down   c: Stack down  v: Source down      Use uppercase for large steps
+        a: Trace up        s: Mem up     d: Stack up    f: Source up    t: track source on/off    m: write data to snapshot file
+        z: Trace down      x: Mem down   c: Stack down  v: Source down  Use uppercase for large steps
     press `q` to quit
         """
+
     def _refresh(self):
         self.source_view.set_text(self.getSource()) # needs to occur before getOp to print correct addr
         self.ops_view.set_text(self.getOp())
         self.trace_view.set_text(self.getTrace())
         self.mem_view.set_text(self.getMem())
+        self.memref_view.set_text(self.getMemref())
         self.stack_view.set_text(self.getStack())
+        self.help_view.set_text(self.getHelp())
 
     def dbg(self,text):
         if self.help_view is not None:
@@ -649,6 +732,22 @@ class DebugViewer():
 
         if key in ('g','G'):
             self.dbg("TODO: Implement GOTO")
+
+        if key in ('m','M'):
+            snap_name = OUTPUT_DIR + "state.snapshot" + str(self.snapn) + ".txt"
+            ops = "".join(str(e[0][1] + e[1]) for e in self.getOp())
+            try:
+                sf = open(snap_name, "w")
+                dumpArea(sf, "OP STATE", str(ops))
+                dumpArea(sf, "TRACE", self.getTrace())
+                dumpArea(sf, "MEMORY REFERENCE", self._getMemref(0))
+                dumpArea(sf, "MEMORY DUMP", self.getMem())
+                dumpArea(sf, "STACK", self.getStack())
+                sf.close()
+                self.dbg("Saved snapshot to %s" % snap_name)
+            except Exception as e:
+                self.dbg(str(e))
+            self.snapn += 1
 
 
 def loadJsonDebugStackTrace(fname):
