@@ -315,7 +315,7 @@ START_I = 0
 
 def iterate_tests():
     test_generator = generateTests
-    if cfg['RANDOM_TESTS'] != 'Yes':
+    if cfg['RANDOM_TESTS'] == 'No':
       test_generator = getStateTests
 
     number = 0
