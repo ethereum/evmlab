@@ -39,7 +39,7 @@ RUN cd build && make -j8
 RUN cd build && make install
 
 # RUN ln -s $(which python3) /usr/bin/python
-RUN git clone --recursive https://github.com/ewasm/evm2wasm && \
+RUN git clone --recursive https://github.com/jwasinger/evm2wasm -b charge-by-evm-op --single-branch && \
           cd evm2wasm && \
           npm install && \
           cd tools/wabt && \
