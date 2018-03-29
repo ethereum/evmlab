@@ -62,6 +62,7 @@ def parse_config():
     logger.info("Config")
     logger.info("\tActive clients:")
     for c in cfg['DO_CLIENTS']:
+        import pdb; pdb.set_trace()
         logger.info("\t* {} : {} docker:{}".format(c, getBaseCmd(c)[0],getBaseCmd(c)[1]) )
 
     logger.info("\tTest generator:")
@@ -363,6 +364,7 @@ def finishProc(name, processInfo, canonicalizer, fulltrace_filename = None):
             f.write("# %s\n\n" % processInfo['cmd'])
             f.write("\n".join(outp))
 
+    import pdb; pdb.set_trace()
     canon_text = [VMUtils.toText(step) for step in canonicalizer(outp)]
     return canon_text
 
@@ -505,6 +507,7 @@ def execInDocker(name, cmd, stdout = True, stderr=True):
     start_time = time.time()
     stream = False
     #logger.info("executing in %s: %s" %  (name," ".join(cmd)))
+    import pdb; pdb.set_trace()
     container = dockerclient.containers.get(name)
     (exitcode, output) = container.exec_run(cmd, stream=stream,stdout=stdout, stderr = stderr)     
     logger.info("Executing %s : done in %f seconds" % (name, time.time() - start_time))
@@ -531,13 +534,14 @@ def startParity(test):
     return execInDocker("parity", cmd)
 
 def startHera(test):
-    cmd = ["/usr/bin/testeth",
+    cmd = [ "/build/test/testeth", 
             "-t","GeneralStateTests","--",
+            "--vm", "hera",
             "--evmc", "evm2wasm.js=true", "--evmc", "fallback=false",
             "--singletest", "/testfiles/%s" % os.path.basename(test.tmpfile), test.name,
             "--jsontrace", "'%s'" % json.dumps({"disableStorage": True, "disableMemory": True, "disableStack": False, "fullStorage": False}) 
             ]
-    return execInDocker("cpp", cmd, stderr=False)
+    return execInDocker("hera", cmd, stderr=False)
 
 def startCpp(test):
     

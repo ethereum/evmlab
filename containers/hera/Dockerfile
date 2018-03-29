@@ -41,7 +41,7 @@ RUN cd cpp-ethereum/hera && echo "{}"                                    \
           > /hera-version.json
 
 RUN mkdir -p build
-RUN cd build && cmake ../cpp-ethereum -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHERA=ON -DHERA_DEBUGGING=ON -DHERA_EVM2WASM=ON
+RUN cd build && cmake ../cpp-ethereum -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHERA=ON -DHERA_DEBUGGING=ON -DHERA_EVM2WASM=ON -DHERA_EVM2WASM_EVM_TRACE=ON
 RUN cd build && make -j8
 RUN cd build && make install
 
@@ -64,4 +64,4 @@ ADD ewasm-testnet-cpp-config.json /ewasm-testnet-cpp-config.json
 # Export the usual networking ports to allow outside access to the node
 EXPOSE 8545 30303
 
-ENTRYPOINT ["/build/test/testeth"]
+# ENTRYPOINT ["/build/test/testeth"]
