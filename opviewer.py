@@ -93,7 +93,8 @@ def getMemoryReference(opcode):
     else:
         return -1
 
-def memRefResolve(mem, refs, st, msg, opname):
+def memRefResolve(mem, refs, st, msg, opname, oplimit):
+        append = ""
         st = st[::-1]
         mrefs = [0, 0]
         mrefs[0] = int(st[refs[0]], 16)
@@ -101,7 +102,10 @@ def memRefResolve(mem, refs, st, msg, opname):
             mrefs[1] = refs[2]
         else:
             mrefs[1] = int(st[refs[1]], 16)
-        return msg + " " + opname + " memory ref:\n" + "0x" + "".join(mem[(mrefs[0]*2)+2:(mrefs[0]+mrefs[1])*2+2]) + "\n"
+        if oplimit > 0 and mrefs[1] > oplimit:
+            mrefs[1] = oplimit
+            append = "..."
+        return msg + " " + opname + " memory ref:\n" + "0x" + "".join(mem[(mrefs[0]*2)+2:(mrefs[0]+mrefs[1])*2+2]) + append + "\n"
 
 def dumpArea(f, name, content):
         f.write(name + "\n\n")
@@ -585,17 +589,20 @@ class DebugViewer():
             prev_m = "0x%s" % "".join(prev_m)
         return hexdump(m[2:], start = self.memptr, prevsrc = prev_m[2:])
 
-    def getMemref(self):
+    def _getMemref(self, bound):
         m = self._op('memory',[])
         mc = ""
         mc_prev = ""
         ms = getMemoryReference(self._op('op', "0"))
         ms_prev = getMemoryReference(self._prevop('op', "0"))
         if type (ms) is list:
-            mc = memRefResolve(m, ms, self._op('stack', []), "Pre-exec", self._op('opName', 'op'))
+            mc = memRefResolve(m, ms, self._op('stack', []), "Pre-exec", self._op('opName', 'op'), bound)
         if type (ms_prev) is list:
-            mc_prev = memRefResolve(m, ms_prev, self._prevop('stack', []), "Post-exec", self._prevop('opName', 'op'))
+            mc_prev = memRefResolve(m, ms_prev, self._prevop('stack', []), "Post-exec", self._prevop('opName', 'op'), bound)
         return mc+mc_prev
+
+    def getMemref(self):
+        return self._getMemref(256)
         
 
     def getStack(self):
@@ -726,7 +733,7 @@ class DebugViewer():
                 sf = open(snap_name, "w")
                 dumpArea(sf, "OP STATE", str(ops))
                 dumpArea(sf, "TRACE", self.getTrace())
-                dumpArea(sf, "MEMORY REFERENCE", self.getMemref())
+                dumpArea(sf, "MEMORY REFERENCE", self._getMemref(0))
                 dumpArea(sf, "MEMORY DUMP", self.getMem())
                 dumpArea(sf, "STACK", self.getStack())
                 sf.close()
