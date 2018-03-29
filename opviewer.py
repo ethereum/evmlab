@@ -96,6 +96,7 @@ def getMemoryReference(opcode):
 def memRefResolve(mem, refs, st, msg, opname, oplimit):
         append = ""
         st = st[::-1]
+        mem = mem[2:]
         mrefs = [0, 0]
         mrefs[0] = int(st[refs[0]], 16)
         if (refs[1] == -1):
@@ -105,7 +106,13 @@ def memRefResolve(mem, refs, st, msg, opname, oplimit):
         if oplimit > 0 and mrefs[1] > oplimit:
             mrefs[1] = oplimit
             append = "..."
-        return msg + " " + opname + " memory ref:\n" + "0x" + "".join(mem[(mrefs[0]*2)+2:(mrefs[0]+mrefs[1])*2+2]) + append + "\n"
+        if mrefs[1] < 0 or mrefs[0] < 0 or mrefs[0] > len(mem)/2:
+            mrefs = [0, 0]
+            append = " - memory access beyond expansion"
+        if (mrefs[0] + mrefs[1]) > len(mem)/2:
+            mrefs[1] = len(mem/2) - mrefs[0]
+            append = " - attempted read beyond memory bound of %d bytes" % (mrefs[0] + mrefs[1] - len(mem/2))
+        return msg + " " + opname + " memory ref:\n" + "0x" + "".join(mem[(mrefs[0]*2):(mrefs[0]+mrefs[1])*2]) + append + "\n"
 
 def dumpArea(f, name, content):
         f.write(name + "\n\n")
