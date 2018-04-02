@@ -167,10 +167,14 @@ class HeraVM(VM):
             try:
                 if len(x) > 0  and x[0] == "{":
                     step = json.loads(x)
-                    step['gas'] = hex(step['gas'])
-                    step['stack'] = step['stack'][::-1]
-                    for i in range(0, len(step['stack'])):
-                        step['stack'][i] = re.sub(r'0x0+([0-9a-f]+)$', '0x\g<1>', step['stack'][i])
+                    if 'stateRoot' in step.keys() and INCLUDE_STATEROOT:
+                      steps.append(step)
+                    else:
+                      step['gas'] = hex(step['gas'])
+                      step['stack'] = step['stack'][::-1]
+                      for i in range(0, len(step['stack'])):
+                          step['stack'][i] = re.sub(r'0x0+([0-9a-f]+)$', '0x\g<1>', step['stack'][i])
+
                     steps.append(step)
 
             except Exception as e:
