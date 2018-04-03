@@ -14,7 +14,7 @@ valid_opcodes = opcodes.reverse_opcodes.keys()
 
 # The 'stateRoot' output is missing from some clients (parity). 
 # Enable this once they implement it
-INCLUDE_STATEROOT=False
+INCLUDE_STATEROOT=True
 
 strip_0x = remove_0x_head
 bstrToInt = lambda b_str: int(b_str.replace("b", "").replace("'", ""))
@@ -175,10 +175,10 @@ class HeraVM(VM):
                       for i in range(0, len(step['stack'])):
                           step['stack'][i] = re.sub(r'0x0+([0-9a-f]+)$', '0x\g<1>', step['stack'][i])
 
-                    steps.append(step)
+                      steps.append(step)
 
             except Exception as e:
-                logger.info('Exception parsing cpp json:')
+                logger.info('Exception parsing Hera json:')
                 logger.info(e)
                 logger.info('problematic line:')
                 logger.info(x[:500])

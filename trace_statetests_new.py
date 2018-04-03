@@ -363,7 +363,6 @@ def finishProc(name, processInfo, canonicalizer, fulltrace_filename = None):
             f.write("# %s\n\n" % processInfo['cmd'])
             f.write("\n".join(outp))
 
-    import pdb; pdb.set_trace()
     canon_text = [VMUtils.toText(step) for step in canonicalizer(outp)]
     return canon_text
 
@@ -634,7 +633,7 @@ def processTraces(test):
         with open(summary_log_filename, "w+") as f:
             logger.info("Summary trace: %s" , summary_log_filename)
             f.write("\n".join(trace_summary))
-        sys.exit(1)
+        # sys.exit(1)
 
     return equivalent
 

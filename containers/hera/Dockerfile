@@ -17,7 +17,7 @@ RUN curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash - && \
         python
 
 #RUN git clone --recursive https://github.com/ethereum/cpp-ethereum --branch develop --single-branch --depth 1
-RUN git clone https://github.com/ethereum/cpp-ethereum --branch ewasm-json-trace --single-branch
+RUN git clone https://github.com/jwasinger/cpp-ethereum --branch ewasm-json-trace --single-branch
 RUN cd cpp-ethereum && git submodule update --init
 RUN cd cpp-ethereum/hera && git fetch origin && git checkout evm-trace
 
@@ -38,20 +38,8 @@ RUN cd build && cmake ../cpp-ethereum -DCMAKE_BUILD_TYPE=RelWithDebInfo -DHERA=O
 RUN cd build && make -j8
 RUN cd build && make install
 
-# RUN ln -s $(which python3) /usr/bin/python
-RUN git clone --recursive https://github.com/jwasinger/evm2wasm -b charge-by-evm-op-enabled --single-branch && \
-          cd evm2wasm && \
-          npm install && \
-          cd tools/wabt && \
-          cmake -DBUILD_TESTS=OFF && \
-          make -j8
-
-
 RUN cp cpp-ethereum/scripts/jsonrpcproxy.py /jsonrpcproxy.py
 ADD ewasm-testnet-cpp-config.json /ewasm-testnet-cpp-config.json
-
-# ADD shell_profile.sh /etc/profile.d/shell_profile.sh
-ENV PATH="${PATH}:/evm2wasm/bin"
 
 # ADD cpp-eth.sh /cpp-eth.sh
 
