@@ -1,0 +1,63 @@
+{
+  "sealEngine": "Ethash",
+  "params": {
+    "accountStartNonce": "0x00",
+    "maximumExtraDataSize": "0x20",
+    "homesteadForkBlock": "0x00",
+    "EIP150ForkBlock": "0x00",
+    "EIP158ForkBlock": "0x00",
+    "byzantiumForkBlock": "0x00",
+    "eWASMForkBlock": "0x00",
+    "minGasLimit": "0x5208",
+    "maxGasLimit": "0x7fffffffffffffff",
+    "tieBreakingGas": false,
+    "gasLimitBoundDivisor": "0x0400",
+    "minimumDifficulty": "0x100000",
+    "difficultyBoundDivisor": "0x0800",
+    "durationLimit": "0x0d",
+    "blockReward": "0x4563918244F40000",
+    "networkID" : "0x42",
+    "chainID": "0x42",
+    "allowFutureBlocks" : false
+  },
+  "genesis": {
+    "nonce": "0x0000000000000042",
+    "difficulty": "0x100000",
+    "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "author": "0x0000000000000000000000000000000000000000",
+    "timestamp": "0x5A5B92D7",
+    "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "extraData": "0x655741534d2074657374206e6574776f726b2030",
+    "gasLimit": "0x989680"
+  },
+  "accounts": {
+    "0000000000000000000000000000000000000001": { "precompiled": { "name": "ecrecover", "linear": { "base": 3000, "word": 0 } }, "balance": "0x01" },
+    "0000000000000000000000000000000000000002": { "precompiled": { "name": "sha256", "linear": { "base": 60, "word": 12 } }, "balance": "0x01" },
+    "0000000000000000000000000000000000000003": { "precompiled": { "name": "ripemd160", "linear": { "base": 600, "word": 120 } }, "balance": "0x01" },
+    "0000000000000000000000000000000000000004": { "precompiled": { "name": "identity", "linear": { "base": 15, "word": 3 } }, "balance": "0x01" },
+    "0000000000000000000000000000000000000005": { "precompiled": { "name": "modexp" }, "balance": "0x01" },
+    "0000000000000000000000000000000000000006": { "precompiled": { "name": "alt_bn128_G1_add", "linear": { "base": 500, "word": 0 } }, "balance": "0x01" },
+    "0000000000000000000000000000000000000007": { "precompiled": { "name": "alt_bn128_G1_mul", "linear": { "base": 40000, "word": 0 } }, "balance": "0x01" },
+    "0000000000000000000000000000000000000008": { "precompiled": { "name": "alt_bn128_pairing_product" }, "balance": "0x01" },
+    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+      "balance" : "0x1b1ae4d6e2ef500000",
+      "code" : "",
+      "nonce" : "0x00",
+      "storage" : {}
+    },
+    "1000000000000000000000000000000000000000" : {
+      "balance" : "0x00",
+      "code" : "0x0061736d01000000010f0360037f7f7f0060027f7f0060000002310208657468657265756d0c63616c6c44617461436f7079000008657468657265756d0c73746f7261676553746f72650001030201020503010001071102046d61696e0002066d656d6f727902000a1201100041204100410210004100412010010b",
+      "nonce" : "0x00",
+      "storage" : {
+        "0x99": "0x99"
+      }
+    },
+    "1000000000000000000000000000000000000001" : {
+      "balance" : "0x00",
+      "code" : "0x0061736d01000000010f0360037f7f7f0060027f7f0060000002310208657468657265756d0c63616c6c44617461436f7079000008657468657265756d0c73746f7261676553746f72650001030201020503010001071102046d61696e0002066d656d6f727902000a1201100041204100412010004100412010010b",
+      "nonce" : "0x00",
+      "storage" : { }
+    }
+  }
+}

@@ -2,6 +2,7 @@ import os, signal, json, itertools, traceback, sys
 from subprocess import Popen, PIPE, TimeoutExpired
 import platform
 import logging
+import re
 from . import opcodes
 from . import parse_int_or_hex,decode_hex,remove_0x_head
 
@@ -13,7 +14,7 @@ valid_opcodes = opcodes.reverse_opcodes.keys()
 
 # The 'stateRoot' output is missing from some clients (parity). 
 # Enable this once they implement it
-INCLUDE_STATEROOT=False
+INCLUDE_STATEROOT=True
 
 strip_0x = remove_0x_head
 bstrToInt = lambda b_str: int(b_str.replace("b", "").replace("'", ""))
@@ -152,6 +153,36 @@ class JsVM(VM):
             if line and line.startswith('# {'):
                 result = json.loads(line.strip('# '))
                 steps.append(result)
+        return steps
+
+
+class HeraVM(VM):
+    @staticmethod
+    def canonicalized(output):
+        from . import opcodes
+        valid_opcodes = opcodes.reverse_opcodes.keys()
+
+        steps = []
+        for x in output:
+            try:
+                if len(x) > 0  and x[0] == "{":
+                    step = json.loads(x)
+                    if 'stateRoot' in step.keys() and INCLUDE_STATEROOT:
+                      steps.append(step)
+                    else:
+                      step['gas'] = hex(step['gas'])
+                      step['stack'] = step['stack'][::-1]
+                      for i in range(0, len(step['stack'])):
+                          step['stack'][i] = re.sub(r'0x0+([0-9a-f]+)$', '0x\g<1>', step['stack'][i])
+
+                      steps.append(step)
+
+            except Exception as e:
+                logger.info('Exception parsing Hera json:')
+                logger.info(e)
+                logger.info('problematic line:')
+                logger.info(x[:500])
+
         return steps
 
 

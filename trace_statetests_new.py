@@ -530,6 +530,15 @@ def startParity(test):
     cmd = ["/parity-evm","state-test", "--std-json","/testfiles/%s" % os.path.basename(test.tmpfile)]
     return execInDocker("parity", cmd)
 
+def startHera(test):
+    cmd = [ "/build/test/testeth", 
+            "-t","GeneralStateTests","--",
+            "--vm", "hera",
+            "--evmc", "evm2wasm.js=true", "--evmc", "fallback=false",
+            "--singletest", "/testfiles/%s" % os.path.basename(test.tmpfile), test.name,
+            ]
+    return execInDocker("hera", cmd, stderr=False)
+
 def startCpp(test):
     
     #docker exec -it cpp /usr/bin/testeth -t GeneralStateTests -- --singletest /testfiles/0001--randomStatetestmartin-Fri_09_42_57-7812-0-1-test.json randomStatetestmartin-Fri_09_42_57-7812-0   --jsontrace '{ "disableStorage" : false, "disableMemory" : false, "disableStack" : false, "fullStorage" : true }' 
@@ -557,7 +566,7 @@ def startCpp(test):
 def start_processes(test):
     clients = cfg['DO_CLIENTS']
 
-    starters = {'geth': startGeth, 'cpp': startCpp, 'parity': startParity}
+    starters = {'geth': startGeth, 'cpp': startCpp, 'parity': startParity, 'hera': startHera}
 
     logger.info("Starting processes for %s on test %s" % ( clients, test.name))
     #Start the processes
@@ -574,6 +583,7 @@ canonicalizers = {
     "cpp"  : VMUtils.CppVM.canonicalized, 
     "py"   : VMUtils.PyVM.canonicalized, 
     "parity"  :  VMUtils.ParityVM.canonicalized ,
+    "hera" : VMUtils.HeraVM.canonicalized,
 }
 
 def end_processes(test):
@@ -623,7 +633,7 @@ def processTraces(test):
         with open(summary_log_filename, "w+") as f:
             logger.info("Summary trace: %s" , summary_log_filename)
             f.write("\n".join(trace_summary))
-        sys.exit(1)
+        # sys.exit(1)
 
     return equivalent
 
