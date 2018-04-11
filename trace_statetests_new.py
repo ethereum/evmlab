@@ -137,36 +137,36 @@ class GeneralTest():
             general_tx = json_data[test_name]['transaction']
             
             tx_i = 0
-            for poststate in json_data[test_name]['post'][fork_under_test]:
-                
-                poststate = poststate.copy()
+            if fork_under_test in json_data[test_name]['post']:
+                for poststate in json_data[test_name]['post'][fork_under_test]:
+                    
+                    poststate = poststate.copy()
 
-                tx = general_tx.copy()
-                d = poststate['indexes']['data']
-                g = poststate['indexes']['gas']
-                v = poststate['indexes']['value']
-                tx['data'] = [general_tx['data'][d]]
-                tx['gasLimit'] = [general_tx['gasLimit'][g]]
-                tx['value'] = [general_tx['value'][v]]
-                
-                single_test = json_data.copy()
-                poststate['indexes'] =  {'data':0,'gas':0,'value':0}
-                single_test[test_name]['post'] = { fork_under_test: [ poststate ] }
-                single_test[test_name]['transaction'] = tx
- 
-                state_test = StateTest()
+                    tx = general_tx.copy()
+                    d = poststate['indexes']['data']
+                    g = poststate['indexes']['gas']
+                    v = poststate['indexes']['value']
+                    tx['data'] = [general_tx['data'][d]]
+                    tx['gasLimit'] = [general_tx['gasLimit'][g]]
+                    tx['value'] = [general_tx['value'][v]]
+                    
+                    single_test = json_data.copy()
+                    poststate['indexes'] =  {'data':0,'gas':0,'value':0}
+                    single_test[test_name]['post'] = { fork_under_test: [ poststate ] }
+                    single_test[test_name]['transaction'] = tx
+     
+                    state_test = StateTest()
 
-                state_test.subfolder = self.subfolder
-                state_test.name = test_name
-                state_test.tx_i = tx_i
-                state_test.statetest = single_test
-                state_test.tx = tx
-                state_test.tx_dgv = (d,g,v)
+                    state_test.subfolder = self.subfolder
+                    state_test.name = test_name
+                    state_test.tx_i = tx_i
+                    state_test.statetest = single_test
+                    state_test.tx = tx
+                    state_test.tx_dgv = (d,g,v)
 
-                tx_i = tx_i +1
+                    tx_i = tx_i +1
 
-
-                yield state_test
+                    yield state_test
 
 class StateTest():
     """ This class represents a single statetest, with a single post-tx result: one transaction
