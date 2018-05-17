@@ -75,7 +75,7 @@ The easiest way to get it working is to use a docker image.
 docker build . -t evmlab && docker run evmlab
 ```
 
-The docker image should also be available at hub.docker.com:
+The docker image should also be available at hub.docker.com, as an automated build:
 
 ```
 docker pull holiman/evmlab && docker run holiman/evmlab
