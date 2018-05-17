@@ -193,10 +193,10 @@ class Genesis(object):
         if n is None:
             n = 0
         b ="0x%x" % (account['balance'])
-
+        code = account['code'].hex() # code is a HexBytes object
         self.alloc[account['address'].lower()] = {
             "balance" : b, 
-            "code" : account['code'], 
+            "code" : code, 
             "nonce" : hex(n), 
         }
 
@@ -215,8 +215,10 @@ class Genesis(object):
         if 'storage' not in ac.keys():
             ac['storage'] = {}
 
-       
-        value = "0x{:064x}".format(int(value,16)) 
+        if 'hex' in dir(value):
+            value = value.hex()
+        else:
+            value = "0x{:064x}".format(int(value,16)) 
 
         ac['storage'][key]=value
 

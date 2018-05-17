@@ -480,7 +480,8 @@ class ParityVM(VM):
                 else:
                     cmd.append('%s:%s' % (genesis_mount, genesis_mount))
 
-            cmd.append( self.executable ) 
+            cmd.append( self.executable )
+            cmd.append("/parity-evm")
         else:
             cmd = [self.executable]
 

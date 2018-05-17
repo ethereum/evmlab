@@ -15,16 +15,15 @@ This is a tool to replicate live on-chain events. It starts with a transaction i
 
 import json
 import tempfile, os, traceback
-from web3 import Web3, RPCProvider
+
 from sys import argv, exit
 
-from . import etherchain
 from . import compiler as c
 from . import genesis as gen
 from . import opcodes
 from . import evmtrace
-from . import multiapi
-
+#from . import multiapi
+from . import utils
 
 def findExternalCalls(list_of_output):
     externals = {
@@ -164,6 +163,7 @@ def reproduceTx(txhash, vm, api):
             genesis.add(acc)
             #debugdump(acc)
             done = False
+
         
         externals_fetched.update(externals_tofetch)
 
@@ -231,7 +231,6 @@ def reproduceTx(txhash, vm, api):
         with open(a_trace, 'w') as f :
             f.write(str(annotated_trace))
         os.close(fd)
-        
         artefacts['annotated trace'] = a_trace
 
     except Exception as e:
@@ -241,7 +240,6 @@ def reproduceTx(txhash, vm, api):
     print("vm args:")
     print(vm_args)
     return artefacts, vm_args
-        
 
 def testStoreLookup():
     tr = "/data/workspace/evmlab/0xd6d519043d40691a36c9e718e47110309590e6f47084ac0ec00b53718e449fd3_der80goh.txt"
@@ -256,9 +254,7 @@ def fetch(args):
         exit(1)
     evmbin = "evm"
     tx = args[0]
-    web3 = Web3(RPCProvider(host = 'mainnet.infura.io', port= 443, ssl=True))
-    chain = etherchain.EtherChainAPI()
-    api = multiapi.MultiApi(web3 = web3, etherchain = chain)
+    api = utils.getApi("https://mainnet.infura.io:443")
     reproduceTx(tx, evmbin, api)
 
 

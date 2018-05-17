@@ -1,10 +1,8 @@
-import sha3 as _sha3
 import rlp
-
-def sha3_256(x): return _sha3.keccak_256(x).digest()
+from eth_hash.auto import keccak
 
 def sha3(seed):
-    return sha3_256(to_string(seed))
+    return keccak(to_string(seed))
 
 def encode_hex(b):
     if isinstance(b, str):

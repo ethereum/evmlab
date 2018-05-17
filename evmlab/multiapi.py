@@ -1,5 +1,6 @@
 
 import shelve, traceback
+from . import utils
 
 class MultiApi(object):
 
@@ -30,6 +31,7 @@ class MultiApi(object):
     def getAccountInfo(self, address, blnum = None):
         acc = {}
 
+        
         print("GetAccountInfo(%s, %s)"% (address, str(blnum)))
 
         if blnum is not None: 
@@ -38,12 +40,14 @@ class MultiApi(object):
             if cached is not None:
                 return cached
 
-        if self.web3 is not None: 
-            acc['balance'] = self.web3.eth.getBalance(address, blnum)
-            acc['code']    = self.web3.eth.getCode(address, blnum)
-            acc['nonce']   = self.web3.eth.getTransactionCount(address, blnum)
+        if self.web3 is not None:
+            # web3 only accepts checksummed addresses
+            chk_address = utils.checksumAddress(address) 
+            acc['balance'] = self.web3.eth.getBalance(chk_address, blnum)
+            acc['code']    = self.web3.eth.getCode(chk_address, blnum)
+            acc['nonce']   = self.web3.eth.getTransactionCount(chk_address, blnum)
             acc['address'] = address
-
+    
             # testrpc will return 0x0 if no code, geth expects 0x
             if acc['code'] == '0x0':
                 acc['code'] = '0x'

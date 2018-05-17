@@ -631,10 +631,11 @@ class DebugViewer():
         return opTrace(ops = ops, sel = sel, offset = start)
 
     def getSource(self, track=None):
-        op = self.operations[self.opptr]
 
         if len(self.op_contracts) == 0:
             return "No Source Provided"
+
+        op = self.operations[self.opptr]
 
         if 'depth' not in op:
             return ""
@@ -778,7 +779,7 @@ def loadJsonDebugStackTrace(fname):
 
 def loadJsonObjects(fname):
     """Load the json from geth `evm`"""
-    print("Trying to load geth format")
+    print("Trying to load %s in geth format" % fname)
     ops = []
 
     with open(fname) as f:

@@ -131,7 +131,7 @@ def test(vm,api):
 
     print("Doing tests")
     # Jumpdest-analysis attack
-    tx = "0x66abc672b9e427447a8a8964c7f4671953fab20571ae42ae6a4879687888c495"
+    tx = ""
     # Parity-wallet attack
     tx = "0x9dbf0326a03a2a3719c27be4fa69aacc9857fd231a8d9dcaede4bb083def75ec"
     # tenx token transfer (should include SLOADS)
