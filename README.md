@@ -2,7 +2,7 @@
 
 This package contains various tools to interact with the Ethereum virtual machine. 
 
-# Compiler
+## Compiler
 
 The 'compiler' is a tool to build evm binaries, using a pythonic way to construct the programs using assembly. 
 
@@ -36,22 +36,16 @@ Here's an example of stuffing `JUMPDEST` into a program:
 
 ```
 
-# Gethvm
+## VM
 
-The `gethvm` provides some ability to execute the `evm` from geth. 
-Example: 
+The vm module contais some abstractions to run arbitrary virtual machines, primarily geth `evm` and parity's `parity-evm`. 
 
-```python
 
-     vm = gethvm.VM(evmbin)
-     output =  vm.execute(code = bootstrap, genesis = g_path, json = True)
-``` 
-
-# Etherchain
+## Etherchain
 
 The `etherchain` package contains an API for interacting with the Etherchain API. 
 
-# Reproduce
+## Reproduce
 
 An example app is `reproduce.py` which can reproduce an on-chain transaction as a totally local event, and run it in the `evm`. 
 
@@ -66,14 +60,36 @@ The app takes a `txhash`, and
 6. Go back to 3 until the execution does not result in any more accounts to be fetched. 
 7. Save the transaction trace and genesis
 
+## Opviewer
+
+The 'opviewer.py' is a simple debugger-like trace-viewer. It can be used against an `evm`-trace and navigate the data in a bit more friendly manner than raw json. 
+Invoke via e.g. `python opviewer.py -f example2.json`
+
+![screenshot](https://raw.githubusercontent.com/holiman/evmlab/master/docs/example2.png)
+
+# Running it
+
+The easiest way to get it working is to use a docker image. 
+
+```
+docker build . -t evmlab && docker run evmlab
+```
+
+The docker image should also be available at hub.docker.com:
+
+```
+docker pull holiman/evmlab && docker run holiman/evmlab
+```
+
+
 # EVM 
 
-# EVM format
+## EVM format
 
 Here's what to think about if you want to add an `evm` to evmlab. 
 
 
-## Input
+### Input
 
 The `evm` should take the following inputs: 
 
@@ -106,7 +122,7 @@ $evm --prestate /home/martin/workspace/evmlab/output//0xd6d519-genesis-geth_wq38
 
 ``` 
 
-## Output
+### Output
 
 The `evm` should output a `json` object for each operation. Example: 
 ```
@@ -127,9 +143,3 @@ When errors occur, geth and parity handles them differently.
 
 Minor changes to how things work is ok, we can handle discrepancies in format and minor quirks. 
 
-# Opviewer
-
-The 'opviewer.py' is a simple debugger-like trace-viewer. It can be used against an `evm`-trace and navigate the data in a bit more friendly manner than raw json. 
-Invoke via e.g. `python opviewer.py -f example2.json`
-
-![screenshot](https://raw.githubusercontent.com/holiman/evmlab/master/docs/example2.png)
