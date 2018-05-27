@@ -1,5 +1,6 @@
 import rlp
 from eth_hash.auto import keccak
+import binascii
 
 def sha3(seed):
     return keccak(to_string(seed))
@@ -26,7 +27,6 @@ def decode_hex(s):
     if isinstance(s, str):
         return bytes.fromhex(s)
     if isinstance(s, (bytes, bytearray)):
-        import binascii
         return binascii.unhexlify(s)
     raise TypeError('Value must be an instance of str or bytes')
 
