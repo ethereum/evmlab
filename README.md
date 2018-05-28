@@ -1,6 +1,39 @@
 # EVM lab utilities
 
-This package contains various tools to interact with the Ethereum virtual machine. 
+This package contains various tools to interact with the Ethereum virtual machine.
+
+## Project Structure
+
+| Folder       | Description   |
+| ------------ | ------------- |
+| docs         | Project documentation |
+| evmlab       | The evmlab package  |
+| utilities    | Example utilities and proof-of-concepts |
+| files        | Sample trace files and trace logs |
+| output       | output directory for artefacts |
+| templates    | Web application templates (currently used with reproducer) |
+| containers   | Docker container files |
+
+## Installation
+
+#### From source:
+
+Consider creating a virtualenv.
+
+    #> virtualenv -p python3 .env3
+    #> . .env3/bin/activate
+    #> python3 -m pip install -r requirements.txt
+    #> python3 setup.py install
+    #> python3 -m evmlab  # verify installation
+
+#### From PIP:
+
+TODO: publish to pip!
+
+    #> python3 -m pip install evmlab
+    #> python3 -m evmlab  # verify installation
+
+EVMLab comes with a commandline utility that can be invoked by calling `python3 -m evmlab <subcommand> <args>`
 
 ## Compiler
 
@@ -43,7 +76,7 @@ The vm module contais some abstractions to run arbitrary virtual machines, prima
 
 ## Etherchain
 
-The `etherchain` package contains an API for interacting with the Etherchain API. 
+The `etherchain` package contains an API for interacting with the Etherchain API.
 
 ## Reproduce
 

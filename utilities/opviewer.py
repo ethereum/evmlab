@@ -1,23 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
 """
-
-TODO: refactor logging
-TODO: refactor make object oriented
-TODO: refactor create reusable trace class
-TODO: fix contract source
-
-Project:
-TODO: refactor project structure
-TODO: hint UTF8 on all files
-TODO: fix setup.py dependencies
-TODO: add unittest
-TODO: get rid of ignoreme?
-TODO: move example_trace.txt to ./examples or ./test
-TODO: move core functionality to evmlab package; move example files to ./examples
-TODO: cleanup __init__.py
-TODO: PEP-ify
-TODO: ci run unittests
+Opviewer - Ethereum Transaction Debugger
 """
 import os
 import json
@@ -958,6 +942,7 @@ class EvmTrace(object):
         # TODO: save artefacts, trace files, ...
         pass
 
+
 def main():
     """
     ##python3 opviewer.py -f test.json
@@ -985,7 +970,7 @@ python3 opviewer.py -f example.json -s /path/to/contracts -j /path/to/combined.j
     parser = argparse.ArgumentParser(description=description, epilog=examples,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser.add_argument("--verbose", action="store_true", default=False, help="Set loglevel to DEBUG")
+    parser.add_argument('-v', "--verbose", action="store_true", default=False, help="Set loglevel to DEBUG")
 
     evmchoice = parser.add_mutually_exclusive_group()
     evmchoice.add_argument("-f", "--file", type=str, help="Trace file to load")
@@ -1063,4 +1048,3 @@ if __name__ == '__main__':
     logging.basicConfig(format='[%(filename)s - %(funcName)20s() ][%(levelname)8s] %(message)s',
                         level=logging.INFO)
     main()
-    # TODO: make available via module main
