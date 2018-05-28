@@ -16,3 +16,4 @@
 * move Dockerfiles to own subdir
 * document docker usage and/or geth-evm/parity-evm usage
 * can we make the code autosense for docker usage? (get rid of --no-docker flag)
+* get own infura api endpoint enabled for debug_traceTransaction
