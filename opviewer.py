@@ -1063,7 +1063,4 @@ if __name__ == '__main__':
     logging.basicConfig(format='[%(filename)s - %(funcName)20s() ][%(levelname)8s] %(message)s',
                         level=logging.INFO)
     main()
-    # TODO: use logging instead of print - done
-    # TODO: create one entry class - done
-    # TODO: create sane main() and move argparse tehre - done
     # TODO: make available via module main

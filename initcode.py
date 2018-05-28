@@ -1,9 +1,7 @@
-"""
-"""
-#!/usr/bin/env python
+#!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
 
 import json
-import tempfile, os
 from evmlab import compiler as c
 from evmlab import vm
 from evmlab import genesis
@@ -52,7 +50,7 @@ def main():
 
     initcode = generateInitcode(cloneaddr)
 
-#    geth = vm.GethVM("/home/martin/go/src/github.com/ethereum/go-ethereum/build/bin/evm")
+    #geth = vm.GethVM("/home/martin/go/src/github.com/ethereum/go-ethereum/build/bin/evm")
     geth = vm.GethVM("holiman/gethvm", docker=True)
     print("Bytecode: ", initcode)
 

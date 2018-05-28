@@ -1,9 +1,7 @@
-"""
-"""
-#!/usr/bin/env python
+#!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
 
 import json
-import tempfile, os
 from evmlab import compiler as c
 from evmlab import vm
 from evmlab import genesis
