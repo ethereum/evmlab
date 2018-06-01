@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: UTF-8 -*-
 """
 Executes state tests on multiple clients, checking for EVM trace equivalence
 
@@ -8,7 +9,6 @@ from contextlib import redirect_stderr, redirect_stdout
 
 from evmlab import genesis as gen
 from evmlab import vm as VMUtils
-from evmlab import opcodes
 
 import docker
 dockerclient = docker.from_env()

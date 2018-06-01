@@ -1,37 +1,15 @@
 #!/usr/bin/env python3
-import sys,os
+# -*- coding: UTF-8 -*-
+import sys, os
 import argparse
 import re
+import zipfile
 from evmlab import reproduce, utils
 from evmlab import vm as VMUtils
-
-description= """
-Tool to reproduce on-chain events locally. 
-This can run either as a command-line tool, or as a webapp using a built-in flask interface.
-"""
-examples = """
-Examples
-
-# Reproduce a tx with a local evm binary
-python3 reproducer.py --no-docker -g ~/go/src/github.com/ethereum/go-ethereum/build/bin/evm --hash 0xd6d519043d40691a36c9e718e47110309590e6f47084ac0ec00b53718e449fd3 
-
-# Reproduce a tx with a docker evm
-python3 reproducer.py -g holiman/gethvm --hash 0xd6d519043d40691a36c9e718e47110309590e6f47084ac0ec00b53718e449fd3
-
-# Start the reproducer webapp using the default geth docker image: 
-python3 reproducer.py -w localhost
-
-Unfinished: 
-
-* This does not _quite_ work with parity, yet, because parity does not load the code in genesis for the 'to'
-  -account, it expects the code to be given as an argument. 
-
-"""
 
 try:
     import flask
     app = flask.Flask(__name__)
-    hash_regexp = re.compile("0x[0-9a-f]{64}")
 except: 
     print("Flask not installed, disabling web mode")
     app = None
@@ -41,43 +19,16 @@ try:
 except:
     from cgi import escape as lib_escape
 
-parser = argparse.ArgumentParser(description=description,epilog = examples,formatter_class=argparse.RawDescriptionHelpFormatter)
 
-evmchoice = parser.add_mutually_exclusive_group()
-evmchoice.add_argument('-g','--geth-evm', type=str, 
-    help="Geth EVM binary or docker image name", default="holiman/gethvm")
-evmchoice.add_argument('-p','--parity-evm',  type=str, default=None, 
-    help="Parity EVM binary or docker image name")
-
-parser.add_argument("--no-docker", action="store_true",
-    help="Set to true if using a local binary instead of a docker image")
-
-
-
-web_or_direct = parser.add_mutually_exclusive_group()
-web_or_direct.add_argument('-x','--hash' , type=str , 
-    help  ="Don't run webapp, just lookup hash")
-if app:
-    web_or_direct.add_argument('-w','--www', type=str,
-        help ="Run webapp on given interface (interface:port)")
-    parser.add_argument('-d','--debug', action="store_true", default=False, 
-        help="Run flask in debug mode (WARNING: debug on in production is insecure)")
-
-parser.add_argument('-t','--test' , action="store_true", default=False, 
-    help ="Dont run webapp, only local tests")
-
-
-web3settings = parser.add_argument_group('Web3', 'Settings about where to fetch information from (default infura)')
-web3settings.add_argument("--web3",  type=str, default="https://mainnet.infura.io/", 
-    help="Web3 API url to fetch info from (default 'https://mainnet.infura.io/'" )
 escape = lambda a: lib_escape(str(a), quote=True)
 OUTPUT_DIR = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
 
 if app:
+    hash_regexp = re.compile("0x[0-9a-f]{64}")
+
     @app.route("/")
     def test():
         return flask.render_template("index.html")
-
 
     @app.route('/reproduce/<txhash>')
     def reproduce_tx(txhash):
@@ -115,9 +66,6 @@ def zipFiles(artefacts, fname):
     @param artefacts - map of files to save
     @param fname prefix to zip-file name
     """
-    import zipfile
-
-
     zf_name = '%s.zip' % fname
     zf_path = OUTPUT_DIR
     fullpath = "%s%s" % (zf_path, zf_name)
@@ -140,7 +88,60 @@ def test(vm,api):
     return reproduce.reproduceTx(tx, vm, api)
 
 
-def main(args):
+def main():
+
+    description = """
+Tool to reproduce on-chain events locally. 
+This can run either as a command-line tool, or as a webapp using a built-in flask interface.
+    """
+    examples = """
+Examples
+
+# Reproduce a tx with a local evm binary
+python3 reproducer.py --no-docker -g ~/go/src/github.com/ethereum/go-ethereum/build/bin/evm --hash 0xd6d519043d40691a36c9e718e47110309590e6f47084ac0ec00b53718e449fd3 
+
+# Reproduce a tx with a docker evm
+python3 reproducer.py -g holiman/gethvm --hash 0xd6d519043d40691a36c9e718e47110309590e6f47084ac0ec00b53718e449fd3
+
+# Start the reproducer webapp using the default geth docker image: 
+python3 reproducer.py -w localhost
+
+Unfinished: 
+
+* This does not _quite_ work with parity, yet, because parity does not load the code in genesis for the 'to'
+  -account, it expects the code to be given as an argument. 
+
+    """
+    parser = argparse.ArgumentParser(description=description, epilog=examples,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    evmchoice = parser.add_mutually_exclusive_group()
+    evmchoice.add_argument('-g', '--geth-evm', type=str,
+                           help="Geth EVM binary or docker image name", default="holiman/gethvm")
+    evmchoice.add_argument('-p', '--parity-evm', type=str, default=None,
+                           help="Parity EVM binary or docker image name")
+
+    parser.add_argument("--no-docker", action="store_true",
+                        help="Set to true if using a local binary instead of a docker image")
+
+    web_or_direct = parser.add_mutually_exclusive_group()
+    web_or_direct.add_argument('-x', '--hash', type=str,
+                               help="Don't run webapp, just lookup hash")
+    if app:
+        web_or_direct.add_argument('-w', '--www', type=str, help="Run webapp on given interface (interface:port)")
+        parser.add_argument('-d', '--debug', action="store_true", default=False,
+                            help="Run flask in debug mode (WARNING: debug on in production is insecure)")
+
+    parser.add_argument('-t', '--test', action="store_true", default=False,
+                        help="Dont run webapp, only local tests")
+
+    web3settings = parser.add_argument_group('Web3', 'Settings about where to fetch information from (default infura)')
+    web3settings.add_argument("--web3", type=str, default="https://mainnet.infura.io/",
+                              help="Web3 API url to fetch info from (default 'https://mainnet.infura.io/'")
+
+    args = parser.parse_args()
+
+    # end of arg handling
 
     if args.parity_evm:
         vm = VMUtils.ParityVM(args.parity_evm, not args.no_docker)
@@ -153,7 +154,6 @@ def main(args):
         artefacts = test(vm, api)
         import pprint
         pprint.PrettyPrinter().pprint(artefacts)
-
         sys.exit(0)
 
     if app and args.www:
@@ -167,6 +167,7 @@ def main(args):
         app.api = api
         app.vm = vm
         app.run(host=host, port=port)
+
     elif args.hash:
         artefacts, vm_args = reproduce.reproduceTx(args.hash, vm, api)
         saved_files = utils.saveFiles(OUTPUT_DIR, artefacts)
@@ -196,11 +197,9 @@ def main(args):
         (zipfilepath, zipfilename) = zipFiles(saved_files, args.hash[:8])
         print("\nZipped files into %s%s" % (zipfilepath, zipfilename))
 
-
-
     else:
         parser.print_usage()
 
+
 if __name__ == '__main__':
-    options = parser.parse_args()
-    main(options)
+    main()

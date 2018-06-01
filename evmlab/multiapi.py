@@ -113,3 +113,16 @@ class MultiApi(object):
         else:
             print("getStorageSlot not implemented for etherchain api")
             return ""
+
+    def traceTransaction(self, tx, disableStorage=False, disableMemory=False, disableStack=False, tracer=None,
+                               timeout=None):
+        if self.web3 is None:
+            raise Exception("debug_traceTransaction requires web3 to be configured")
+
+        # TODO: caching
+        return self.web3.manager.request_blocking("debug_traceTransaction",
+                                                  [tx, {"disableStorage": disableStorage,
+                                                        "disableMemory": disableMemory,
+                                                        "disableStack": disableStack,
+                                                        "tracer": tracer,
+                                                        "timeout": timeout}])
