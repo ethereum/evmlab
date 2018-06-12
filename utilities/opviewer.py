@@ -5,7 +5,7 @@ Opviewer - Ethereum Transaction Debugger
 """
 import os
 import json
-import urwid, argparse, math
+import argparse, math
 import logging
 
 from evmlab.context import buildContexts
@@ -14,6 +14,19 @@ from evmlab import reproduce, utils
 from evmlab import vm as VMUtils
 from evmlab.opcodes import reverse_opcodes
 
+logger = logging.getLogger(__name__)
+
+try:
+    import ethereum_input_decoder
+except ImportError:
+    ethereum_input_decoder = None
+    logger.warning(
+        "Transaction input decoder package not installed. run `#> pip install evmlab[abidecoder]` to install.")
+try:
+    import urwid
+except ImportError:
+    logger.fatal("Console UI (urwid) package not installed. run `#> pip install evmlab[consolegui]` to install.")
+
 # Python3 support
 # Todo: six instead of custom checks? do we support py2?
 try:
@@ -21,10 +34,9 @@ try:
 except NameError:
     xrange = range
 
-logger = logging.getLogger(__name__)
 
-# TODO: create exception hierarchy in evmlab package
 class SourceException(Exception):
+    # TODO: create exception hierarchy in evmlab package
     pass
 
 
@@ -39,10 +51,12 @@ class Console:
 # Todo: get rid of this
 OUTPUT_DIR = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
 
-#NEWLINE_PATTERN = re.compile('\n')
 
-# todo: review staticmethods and check if they really belong to debugviewer (visualization vs. generic helper)
+# NEWLINE_PATTERN = re.compile('\n')
+
+
 class DebugViewer(object):
+    # todo: review staticmethods and check if they really belong to debugviewer (visualization vs. generic helper)
 
     def __init__(self):
 
@@ -488,29 +502,29 @@ class DebugViewer(object):
 
         return "\n".join(result)
 
-    def setTrace(self, trace, op_contracts=[]):
+    def setTrace(self, trace, op_contracts=[], txhash=None, txinput=None):
         self.operations = trace
         self.op_contracts = op_contracts
 
-        ops_view   = urwid.Text(self.getOp())
-        mem_view   = urwid.Text(self.getMem())
-        memref_view  = urwid.Text(self.getMemref())
+        ops_view = urwid.Text(self.getOp())
+        mem_view = urwid.Text(self.getMem())
+        memref_view = urwid.Text(self.getMemref())
         stack_view = urwid.Text(self.getStack())
         trace_view = urwid.Text(self.getTrace())
         source_view = urwid.Text(self.getSource())
-        help_view  = urwid.Text(self.getHelp())
+        help_view = urwid.Text(self.getHelp())
         # palettes are currently not used
         palette = [
             ('banner', 'black', 'light gray'),
             ('streak', 'black', 'dark red'),
-            ('bg', 'black', 'dark blue'),]
-        palette=[
-            ('headings', 'white,underline', 'black', 'bold,underline'), # bold text in monochrome mode
+            ('bg', 'black', 'dark blue'), ]
+        palette = [
+            ('headings', 'white,underline', 'black', 'bold,underline'),  # bold text in monochrome mode
             ('body_text', 'dark cyan', 'light gray'),
             ('buttons', 'yellow', 'dark green', 'standout'),
-            ('section_text', 'body_text'), # alias to body_text
-            ('source', 'white', 'black', 'bold'), # bold text in monochrome mode
-            ]
+            ('section_text', 'body_text'),  # alias to body_text
+            ('source', 'white', 'black', 'bold'),  # bold text in monochrome mode
+        ]
 
         self.ops_view = ops_view
         self.mem_view = mem_view
@@ -520,31 +534,42 @@ class DebugViewer(object):
         self.source_view = source_view
         self.help_view = help_view
 
+        # indicate the online lookup with a * at the end of decoded
+        inp_view = urwid.Text("""
+  > tx:       %s
+  > input:    %s
+  > decoded*: %s""" % (txhash,
+                      txinput,
+                      ethereum_input_decoder.AbiMethod.from_input_lookup(ethereum_input_decoder.Utils.str_to_bytes(
+                          (txinput))) if ethereum_input_decoder else "<input decoder not installed>"))
 
-        top = DebugViewer.wrap(urwid.Columns([
-                            urwid.Pile([
-                                DebugViewer.wrap(ops_view,"Op"),
-                                DebugViewer.wrap(trace_view, "Trace")]
-                                ),
-                            urwid.Pile([
-                                DebugViewer.wrap(mem_view,"Memory"),
-                                DebugViewer.wrap(memref_view, "Memory Reference by Opcode"),
-                                DebugViewer.wrap(stack_view, "Stack"),
-                                DebugViewer.wrap(source_view, "Source"),
-                                ])
-                    ]),"Retromix")
+        top = DebugViewer.wrap(urwid.Pile([
+            DebugViewer.wrap(inp_view, ""),
+            urwid.Columns([
+                urwid.Pile([
+                    DebugViewer.wrap(ops_view, "Op"),
+                    DebugViewer.wrap(trace_view, "Trace")]
+                ),
+                urwid.Pile([
+                    DebugViewer.wrap(mem_view, "Memory"),
+                    DebugViewer.wrap(memref_view, "Memory Reference by Opcode"),
+                    DebugViewer.wrap(stack_view, "Stack"),
+                    DebugViewer.wrap(source_view, "Source"),
+                ])
+            ])
+        ]), "Retromix")
 
-        horiz = urwid.Pile([top, DebugViewer.wrap(help_view,"Help")])
+        horiz = urwid.Pile([top, DebugViewer.wrap(help_view, "Help")])
         fill = urwid.Filler(horiz, 'top')
 
-        #self.dbg("Loaded %d operations" % len(self.operations) )
+        # self.dbg("Loaded %d operations" % len(self.operations) )
 
         loop = urwid.MainLoop(fill, palette, unhandled_input=lambda input: self.show_or_exit(input))
         loop.run()
 
-    def _op(self, key = None, default = None):
+    def _op(self, key=None, default=None):
 
-        if self.opptr > len(self.operations)-1:
+        if self.opptr > len(self.operations) - 1:
             return default
 
         op = self.operations[self.opptr]
@@ -556,12 +581,12 @@ class DebugViewer(object):
             return op[key]
         return default
 
-    def _prevop(self, key = None, default = None):
+    def _prevop(self, key=None, default=None):
 
-        if self.opptr > len(self.operations)-2:
+        if self.opptr > len(self.operations) - 2:
             return default
 
-        op = self.operations[self.opptr-1]
+        op = self.operations[self.opptr - 1]
         if key == None:
             return op
         if key not in op.keys():
@@ -575,50 +600,50 @@ class DebugViewer(object):
         if (len(self.op_contracts) > 0):
             c = self.op_contracts[self.opptr]
             addr = "{} ({})".format(c.address, c.name.split(':')[-1])
-        
-        return DebugViewer.opDump(self._op(default={'pc':1}), addr)
+
+        return DebugViewer.opDump(self._op(default={'pc': 1}), addr)
 
     def getMem(self):
-        m = self._op('memory',"0x")
+        m = self._op('memory', "0x")
         if type(m) is list:
             m = "0x%s" % "".join(m)
-        prev_m = self._prevop('memory',"0x")
+        prev_m = self._prevop('memory', "0x")
         if type(prev_m) is list:
             prev_m = "0x%s" % "".join(prev_m)
-        return DebugViewer.hexdump(m[2:], start = self.memptr, prevsrc = prev_m[2:])
+        return DebugViewer.hexdump(m[2:], start=self.memptr, prevsrc=prev_m[2:])
 
     def _getMemref(self, bound):
-        m = self._op('memory',[])
+        m = self._op('memory', [])
         mc = ""
         mc_prev = ""
         ms = DebugViewer.getMemoryReference(self._op('op', "0"))
         ms_prev = DebugViewer.getMemoryReference(self._prevop('op', "0"))
-        if type (ms) is list:
+        if type(ms) is list:
             mc = DebugViewer.memRefResolve(m, ms, self._op('stack', []), "Pre-exec", self._op('opName', 'op'), bound)
-        if type (ms_prev) is list:
-            mc_prev = DebugViewer.memRefResolve(m, ms_prev, self._prevop('stack', []), "Post-exec", self._prevop('opName', 'op'), bound)
-        return mc+mc_prev
+        if type(ms_prev) is list:
+            mc_prev = DebugViewer.memRefResolve(m, ms_prev, self._prevop('stack', []), "Post-exec",
+                                                self._prevop('opName', 'op'), bound)
+        return mc + mc_prev
 
     def getMemref(self):
         return self._getMemref(256)
 
     def getStack(self):
-        st = self._op('stack',[])
-        opcode = self._op('op',None)
-        return DebugViewer.stackdump(st, start=self.stackptr, opcode = opcode)
+        st = self._op('stack', [])
+        opcode = self._op('op', None)
+        return DebugViewer.stackdump(st, start=self.stackptr, opcode=opcode)
 
     def getTrace(self):
         # Trace 2 * pad + 1 lines
 
         pad = 12
         sel = self.opptr
-        start = max(sel-pad, 0)
+        start = max(sel - pad, 0)
 
-        end = min(start+2*pad+1, len(self.operations)-1)
+        end = min(start + 2 * pad + 1, len(self.operations) - 1)
 
-
-        ops = self.operations[start : end]
-        return DebugViewer.opTrace(ops = ops, sel = sel, offset = start)
+        ops = self.operations[start: end]
+        return DebugViewer.opTrace(ops=ops, sel=sel, offset=start)
 
     def getSource(self, track=None):
 
@@ -650,7 +675,7 @@ class DebugViewer(object):
         """
 
     def _refresh(self):
-        self.source_view.set_text(self.getSource()) # needs to occur before getOp to print correct addr
+        self.source_view.set_text(self.getSource())  # needs to occur before getOp to print correct addr
         self.ops_view.set_text(self.getOp())
         self.trace_view.set_text(self.getTrace())
         self.mem_view.set_text(self.getMem())
@@ -658,61 +683,61 @@ class DebugViewer(object):
         self.stack_view.set_text(self.getStack())
         self.help_view.set_text(self.getHelp())
 
-    def dbg(self,text):
+    def dbg(self, text):
         if self.help_view is not None:
             self.help_view.set_text(text)
 
-    def show_or_exit(self,key):
-        """ 
+    def show_or_exit(self, key):
+        """
         @brief handles key-events
         """
         if key in ('q', 'Q'):
             raise urwid.ExitMainLoop()
 
         step = 1
-        if key in ('A','Z'):
+        if key in ('A', 'Z'):
             step = 10 if len(self.operations) <= 1000 else 100
-        elif key in ('S','X','D','C','F','V'):
+        elif key in ('S', 'X', 'D', 'C', 'F', 'V'):
             step = 10
 
         # UP trace
-        if key in ('a','A'):
-            self.opptr = max(0, self.opptr-step)
+        if key in ('a', 'A'):
+            self.opptr = max(0, self.opptr - step)
             self._refresh()
 
         # DOWN trace
-        if key in ('z','Z'):
-            self.opptr = min(self.opptr+step, len(self.operations)-1)
+        if key in ('z', 'Z'):
+            self.opptr = min(self.opptr + step, len(self.operations) - 1)
             self._refresh()
 
         # UP mem
-        if key in ('s','S'):
-            self.memptr = max(0, self.memptr-step)
+        if key in ('s', 'S'):
+            self.memptr = max(0, self.memptr - step)
             self.mem_view.set_text(self.getMem())
 
         # DOWN mem
-        if key in ('x','X'):
-            self.memptr = self.memptr+step
+        if key in ('x', 'X'):
+            self.memptr = self.memptr + step
             self.mem_view.set_text(self.getMem())
 
         # UP stack
-        if key in ('d','D'):
-            self.stackptr = max(0, self.stackptr-step)
+        if key in ('d', 'D'):
+            self.stackptr = max(0, self.stackptr - step)
             self.stack_view.set_text(self.getStack())
 
         # DOWN stack
-        if key in ('c','C'):
-            self.stackptr = self.stackptr+step
+        if key in ('c', 'C'):
+            self.stackptr = self.stackptr + step
             self.stack_view.set_text(self.getStack())
 
         # UP source
-        if key in ('f','F'):
-            self.srcptr = max(0, self.srcptr-step)
+        if key in ('f', 'F'):
+            self.srcptr = max(0, self.srcptr - step)
             self.source_view.set_text(self.getSource(track=False))
 
         # DOWN source
-        if key in ('v','V'):
-            self.srcptr = self.srcptr+step
+        if key in ('v', 'V'):
+            self.srcptr = self.srcptr + step
             self.source_view.set_text(self.getSource(track=False))
 
         if key in ('t', 'T'):
@@ -721,10 +746,10 @@ class DebugViewer(object):
                 self.srcptr = 0
             self.source_view.set_text(self.getSource())
 
-        if key in ('g','G'):
+        if key in ('g', 'G'):
             self.dbg("TODO: Implement GOTO")
 
-        if key in ('m','M'):
+        if key in ('m', 'M'):
             snap_name = OUTPUT_DIR + "state.snapshot" + str(self.snapn) + ".txt"
             ops = "".join(str(e[0][1] + e[1]) for e in self.getOp())
             try:
@@ -751,6 +776,9 @@ class EvmTrace(object):
         self.api = utils.getApi(api)
         self.source_path = None
 
+        self.txhash = None
+        self.txinput = None
+
         # internal state
         self.ops = []
         self.contracts = []
@@ -766,9 +794,9 @@ class EvmTrace(object):
         :param docker: is this a docker container
         :return: either GethVM or ParityVM object
         """
-        if vmtype=="geth":
+        if vmtype == "geth":
             vmclass = VMUtils.GethVM
-        elif vmtype=="parity":
+        elif vmtype == "parity":
             vmclass = VMUtils.ParityVM
         else:
             raise Exception("vmtype not supported.")
@@ -785,7 +813,7 @@ class EvmTrace(object):
         if not self.ops:
             raise Exception("need to reproduce/load trace first")
 
-        DebugViewer().setTrace(self.ops, self.op_contracts)
+        DebugViewer().setTrace(self.ops, self.op_contracts, self.txhash, self.txinput)
 
     def reproduce(self, tx, vm):
         """
@@ -799,8 +827,8 @@ class EvmTrace(object):
         ## TODO: fix artefacts
         ## TODO: get rid of saveFiles
         ## TODO: generally get rid of tempfile logic.
-        #saved_files = utils.saveFiles(OUTPUT_DIR, artefacts)
-        #fname = os.path.join(saved_files['json-trace']['path'], saved_files['json-trace']['name'])
+        # saved_files = utils.saveFiles(OUTPUT_DIR, artefacts)
+        # fname = os.path.join(saved_files['json-trace']['path'], saved_files['json-trace']['name'])
 
         return self.load_trace(path=artefacts['json-trace'])
 
@@ -808,6 +836,8 @@ class EvmTrace(object):
         if _json:
             return self.load_trace_json(data=_json)
         elif tx:
+            self.txhash = tx
+            self.txinput = self.api.getTransaction(tx)["input"]
             return self.load_trace(_json=self.api.traceTransaction(tx=tx))
         elif path:
             return self.load_trace_file(path=path)
@@ -843,8 +873,7 @@ class EvmTrace(object):
         if not os.path.isfile(path):
             raise Exception("%s - is not a file" % path)
 
-
-        logger.debug("loading trace file: %s"%path)
+        logger.debug("loading trace file: %s" % path)
         with open(path) as f:
             #
             # 1) try json tracefile
@@ -857,7 +886,7 @@ class EvmTrace(object):
             # 2) try line-by-line json
             #
             logger.debug("Trying to load %s in geth format")
-            f.seek(0) # rewind
+            f.seek(0)  # rewind
             data = f.read()
             try:
                 return self._loadJsonObjects(data)
@@ -998,17 +1027,17 @@ python3 opviewer.py -f example.json -s /path/to/contracts -j /path/to/combined.j
         logger.setLevel(logging.DEBUG)
 
     if args.hash and not args.hash.startswith("0x"):
-        args.hash = "0x%s"%args.hash
+        args.hash = "0x%s" % args.hash
 
     if args.parity_evm and args.geth_evm:
         parser.error("please either specify --geth-evm or --parity-evm and not both.")
 
-    #
     # -- End of arg normalization
 
     logger.debug("--start--")
     # TODO: talk to infura to get a debug_traceTransaction enabled endpoint (be fair, not reuse remix ;))
     trace = EvmTrace(api=args.web3)
+
     logger.debug("init done.")
 
     if not args.file:
