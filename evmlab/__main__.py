@@ -4,10 +4,13 @@
 EVMLab command line utility: #> python3 -m evmlab <subcommand> <args>
 """
 import sys
+import logging
+
+from .tools import opviewer
 
 
 def usage(msg=""):
-    description="""
+    description = """
 EVMLab command line utility
 
 Usage:
@@ -25,7 +28,7 @@ Usage:
 
 
 # configure available subcommands here
-SUBCOMMAND = {'opviewer': lambda:sys.exit(usage("--not yet implemented--")),
+SUBCOMMAND = {'opviewer': lambda:opviewer.main(),
               'reproducer': lambda:sys.exit(usage("--not yet implemented--"))}
 
 
@@ -40,4 +43,6 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(format='[%(filename)s - %(funcName)20s() ][%(levelname)8s] %(message)s',
+                        level=logging.INFO)
     main()
