@@ -49,7 +49,7 @@ class Console:
 
 
 # Todo: get rid of this
-OUTPUT_DIR = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
+# OUTPUT_DIR = "%s/output/" % os.path.dirname(os.path.realpath(__file__))  # should not use realpath of file as we are inside the package.
 
 
 # NEWLINE_PATTERN = re.compile('\n')
@@ -755,7 +755,7 @@ class DebugViewer(object):
             self.dbg("TODO: Implement GOTO")
 
         if key in ('m', 'M'):
-            snap_name = OUTPUT_DIR + "state.snapshot" + str(self.snapn) + ".txt"
+            snap_name = os.path.join(os.getcwd(), "evmlab.state.snapshot%s.txt" % self.snapn)
             ops = "".join(str(e[0][1] + e[1]) for e in self.getOp())
             try:
                 sf = open(snap_name, "w")
