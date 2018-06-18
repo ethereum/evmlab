@@ -5,7 +5,6 @@ Opviewer - Ethereum Transaction Debugger
 """
 import logging
 
-import evmlab.tools.opviewer
 from evmlab.tools import opviewer
 
 
