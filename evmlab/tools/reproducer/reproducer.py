@@ -4,79 +4,99 @@ import sys, os
 import argparse
 import re
 import zipfile
+import tempfile
+import logging
+
 from evmlab import reproduce, utils
 from evmlab import vm as VMUtils
 
+logger = logging.getLogger(__name__)
+
 try:
     import flask
-    app = flask.Flask(__name__)
-except: 
-    print("Flask not installed, disabling web mode")
+    app = flask.Flask(__name__, template_folder=os.path.join(os.path.dirname(__file__), 'templates'))
+    logger.info("Flask init: template_folder: %s" % os.path.join(os.path.dirname(__file__), 'templates'))
+except ImportError:
+    logger.warning("Flask not installed, disabling web mode")
     app = None
 
-try:
-    from html import escape as lib_escape
-except:
-    from cgi import escape as lib_escape
+OUTPUT_DIR = tempfile.mkdtemp(prefix="evmlab")
 
 
-escape = lambda a: lib_escape(str(a), quote=True)
-OUTPUT_DIR = "%s/output/" % os.path.dirname(os.path.realpath(__file__))
+def create_zip_archive(input_files, output_archive):
+    """
+    Bundles artefacts into a zip-file
+
+    @param input_artefacts - map of files to save
+    @param output_archive prefix to zip-file name
+    """
+    logger.debug("creating zip archive %s for input artefacts:")
+    zipf = zipfile.ZipFile(output_archive, 'w', zipfile.ZIP_DEFLATED)
+    for location, name in input_files:
+        logger.debug("adding %s as %s to archive..." % (location, name))
+        zipf.write(location, name)
+    zipf.close()
+
 
 if app:
     hash_regexp = re.compile("0x[0-9a-f]{64}")
 
+
     @app.route("/")
     def test():
+        logger.debug("rendering index...")
         return flask.render_template("index.html")
+
 
     @app.route('/reproduce/<txhash>')
     def reproduce_tx(txhash):
+        logger.debug("reproducing transaction %s" % txhash)
+
         # Verify input
         if not hash_regexp.match(txhash):
+            logger.debug("rendering index(invalid tx hash)...")
             return flask.render_template("index.html", message="Invalid tx hash")
-        
+
         try:
             artefacts, vm_args = reproduce.reproduceTx(txhash, app.vm, app.api)
+            logger.debug("done reproducing transaction trace...")
         except Exception as e:
+            logger.exception("exception thrown while reproducing transaction...")
             return flask.render_template("index.html", message=str(e))
 
+        logger.debug("saving artefacts to %s" % OUTPUT_DIR)
         saved_files = utils.saveFiles(OUTPUT_DIR, artefacts)
 
-        #Some tricks to get the right command for local replay
+        # Some tricks to get the right command for local replay
         p_gen = saved_files['parity genesis']['name']
         g_gen = saved_files['geth genesis']['name']
         vm_args['genesis'] = g_gen
         command = app.vm.makeCommand(**vm_args)
-        
-        outp = "Transaction tracing seems to have been successfull. Use the following command to execute locally" 
-        (path, zipfilename) = zipFiles(saved_files, txhash[:8])
-        
-        return flask.render_template("index.html", files=saved_files, zipfile = zipfilename, message=outp, code=" \\\n\t".join(command))
+        logger.debug("vm command: %s" % command)
+
+        logger.debug("creating zip archive for artefacts")
+        prefix = txhash[:8]
+        output_archive = os.path.join(OUTPUT_DIR, "%s.zip" % prefix)
+
+        # create a list of files to pack with zipFiles
+        input_files = [(os.path.join(v['path'], v['name']), v['name']) for v in saved_files]
+
+        create_zip_archive(input_files=input_files, output_archive=output_archive)
+
+        logger.debug("rendering reproduce_tx...")
+        return flask.render_template("index.html",
+                                     files=saved_files, zipfile="%s.zip" % prefix,
+                                     message="Transaction tracing seems to have been successfull. Use the following command to execute locally",
+                                     code=" \\\n\t".join(command))
+
 
     @app.route('/download/<path:filename>')
     def download_file(filename):
-        return flask.send_from_directory(OUTPUT_DIR,filename, as_attachment=True)
+        logger.debug("rendering download_file...")
+        return flask.send_from_directory(OUTPUT_DIR, filename, as_attachment=True)
 
 
-def zipFiles(artefacts, fname):
-    """ 
-    Bundles artefacts into a zip-file
-    
-    @param artefacts - map of files to save
-    @param fname prefix to zip-file name
-    """
-    zf_name = '%s.zip' % fname
-    zf_path = OUTPUT_DIR
-    fullpath = "%s%s" % (zf_path, zf_name)
-    zipf = zipfile.ZipFile(fullpath, 'w', zipfile.ZIP_DEFLATED)
-    for k,v in artefacts.items():
-        zipf.write(os.path.join(v['path'], v['name']), v['name'])
-    zipf.close()
-    return (zf_path, zf_name)
-
-def test(vm,api):
-
+def test(vm, api):
     print("Doing tests")
     # Jumpdest-analysis attack
     tx = ""
@@ -89,7 +109,6 @@ def test(vm,api):
 
 
 def main():
-
     description = """
 Tool to reproduce on-chain events locally. 
 This can run either as a command-line tool, or as a webapp using a built-in flask interface.
@@ -159,6 +178,7 @@ Unfinished:
     if app and args.www:
         if ':' in args.www:
             host, port = args.www.split(':')
+            port = port
         else:
             host = args.www
             port = 5000
@@ -172,7 +192,7 @@ Unfinished:
         artefacts, vm_args = reproduce.reproduceTx(args.hash, vm, api)
         saved_files = utils.saveFiles(OUTPUT_DIR, artefacts)
 
-        #Some tricks to get the right command for local replay
+        # Some tricks to get the right command for local replay
         p_gen = saved_files['parity genesis']['name']
         g_gen = saved_files['geth genesis']['name']
         vm_args['genesis'] = "%s/%s" % (OUTPUT_DIR, g_gen)
@@ -189,17 +209,27 @@ Unfinished:
         print("%s" % " ".join(vm.makeCommand(**vm_args)))
 
         print("\nFor opviewing:\n")
-        print("python3 opviewer.py -f %s/%s" % (saved_files['json-trace']['path'],saved_files['json-trace']['name']))
+        print("python3 opviewer.py -f %s/%s" % (saved_files['json-trace']['path'], saved_files['json-trace']['name']))
 
         print("\nFor opviewing with sources:\n")
-        print("python3 opviewer.py -f %s/%s --web3 '%s' -s path_to_contract_dir -j path_to_solc_combined_json --hash %s" % (saved_files['json-trace']['path'],saved_files['json-trace']['name'], args.web3, args.hash))
+        print(
+            "python3 opviewer.py -f %s/%s --web3 '%s' -s path_to_contract_dir -j path_to_solc_combined_json --hash %s" % (
+            saved_files['json-trace']['path'], saved_files['json-trace']['name'], args.web3, args.hash))
 
-        (zipfilepath, zipfilename) = zipFiles(saved_files, args.hash[:8])
-        print("\nZipped files into %s%s" % (zipfilepath, zipfilename))
+        logger.debug("creating zip archive for artefacts")
+        prefix = args.hash[:8]
+        output_archive = os.path.join(OUTPUT_DIR, "%s.zip" % prefix)
+        # create a list of files to pack with zipFiles
+        input_files = [(os.path.join(v['path'], v['name']), v['name']) for v in saved_files]
+        create_zip_archive(input_files=input_files, output_archive=output_archive)
+
+        print("\nZipped files into %s" % output_archive)
 
     else:
         parser.print_usage()
 
 
 if __name__ == '__main__':
+    logging.basicConfig(format='[%(filename)s - %(funcName)20s() ][%(levelname)8s] %(message)s',
+                        level=logging.IFNO)
     main()
