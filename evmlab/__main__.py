@@ -7,6 +7,7 @@ import sys
 import logging
 
 from .tools import opviewer
+from .tools import reproducer
 
 
 def usage(msg=""):
@@ -28,8 +29,8 @@ Usage:
 
 
 # configure available subcommands here
-SUBCOMMAND = {'opviewer': lambda:opviewer.main(),
-              'reproducer': lambda:sys.exit(usage("--not yet implemented--"))}
+SUBCOMMAND = {'opviewer': lambda: opviewer.main(),
+              'reproducer': lambda: reproducer.main()}
 
 
 def main():

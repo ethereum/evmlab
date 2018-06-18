@@ -4,3 +4,7 @@ Move reusable utility code that can be made available via cmdline at python -m e
 example:
     see opviewer
 """
+from . import opviewer
+from .reproducer import reproducer
+
+__ALL__ = ['opviewer', 'reproducer']

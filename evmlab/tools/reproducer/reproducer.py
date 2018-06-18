@@ -231,5 +231,5 @@ Unfinished:
 
 if __name__ == '__main__':
     logging.basicConfig(format='[%(filename)s - %(funcName)20s() ][%(levelname)8s] %(message)s',
-                        level=logging.IFNO)
+                        level=logging.INFO)
     main()
