@@ -31,7 +31,7 @@ Consider creating a virtualenv.
 TODO: publish to pip!
 
     #> python3 -m pip install evmlab
-    #> python3 -m evmlab  # verify installation
+    #> python3 -m evmlab[consolegui,abidecoder,docker]  # verify installation
 
 EVMLab comes with a commandline utility that can be invoked by calling `python3 -m evmlab <subcommand> <args>`
 
