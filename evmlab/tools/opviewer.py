@@ -776,7 +776,7 @@ class EvmTrace(object):
     Main Wrapper class to handle Evm Traces
     """
 
-    def __init__(self, api="https://mainnet.infura.io/evmlab"):
+    def __init__(self, api="https://mainnet.infura.io/remix"):
 
         self.api = utils.getApi(api)
         self.source_path = None
@@ -1023,8 +1023,8 @@ python3 opviewer.py -f example.json -s /path/to/contracts -j /path/to/combined.j
 
     web3settings = parser.add_argument_group('Web3',
                                              'Settings about where to fetch information from when displaying contract sources (default infura)')
-    web3settings.add_argument("--web3", type=str, default="https://mainnet.infura.io/",
-                              help="Web3 API url to fetch info from (default 'https://mainnet.infura.io/'")
+    web3settings.add_argument("--web3", type=str, default="https://mainnet.infura.io/remix",
+                              help="Web3 API url to fetch info from (default 'https://mainnet.infura.io/remix'")
 
     args = parser.parse_args()
 
