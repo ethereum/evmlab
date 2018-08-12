@@ -31,13 +31,13 @@ class EthFillerObjectifiedTest(unittest.TestCase):
                 "post" : {
                     "Byzantium" : [
                         {
-                            "hash" : "0x50e2af1155fb85652e8831e0bee5ad482a4d4ca1e5eb37320c4e9ed5dacb6ba1",
+                            "hash" : "0x00000000000000000000000000000000000000000000000000000000deadc0de",
                             "indexes" : {
                                 "data" : 0,
                                 "gas" : 0,
                                 "value" : 0
                             },
-                            "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                            "logs" : "0x00000000000000000000000000000000000000000000000000000000deadc0de"
                         }
                     ]
                 },
