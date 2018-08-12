@@ -44,7 +44,7 @@ class EthFillerObjectifiedTest(unittest.TestCase):
                 "pre" : {
                     "0x095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
                         "balance" : rndval.RndHexInt(),
-                        "code" : "0x7f00000000000000000000000000000000000000000000000000000000000000007f00000000000000000000000000000000000000000000000000000000000000007f000000000000000000000000ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff047f000000000000000000000000000000000000000000000000000000000000000105133641010b811160005155",
+                        "code" : rndval.RndCode(),
                         "nonce" : rndval.RndV(),
                         "storage" : {
                         }
@@ -86,6 +86,7 @@ class EthFillerObjectifiedTest(unittest.TestCase):
         import pprint
         pprint_str = pprint.pformat(self.template, indent=4)
         self.assertIn(list(self.template.keys())[0], pprint_str)
+        print(pprint_str)
 
     def test_json_dumps_with_default(self):
         json.dumps(self.template, default=str)

@@ -20,6 +20,7 @@ def is_all_hex(s):
 class EthFillerTest(unittest.TestCase):
 
     def setUp(self):
+        rndval._RndBase.ENABLE_QUOTES = False  # disable quotes for testing
         self.num_samples = 100
 
     def test_markers_exist(self):
@@ -39,7 +40,18 @@ class EthFillerTest(unittest.TestCase):
         raise NotImplementedError
 
     def test_code(self):
-        raise NotImplementedError
+        expect_prefix = "0x"
+        r = rndval.RndCode()
+        for _ in range(self.num_samples):
+            txt_val = str(r)
+            self.assertTrue(txt_val)
+            self.assertTrue(len(txt_val) % 2 == 0)  # divsible by 2 (output is bytes)
+            # with prefix
+            self.assertEqual(expect_prefix, txt_val[:len(expect_prefix)])
+            self.assertTrue(is_all_hex(txt_val[len(expect_prefix):]))
+
+            self.assertGreaterEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCode.MIN_CONTRACT_SIZE)
+            self.assertLessEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCode.MAX_CONTRACT_SIZE)
 
     def _test_hex_cls(self, cls=rndval.RndHexInt, _min=0, _max=2 ** 64 - 1):
         min_chars = len(hex(_min))
