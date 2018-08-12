@@ -27,7 +27,7 @@ class _RndBase(object):
             random.seed(seed)
 
     def __str__(self):
-        return str(self.generate())
+        return "'%s'" % (self.generate())
 
     def __repr__(self):
         return self.__str__()
