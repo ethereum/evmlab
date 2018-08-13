@@ -39,9 +39,9 @@ class EthFillerTest(unittest.TestCase):
     def test_rlp(self):
         raise NotImplementedError
 
-    def test_code(self):
+    def test_codebytes(self):
         expect_prefix = "0x"
-        r = rndval.RndCode()
+        r = rndval.RndCodeBytes()
         for _ in range(self.num_samples):
             txt_val = str(r)
             self.assertTrue(txt_val)
@@ -50,8 +50,22 @@ class EthFillerTest(unittest.TestCase):
             self.assertEqual(expect_prefix, txt_val[:len(expect_prefix)])
             self.assertTrue(is_all_hex(txt_val[len(expect_prefix):]))
 
-            self.assertGreaterEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCode.MIN_CONTRACT_SIZE)
-            self.assertLessEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCode.MAX_CONTRACT_SIZE)
+            self.assertGreaterEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCodeBytes.MIN_CONTRACT_SIZE)
+            self.assertLessEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCodeBytes.MAX_CONTRACT_SIZE)
+
+    def test_codeinstr(self):
+        expect_prefix = "0x"
+        r = rndval.RndCodeInstr()
+        for _ in range(self.num_samples):
+            txt_val = str(r)
+            self.assertTrue(txt_val)
+            self.assertTrue(len(txt_val) % 2 == 0)  # divsible by 2 (output is bytes)
+            # with prefix
+            self.assertEqual(expect_prefix, txt_val[:len(expect_prefix)])
+            self.assertTrue(is_all_hex(txt_val[len(expect_prefix):]))
+
+            self.assertGreaterEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCodeBytes.MIN_CONTRACT_SIZE)
+            self.assertLessEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCodeBytes.MAX_CONTRACT_SIZE)
 
     def _test_hex_cls(self, cls=rndval.RndHexInt, _min=0, _max=2 ** 64 - 1):
         min_chars = len(hex(_min))

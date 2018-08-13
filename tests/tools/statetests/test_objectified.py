@@ -44,21 +44,21 @@ class EthFillerObjectifiedTest(unittest.TestCase):
                 "pre" : {
                     "0x095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
                         "balance" : rndval.RndHexInt(),
-                        "code" : rndval.RndCode(),
+                        "code" : rndval.RndCodeInstr(),
                         "nonce" : rndval.RndV(),
                         "storage" : {
                         }
                     },
                     "0x945304eb96065b2a98b57a48a06ae28d285a71b5" : {
                         "balance" :  rndval.RndHexInt(),
-                        "code" : "0x6000355415600957005b60203560003555",
+                        "code" : rndval.RndCodeInstr(),
                         "nonce" :  rndval.RndV(),
                         "storage" : {
                         }
                     },
                     "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
                         "balance" : rndval.RndHexInt(),
-                        "code" : "",
+                        "code" : rndval.RndCodeInstr(),
                         "nonce" : rndval.RndV(),
                         "storage" : {
                         }
