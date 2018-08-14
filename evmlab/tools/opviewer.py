@@ -135,8 +135,8 @@ class DebugViewer(object):
             mrefs = [0, 0]
             append = " - memory access beyond expansion"
         if (mrefs[0] + mrefs[1]) > len(mem) / 2:
-            mrefs[1] = len(mem / 2) - mrefs[0]
-            append = " - attempted read beyond memory bound of %d bytes" % (mrefs[0] + mrefs[1] - len(mem / 2))
+            mrefs[1] = len(mem) // 2 - mrefs[0]
+            append = " - attempted read beyond memory bound of %d bytes" % (mrefs[0] + mrefs[1] - len(mem) // 2)
         return msg + " " + opname + " memory ref:\n" + "0x" + "".join(
             mem[(mrefs[0] * 2):(mrefs[0] + mrefs[1]) * 2]) + append + "\n"
 
@@ -619,6 +619,8 @@ class DebugViewer(object):
 
     def _getMemref(self, bound):
         m = self._op('memory', [])
+        if self._op('pc', 0) is 0:
+            return ""
         mc = ""
         mc_prev = ""
         ms = DebugViewer.getMemoryReference(self._op('op', "0"))
@@ -965,7 +967,7 @@ class EvmTrace(object):
                 sources.append(s.read())
 
         # get contract
-        for contract, val in combined_json['contracts'].iteritems():
+        for contract, val in combined_json['contracts'].items():
             contracts.append(Contract(sources, val, contract))
 
         self.contracts = contracts
