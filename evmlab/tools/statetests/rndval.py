@@ -10,6 +10,19 @@ import random
 import binascii
 import enum
 
+from hashlib import sha512 as _sha512
+
+
+def hex2(n):
+    # https://stackoverflow.com/questions/4368676/is-there-a-way-to-pad-to-an-even-number-of-digits
+    x = '%x' % (n,)
+    return "0x" + ('0' * (len(x) % 2)) + x
+
+import pickle
+import zlib
+import base64
+
+
 
 class WeightedRandomizer(object):
     # https://stackoverflow.com/a/14993631/1729555
@@ -33,6 +46,9 @@ def toCompactHex(int):
 def fromHex(b):
     raise NotImplementedError
 
+
+
+
 # maybe: numpy.random.randint
 # mersenne twister
 class _RndBase(object):
@@ -41,19 +57,17 @@ class _RndBase(object):
     """
 
     QUOTE = "'"
-    ENABLE_QUOTES = True
 
     def __init__(self, seed=None):
-        if seed:
-            random.seed(seed)
+        self.seed = seed
 
     def __str__(self):
-        if not _RndBase.ENABLE_QUOTES:
-            return "%s" % self.generate()
-        return "%s%s%s" % (_RndBase.QUOTE, self.generate(), _RndBase.QUOTE)
+        # for json serialization
+        return "%s" % self.generate()
 
     def __repr__(self):
-        return self.__str__()
+        # for pprint serialization
+        return "%s%s%s" % (_RndBase.QUOTE, self.__str__(), _RndBase.QUOTE)
 
     def generate(self):
         raise NotImplementedError()
@@ -584,10 +598,14 @@ class RndCodeInstr(_RndBase):
         return bytes(b)
 
     def generate(self, length=50):
-        import ethereum_dasm.asm.registry
-        instructions = [ethereum_dasm.asm.registry.create_instruction(opcode=opcode) for opcode in self.random_code_byte_sequence(self.length)]
-        serialized = ''.join(e.randomize_operand().serialize() for e in instructions)
-        return "%s%s" % (self.prefix, serialized)
+        try:
+            import ethereum_dasm.asm.registry as asm_registry
+            instructions = [asm_registry.create_instruction(opcode=opcode) for opcode in self.random_code_byte_sequence(self.length)]
+            serialized = ''.join(e.randomize_operand().serialize() for e in instructions)
+            return "%s%s" % (self.prefix, serialized)
+        except ImportError:
+            return "-"*100
+
 
 class RndHexInt(_RndBase):
     """
@@ -601,7 +619,7 @@ class RndHexInt(_RndBase):
         self.max = _max or 2**64-1  # max int 64
 
     def generate(self):
-        return hex(self.randomUniInt(self.min, self.max))
+        return hex2(self.randomUniInt(self.min, self.max))
 
 
 class RndHex32(RndHexInt):
@@ -815,4 +833,28 @@ class RndGasPrice(RndHexInt):
         super().__init__(seed=seed, _min=_min or 0, _max=_max or 10)
 
 
+class RandomSeed(_RndBase):
 
+    SEED = None
+
+    def generate(self):
+        return RandomSeed.SEED
+
+    @staticmethod
+    def set_state(state=None):
+        if state is None:
+            state = RandomSeed.get_compressed_random_state()
+            RandomSeed.SEED = state
+        else:
+            RandomSeed.set_compressed_random_state(state)
+            RandomSeed.SEED = state
+
+    @staticmethod
+    def get_compressed_random_state():
+        return base64.b64encode(zlib.compress(pickle.dumps(random.getstate()), 9)).decode("utf-8")
+
+    @staticmethod
+    def set_compressed_random_state(state):
+        random.setstate(pickle.loads(zlib.decompress(base64.b64decode(state))))
+
+RndCode = RndCodeBytes
