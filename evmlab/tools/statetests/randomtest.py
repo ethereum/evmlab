@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Author : <github.com/tintinweb>
 import json
-import evmlab.tools.statetests.rndval as rndval
+from evmlab.tools.statetests import rndval
 
 
 def load_settings():
@@ -53,5 +53,5 @@ class RandomTestsJsonEncoder(json.JSONEncoder):
     """ Custom JSONEncoder to encode rndval objects to str """
     def default(self, obj):
         if isinstance(obj, rndval._RndBase):
-            return str(obj)
+            return obj.generate()
         return super(RandomTestsJsonEncoder, self).default(obj)
