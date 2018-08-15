@@ -1,3 +1,6 @@
+from web3 import Web3
+from hexbytes import HexBytes
+
 from .contract import Contract
 from . import mk_contract_address, encode_hex
 
@@ -134,12 +137,15 @@ def getAddresses(ops, original_contract):
 
 
 def findContractForBytecode(contracts, bytecode):
-    if bytecode.startswith('0x'):
+    if type(bytecode) is HexBytes:
+        bytecode = Web3.toHex(bytecode)
+
+    if  bytecode.startswith('0x'):
         bytecode = bytecode[2:]
 
     for c in contracts:
         # ignore last 34 bytes which is just metadata
-        if c.bin and c.bin[:68] == bytecode[:68] or c.binRuntime and c.binRuntime[:68] == bytecode[:68]:
+        if c.bin and c.bin[:-68] == bytecode[:-68] or c.binRuntime and c.binRuntime[:-68] == bytecode[:-68]:
             return c
 
     return None

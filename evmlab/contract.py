@@ -210,7 +210,7 @@ class Contract():
         contract_indexes = set()
         for [s, l, f, j] in mapping:
             f = int(f)
-            if (f > 0):
+            if (f >= 0):
                 contract_indexes.add(f)
 
         for i in contract_indexes:
