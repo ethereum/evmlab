@@ -3,6 +3,8 @@
 # Author : <github.com/tintinweb>
 from evmlab.tools.statetests import rndval
 
+
+rnd_nonce = str(rndval.RndV())
 TEMPLATE_RandomStateTest = {
             "randomStatetest" : {
                 "_fuzz" : {
@@ -40,21 +42,21 @@ TEMPLATE_RandomStateTest = {
                     "0x095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
                         "balance" : rndval.RndHexInt(),
                         "code" : rndval.RndCode(),
-                        "nonce" : rndval.RndV(),
+                        "nonce" : rnd_nonce,
                         "storage" : {
                         }
                     },
                     "0x945304eb96065b2a98b57a48a06ae28d285a71b5" : {
                         "balance" :  rndval.RndHexInt(),
                         "code" : rndval.RndCode(),
-                        "nonce" :  rndval.RndV(),
+                        "nonce" :  rnd_nonce,
                         "storage" : {
                         }
                     },
                     "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
                         "balance" : rndval.RndHexInt(),
                         "code" : rndval.RndCode(),
-                        "nonce" : "0x00",
+                        "nonce" : rnd_nonce,
                         "storage" : {
                         }
                     }
@@ -67,7 +69,7 @@ TEMPLATE_RandomStateTest = {
                         rndval.RndTransactionGasLimit(),
                     ],
                     "gasPrice" : rndval.RndGasPrice(),
-                    "nonce" : "0x00",
+                    "nonce" : rnd_nonce,
                     "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
                     "to" : rndval.RndDestAddress(),
                     "value" : [
