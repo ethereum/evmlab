@@ -6,8 +6,7 @@ EVMLab command line utility: #> python3 -m evmlab <subcommand> <args>
 import sys
 import logging
 
-from .tools import opviewer
-from .tools import reproducer
+from .tools import opviewer, reproducer, statetests
 
 
 def usage(msg=""):
@@ -20,6 +19,7 @@ Usage:
     available subommands
     * opviewer      ...     reproduce and debug transactions
     * reproducer    ...     reproduce transactions
+    * statetests    ...     tools for creating statetests
 
 
     %s
@@ -30,7 +30,8 @@ Usage:
 
 # configure available subcommands here
 SUBCOMMAND = {'opviewer': lambda: opviewer.main(),
-              'reproducer': lambda: reproducer.main()}
+              'reproducer': lambda: reproducer.main(),
+              'statetests': lambda: statetests.main()}
 
 
 def main():

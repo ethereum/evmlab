@@ -7,7 +7,6 @@ import string
 
 import evmlab.tools.statetests.rndval as rndval
 
-
 def testit_times(rndcls, f_condition, times):
     for _ in range(times):
         f_condition(rndcls())
@@ -20,7 +19,6 @@ def is_all_hex(s):
 class EthFillerTest(unittest.TestCase):
 
     def setUp(self):
-        rndval._RndBase.ENABLE_QUOTES = False  # disable quotes for testing
         self.num_samples = 100
 
     def test_markers_exist(self):
@@ -68,16 +66,17 @@ class EthFillerTest(unittest.TestCase):
             self.assertLessEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCodeBytes.MAX_CONTRACT_SIZE)
 
     def _test_hex_cls(self, cls=rndval.RndHexInt, _min=0, _max=2 ** 64 - 1):
-        min_chars = len(hex(_min))
-        max_chars = len(hex(_max))
+        min_chars = len(rndval.hex2(_min))
+        max_chars = len(rndval.hex2(_max))
         r = cls()
         for _ in range(self.num_samples):
             txt_val = str(r)  # generates new random value
             self.assertGreater(len(txt_val), 2)  # at least 0x<[0-9a-f]+...>
-            self.assertEqual(txt_val[:2], "0x")
+            self.assertEqual("0x", txt_val[:2])
             self.assertLessEqual(len(txt_val), max_chars)
             self.assertGreaterEqual(len(txt_val), min_chars)
             self.assertTrue(is_all_hex(txt_val[2:]))
+            self.assertEqual(len(txt_val)%2, 0)
         return False
 
     def test_hex(self):

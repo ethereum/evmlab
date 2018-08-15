@@ -20,7 +20,6 @@ class EthSubstituationTransactionTemplateTest(unittest.TestCase):
         pprint(new_template)
         randomtest.process_template(new_template)
         pprint(new_template)
-        pprint(str(new_template))
 
         for _ in range(self.num_samples):
             # randomizes everytime its printed
@@ -30,16 +29,16 @@ class EthSubstituationTransactionTemplateTest(unittest.TestCase):
         pprint(template)
 
     def test_substitute_transaction_template(self):
-        self._test_template(templates.TEMPLATE_TransactionTest)
+        self._test_template(templates.text_based.TEMPLATE_TransactionTest)
 
     def test_substitute_blockchain_template(self):
-        self._test_template(templates.TEMPLATE_BlockchainTest)
+        self._test_template(templates.text_based.TEMPLATE_BlockchainTest)
 
     def test_substitute_rlp_template(self):
-        self._test_template(templates.TEMPLATE_RLPTest)
+        self._test_template(templates.text_based.TEMPLATE_RLPTest)
 
     def test_substitute_state_template(self):
-        self._test_template(templates.TEMPLATE_STATETest)
+        self._test_template(templates.text_based.TEMPLATE_STATETest)
 
     def test_substitute_vmtest_template(self):
-        self._test_template(templates.TEMPLATE_VMTest)
+        self._test_template(templates.text_based.TEMPLATE_VMTest)

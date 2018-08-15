@@ -6,5 +6,6 @@ example:
 """
 from . import opviewer
 from .reproducer import reproducer
+from .statetests import statetests
 
-__ALL__ = ['opviewer', 'reproducer']
+__ALL__ = ['opviewer', 'reproducer', 'statetests']
