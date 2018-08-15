@@ -157,9 +157,9 @@ class EthFillerTest(unittest.TestCase):
             return None
 
         cls = rndval.RndDestAddress()
-        counter = collections.Counter([addresstype_for_address(str(cls)) for _ in range(self.num_samples*10)])
+        counter = collections.Counter([addresstype_for_address(str(cls)) for _ in range(self.num_samples*100)])
         for k,v in counter.items():
-            print("%-40r: %f%%"%(k,100*v/(self.num_samples*10)))
+            print("%-40r: %f%%"%(k,100*v/(self.num_samples*100)))
 
 
     def test_address(self):

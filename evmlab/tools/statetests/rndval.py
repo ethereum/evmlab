@@ -782,16 +782,18 @@ class RndAddress(RndByteSequence):
             # otherwise fallthrough to multilist selection
 
         # todo: add probabilities
-        if any(t in self.types for t in (RndAddressType.PRECOMPILED, RndAddressType.STATE_ACCOUNT,
-                                         RndAddressType.SPECIAL_ALL, RndAddressType.SPECIAL_CREATE)):
+        types_set = set(self.types)
+        if types_set.issubset([RndAddressType.PRECOMPILED, RndAddressType.STATE_ACCOUNT,
+                               RndAddressType.SPECIAL_ALL, RndAddressType.SPECIAL_CREATE]):
             # precompiled or state or create OR all
             if self.randomPercent()<probabilities["precompiledDestProbability"]:
                 if self.randomPercent()<probabilities["byzPrecompiledAddressProbability"]:
                     return self._get_rnd_address_from_list(self.addresses.get(RndAddressType.BYZANTIUM_PRECOMPILED))
                 return self._get_rnd_address_from_list(self.addresses.get(RndAddressType.PRECOMPILED))
 
-            # CREATE
-            if all(t not in self.types for t in (RndAddressType.PRECOMPILED, RndAddressType.STATE_ACCOUNT)):
+            # CREATE  (if all or create is set)
+            #if types_set != set([RndAddressType.PRECOMPILED, RndAddressType.STATE_ACCOUNT]):
+            if types_set.intersection([RndAddressType.SPECIAL_ALL, RndAddressType.SPECIAL_CREATE]):
                 if self.randomPercent()<probabilities["emptyAddressProbability"]:
                     return self._get_rnd_address_from_list(self.addresses.get(RndAddressType.SPECIAL_CREATE))
 
