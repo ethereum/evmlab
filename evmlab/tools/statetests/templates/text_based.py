@@ -1,12 +1,6 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 # Author : <github.com/tintinweb>
-import copy
-
-
-def new(template):
-    return copy.deepcopy(template)
-
 
 TEMPLATE_TransactionTest = {
     "randomTransactionTest": {
