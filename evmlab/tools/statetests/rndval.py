@@ -763,11 +763,12 @@ class RndAddress(RndByteSequence):
         return "%s%s" % (self.prefix, hex_addr)
 
     def generate(self):
-        probabilities = {"precompiledDestProbability":30,
-                         "byzPrecompiledAddressProbability":30,
-                         "emptyAddressProbability":30,
-                         "randomAddressProbability":5,
-                         "sendingAddressProbability":5,
+        # taken from: https://github.com/ethereum/testeth/blob/ee0c6776c01b09045a379220c7e490000dae9377/test/tools/fuzzTesting/fuzzHelper.cpp#L427
+        probabilities = {"precompiledDestProbability": 2,
+                         "byzPrecompiledAddressProbability":10,
+                         "emptyAddressProbability":15,
+                         "randomAddressProbability":3,
+                         "sendingAddressProbability":3,
                          }
         if len(self.types)==1:
             # only one given, return random
@@ -779,10 +780,6 @@ class RndAddress(RndByteSequence):
                 # pick from list
                 return self._get_rnd_address_from_list(self.addresses.get(_type))
             # otherwise fallthrough to multilist selection
-
-        # multiple (OR) linked
-        # get all lists
-        addrlist = {t:self.addresses.get(t) for t in self.types}
 
         # todo: add probabilities
         if any(t in self.types for t in (RndAddressType.PRECOMPILED, RndAddressType.STATE_ACCOUNT,
@@ -812,6 +809,16 @@ class RndAddress(RndByteSequence):
         # RANDOM
         return super().generate()  # generate 20byte default random
 
+
+class RndDestAddress(RndAddress):
+
+    placeholder = "[DESTADDRESS]"
+
+    def __init__(self, seed=None, length=20, prefix="0x", _types=[RndAddressType.PRECOMPILED,
+                                                                  RndAddressType.STATE_ACCOUNT,
+                                                                  RndAddressType.SPECIAL_CREATE]):
+        super().__init__(seed=seed, length=length, prefix=prefix)
+        self.types = _types
 
 class RndTransactionGasLimit(RndHexInt):
     """

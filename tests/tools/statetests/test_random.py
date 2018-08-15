@@ -140,12 +140,8 @@ class EthFillerTest(unittest.TestCase):
                                constructor_kwargs={'_types':[rndval.RndAddressType.SPECIAL_ALL,],
                                                    'prefix':'0x'},
                                expect_length=20)
-        self._test_byteseq_cls(cls=rndval.RndAddress,
+        self._test_byteseq_cls(cls=rndval.RndDestAddress,
                                expect_prefix="0x",
-                               constructor_kwargs={'_types':[rndval.RndAddressType.STATE_ACCOUNT,
-                                                             rndval.RndAddressType.PRECOMPILED,
-                                                             rndval.RndAddressType.SPECIAL_CREATE],
-                                                   'prefix':'0x'},
                                expect_length=20)
 
     def test_address(self):

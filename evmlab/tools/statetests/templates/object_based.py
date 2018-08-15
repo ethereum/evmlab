@@ -69,7 +69,7 @@ TEMPLATE_RandomStateTest = {
                     "gasPrice" : rndval.RndGasPrice(),
                     "nonce" : "0x00",
                     "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-                    "to" : rndval.RndAddress(_types=[rndval.RndAddressType.STATE_ACCOUNT,]),
+                    "to" : rndval.RndDestAddress(),
                     "value" : [
                         rndval.RndHex32(),
                     ]
