@@ -54,7 +54,7 @@ TEMPLATE_RandomStateTest = {
                     "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
                         "balance" : rndval.RndHexInt(),
                         "code" : rndval.RndCode(),
-                        "nonce" : rndval.RndV(),
+                        "nonce" : "0x00",
                         "storage" : {
                         }
                     }
