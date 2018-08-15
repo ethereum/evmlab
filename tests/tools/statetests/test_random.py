@@ -4,6 +4,7 @@
 
 import unittest
 import string
+import collections
 
 import evmlab.tools.statetests.rndval as rndval
 
@@ -135,7 +136,7 @@ class EthFillerTest(unittest.TestCase):
 
     def test_destaddress(self):
         #PrecompiledOrStateOrCreate
-        self._test_byteseq_cls(cls=rndval.RndAddress,
+        self._test_byteseq_cls(cls=rndval.RndDestAddress,
                                expect_prefix="0x",
                                constructor_kwargs={'_types':[rndval.RndAddressType.SPECIAL_ALL,],
                                                    'prefix':'0x'},
@@ -143,6 +144,23 @@ class EthFillerTest(unittest.TestCase):
         self._test_byteseq_cls(cls=rndval.RndDestAddress,
                                expect_prefix="0x",
                                expect_length=20)
+
+        # check probabilities
+        # draw 1000 samples
+        def addresstype_for_address(address):
+            # addresses = {RndAddressType.SENDING_ACCOUNT: ["a94f5374fce5edbc8e2a8697c15331677e6ebf0b"],
+            address = address.replace("0x","")
+            for addrtype, samples in rndval.RndDestAddress.addresses.items():
+                if address in samples:
+                    return addrtype
+
+            return None
+
+        cls = rndval.RndDestAddress()
+        counter = collections.Counter([addresstype_for_address(str(cls)) for _ in range(self.num_samples*10)])
+        for k,v in counter.items():
+            print("%-40r: %f%%"%(k,100*v/(self.num_samples*10)))
+
 
     def test_address(self):
         for addr_type in rndval.RndAddressType:
