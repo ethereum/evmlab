@@ -729,9 +729,10 @@ class RndAddress(RndByteSequence):
     addresses = {RndAddressType.SENDING_ACCOUNT: ["a94f5374fce5edbc8e2a8697c15331677e6ebf0b"],
                  RndAddressType.STATE_ACCOUNT: ["ffffffffffffffffffffffffffffffffffffffff",
                                                 "1000000000000000000000000000000000000000",
+                                                "a94f5374fce5edbc8e2a8697c15331677e6ebf0b"
                                                 "b94f5374fce5edbc8e2a8697c15331677e6ebf0b",
                                                 "c94f5374fce5edbc8e2a8697c15331677e6ebf0b",
-                                                "d94f5374fce5edbc8e2a8697c15331677e6ebf0b"],
+                                                "d94f5374fce5edbc8e2a8697c15331677e6ebf0b",],
                  RndAddressType.PRECOMPILED: ["0000000000000000000000000000000000000001",
                                               "0000000000000000000000000000000000000002",
                                               "0000000000000000000000000000000000000003",
