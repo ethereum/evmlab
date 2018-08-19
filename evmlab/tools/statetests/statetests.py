@@ -33,12 +33,15 @@ def main():
     if not selected_template:
         raise Exception("Template does not exist! - templates.object_based.TEMPLATE_%s"%args.template)
 
-    t = templates.new(selected_template)
-
     if args.random:
         rndval.RandomSeed.set_state(args.random)  # set the state if provided, otherwise stay silent.
     elif args.include_random_state:
         rndval.RandomSeed.set_state()  # add random seed
 
+    testsuite = {}
     for _ in range(args.count):
-        print(json.dumps(t, cls=randomtest.RandomTestsJsonEncoder), end="\n")
+        t = templates.new(selected_template)  # todo: remove this ugly-hack by removing the name from the template.
+        t['randomStatetest%d' % _] = t['randomStatetest']
+        del(t['randomStatetest'])
+        testsuite.update(t)
+    print(json.dumps(testsuite, cls=randomtest.RandomTestsJsonEncoder), end="\n")

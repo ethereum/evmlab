@@ -5,13 +5,14 @@ from evmlab.tools.statetests import rndval
 
 rnd_nonce = str(rndval.RndV())
 
+# https://github.com/ethereum/testeth/blob/develop/test/tools/fuzzTesting/createRandomTest.cpp#L241
 TEMPLATE_RandomStateTest = {
     "randomStatetest": {
         "_fuzz": {
             "compressed_random_state": rndval.RandomSeed(),
         },
         "env": {
-            "currentCoinbase": rndval.RndAddress(prefix="0x"),
+            "currentCoinbase": rndval.RndAddress(),
             "currentDifficulty": "0x20000",
             "currentGasLimit": rndval.RndBlockGasLimit(),
             "currentNumber": "1",
@@ -33,6 +34,7 @@ TEMPLATE_RandomStateTest = {
                 }
             }
         ],
+        "post": {"Byzantium" : [{ "logs" : "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"}]},  # dummy to make statetests happy
         "pre": {
             "ffffffffffffffffffffffffffffffffffffffff": {
                 "balance": rndval.RndHexInt(),
