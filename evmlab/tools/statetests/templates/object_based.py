@@ -19,21 +19,6 @@ TEMPLATE_RandomStateTest = {
             "currentTimestamp": "1000",
             "previousHash": rndval.RndHash32()
         },
-        "expect": [
-            {
-                "indexes": {
-                    "data": -1,
-                    "gas": -1,
-                    "value": -1
-                },
-                "network": [">=Frontier"],
-                "result": {
-                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
-                        "nonce": "1"
-                    }
-                }
-            }
-        ],
         "post": {"Byzantium" : [{ "logs" : "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"}]},  # dummy to make statetests happy
         "pre": {
             "ffffffffffffffffffffffffffffffffffffffff": {
@@ -74,7 +59,7 @@ TEMPLATE_RandomStateTest = {
             "a94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
                 "balance": rndval.RndHexInt(),
                 "code": "0x",
-                "nonce": "0",
+                "nonce": rnd_nonce,
                 "storage": {
                 }
             }
