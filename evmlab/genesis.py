@@ -102,7 +102,7 @@ class Genesis(object):
                 "minGasLimit": "0x1388",
                 "networkID" : "0x0",
                 "eip98Transition": "0x0",
-                "eip86Transition": "0x0",
+                "eip86Transition": self.config['constantinopleBlock'],
                 "eip140Transition" : self.config['byzantiumBlock'],
                 "eip150Transition"   : 0,
                 "eip160Transition"   : 0,
