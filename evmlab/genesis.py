@@ -23,6 +23,7 @@ class Genesis(object):
             "homesteadBlock": 0, 
             "daoForkBlock": 0,
             "byzantiumBlock" : 2000,
+            "constantinopleBlock" : 2000,
         }
 
     def geth(self):
@@ -71,11 +72,7 @@ class Genesis(object):
                     "blockReward": "0x4563918244F40000",
                     "registrar": "",
                     "frontierCompatibilityModeLimit": "0x0",
-                    "eip150Transition"   : 0,
                     "eip155Transition"   : 0,
-                    "eip160Transition"   : 0,
-                    "eip161abcTransition": 0,
-                    "eip161dTransition"  : 0,
                     "eip649Reward":"0x29A2241AF62C0000",
                     "eip649Transition" : self.config['byzantiumBlock'],
                     "eip100bTransition": self.config['byzantiumBlock'],
@@ -107,10 +104,16 @@ class Genesis(object):
                 "eip98Transition": "0x0",
                 "eip86Transition": "0x0",
                 "eip140Transition" : self.config['byzantiumBlock'],
+                "eip150Transition"   : 0,
+                "eip160Transition"   : 0,
+                "eip161abcTransition": 0,
+                "eip161dTransition"  : 0,
                 "eip211Transition" : self.config['byzantiumBlock'],
                 "eip214Transition" : self.config['byzantiumBlock'],
                 "eip658Transition" : self.config['byzantiumBlock'],
-
+                "eip145Transition" : self.config['constantinopleBlock'],
+                "eip1052Transition" : self.config['constantinopleBlock'],
+                "eip1283Transition" : self.config['constantinopleBlock'],
 
     # Also new pre
             },
@@ -137,6 +140,7 @@ class Genesis(object):
         self.blockNumber = int(blockNumber, 16)
 
     def setConfigHomestead(self):
+        self.config['constantinopleBlock'] = 2000
         self.config['byzantiumBlock'] = 2000
         self.config['eip158Block'] = 2000
         self.config['eip155Block'] = 2000
@@ -144,25 +148,21 @@ class Genesis(object):
         self.config['homesteadBlock'] = 0
 
     def setConfigTangerineWhistle(self):
-        self.config['byzantiumBlock'] = 2000
-        self.config['eip158Block'] = 2000
-        self.config['eip155Block'] = 2000
+        self.setConfigHomestead()
         self.config['eip150Block'] = 0
-        self.config['homesteadBlock'] = 0
 
     def setConfigSpuriousDragon(self):
-        self.config['byzantiumBlock'] = 2000
+        self.setConfigTangerineWhistle()
         self.config['eip158Block'] = 0
         self.config['eip155Block'] = 0
-        self.config['eip150Block'] = 0
-        self.config['homesteadBlock'] = 0
 
     def setConfigMetropolis(self):
+        self.setConfigSpuriousDragon()
         self.config['byzantiumBlock'] = 0
-        self.config['eip158Block'] = 0
-        self.config['eip155Block'] = 0
-        self.config['eip150Block'] = 0
-        self.config['homesteadBlock'] = 0
+
+    def setConfigConstantinople(self):
+        self.setConfigMetropolis()
+        self.config['constantinopleBlock'] = 0
 
     def addPrestateAccount(self, account):
         self.alloc[account['address'].lower()] = {
