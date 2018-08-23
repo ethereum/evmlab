@@ -1,0 +1,57 @@
+<!doctype html>
+<!-- Lovingly crafted by MH Swende 2018 -->
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVMLab fuzzer</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mini.css/3.0.0/mini-default.min.css">
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>EVMlab fuzzer</h1>
+        <div class="row">
+            <div class="col-sm">
+                
+                <h3>Config</h3>
+                <pre>{{ config|join('\n') }}</pre>
+
+            </div>  
+            <div class="col-sm">
+
+                <h3>Status</h3>
+                <ul>
+                    <li> Start time: <code>{{ status.starttime }} </code> </li>
+                    <li> Passes: <code>{{ status.pass }} </code> </li>
+                    <li> Failures: <code>{{ status.fail }} </code> </li>
+                    <li> Speed : <code>{{ status.speed }} </code> tests/second </li>
+                    <li> Avg trace length: <code>{{ status.mean }} </code> </li>
+                    <li> Trace length std dev: <code>{{ status.stdev }} </code> </li>
+                    <li> No of 0-length traces: <code>{{ status.numZero }} </code> </li>
+                    <li> Longest trace: <code>{{ status.max }} </code> </li>
+                </ul>
+            </div>
+        </div>
+        
+
+        <h3>Failures</h3>
+        <ul>
+            {% for testcase in status.failures  %}
+            <li><a href="/download/{{ testcase['file'] }}">{{ testcase['id'] }}</a>
+                <ul>
+                    {% for trace in testcase['traces'] %}
+                        <li><a href="/download/{{ trace }}">{{ trace }}</a></li>
+                    {% endfor %}
+                    {% for artefact in testcase['other'] %}
+                        <li><a href="/download/{{ artefact }}">{{ artefact }}</a></li>
+                    {% endfor %}
+                </ul>
+            {%  endfor %}
+        </ul>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,26 @@
+<!doctype html>
+<!-- Lovingly crafted by MH Swende 2018 -->
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Roboto:300,300italic,700,700italic">
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVMLab fuzzer</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mini.css/3.0.0/mini-default.min.css">
+</head>
+
+<body>
+
+    <div class="container">
+		<h1>EVMlab fuzzer</h1>
+
+		<h2>Artefacts for download</h3>
+		<ul>
+			{% for f in files  %}
+			<li><a href="/download/{{ f }}">{{ f }}</a></li>
+			{%  endfor %}
+		</ul>
+    </div>
+
+</body>
+</html>
