@@ -63,8 +63,8 @@ class EthFillerTest(unittest.TestCase):
             self.assertEqual(expect_prefix, txt_val[:len(expect_prefix)])
             self.assertTrue(is_all_hex(txt_val[len(expect_prefix):]))
 
-            self.assertGreaterEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCodeBytes.MIN_CONTRACT_SIZE)
-            self.assertLessEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCodeBytes.MAX_CONTRACT_SIZE)
+            #self.assertGreaterEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCodeInstr.MIN_CONTRACT_SIZE)
+            self.assertGreaterEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCodeBytes.MAX_CONTRACT_SIZE) # must be greater equal as we insert argument push-codes
 
     def _test_hex_cls(self, cls=rndval.RndHexInt, _min=0, _max=2 ** 64 - 1):
         min_chars = len(rndval.hex2(_min))

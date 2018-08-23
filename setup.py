@@ -7,7 +7,7 @@ publish:
 2) #> twine upload dist/*   #<specific specific wheel if needed>; --repository <testpypi> or  --repository-url <testpypi-url>
 """
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 def read(fname):
@@ -33,11 +33,7 @@ setup(name='Evmlab',
       long_description=read("README.md") if os.path.isfile("README.md") else "",
       # for pypi.org; empty because we do not ship Readme.md with the package. may otherwise fail on install
       long_description_content_type='text/markdown',  # requires twine and recent setuptools
-      packages=['evmlab',
-                'evmlab.tools',
-                'evmlab.tools.reproducer',
-                'evmlab.tools.statetests',
-                'evmlab.tools.statetests.templates'],
+      packages=find_packages(),
       package_data={'evmlab.tools.reproducer': ["templates/*"]},
       install_requires=["requests", "web3", "eth-hash[pycryptodome]", "rlp>=1.0"],
       extras_require={"consolegui": ["urwid"],
