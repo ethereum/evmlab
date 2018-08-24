@@ -19,7 +19,12 @@ TEMPLATE_RandomStateTest = {
             "currentTimestamp": "1000",
             "previousHash": rndval.RndHash32()
         },
-        "post": {"Byzantium" : [{ "logs" : "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"}]},  # dummy to make statetests happy
+        "post": {"Byzantium" : [{ # dummy to make statetests happy
+            "hash" : "0x00000000000000000000000000000000000000000000000000000000deadc0de",
+            "logs" : "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            "indexes" : {"data":0, "gas": 0, "value":0}
+            }]
+            },  
         "pre": {
             "ffffffffffffffffffffffffffffffffffffffff": {
                 "balance": rndval.RndHexInt(),
