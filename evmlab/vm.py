@@ -382,6 +382,7 @@ class GethVM(VM):
     @staticmethod
     def canonicalized(output):
         from . import opcodes
+        addendum = []
         parsed_steps = []
         for line in output:
             if len(line) > 0 and line[0] == "{":
@@ -406,12 +407,9 @@ class GethVM(VM):
                 if 'stateRoot' in step.keys() :
                     # don't log stateRoot when tx doesnt execute, to match cpp and parity
                     # should be last step
-                    if len(canon_steps) and INCLUDE_STATEROOT:
-                        canon_steps.append(step)
-                    
+                    if INCLUDE_STATEROOT:
+                        addendum.append(step)
                     continue
-
-
                 # Ignored for now
                 if 'error' in step.keys() and 'output' in step.keys():
                     continue
@@ -442,7 +440,7 @@ class GethVM(VM):
             traceback.print_exc(file=sys.stdout)
             logger.warn(e)
 
-        return canon_steps
+        return canon_steps+addendum
 
 
 
@@ -521,6 +519,7 @@ class ParityVM(VM):
     def canonicalized(output):
         from . import opcodes
         parsed_steps = []
+        addendum = []
         for line in output:
             if len(line) > 0 and line[0] == "{":
                 try:
@@ -528,6 +527,7 @@ class ParityVM(VM):
                 except Exception as e:
                     logger.warn('Exception [1] parsing parity output:')
                     logger.warn(e)
+                    logger.warn(line)
 
         canon_steps = []
         try:
@@ -540,7 +540,7 @@ class ParityVM(VM):
                     # dont log the stateRoot for basic tx's (that have no EVM steps)
                     # should be last step
                     if len(canon_steps) and INCLUDE_STATEROOT:
-                        canon_steps.append(step)
+                        addendum.append(step)
                     continue
 
                 # Ignored for now
@@ -548,10 +548,10 @@ class ParityVM(VM):
                     # Except if the error is due to missing stateroot:
                     # If a statetest is used which does not have a proper postsatate, then Parity will 
                     # output an error, and we can parse the actual stateroot from it. 
-                    if 'error' in p_step.keys():
+                    if 'error' in p_step.keys() and INCLUDE_STATEROOT:
                         matcher = ParityVM.staterooterr.search(p_step['error'])
-                        if matcher and len(canon_steps) and INCLUDE_STATEROOT:
-                            canon_steps.append({'stateRoot' : matcher.group('stateroot')})
+                        if matcher :
+                            addendum.append({'stateRoot' : matcher.group('stateroot')})
 
                     continue
 
@@ -578,7 +578,7 @@ class ParityVM(VM):
             logger.warn('Exception [2] parsing parity output:')
             logger.warn(e)
 
-        return canon_steps
+        return canon_steps+addendum
 
 
 
