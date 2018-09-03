@@ -102,6 +102,13 @@ class StateTest():
     def __init__(self, statetest, counter):
         self.number = None
         self.identifier = "%s-%d" %(cfg.host_id, counter)
+
+        # Replace the fork with what we are currently configured for
+        postState = statetest['randomStatetest']['post']['Byzantium']
+        del(statetest['randomStatetest']['post']['Byzantium'])
+        statetest['randomStatetest']['post'][cfg.fork_config] = postState 
+
+
         # Replace the top level name 'randomStatetest' with something meaningful (same as filename)        
         statetest['randomStatetest%s' % self.identifier] =statetest.pop('randomStatetest', None) 
         self.statetest = statetest
@@ -278,12 +285,29 @@ def startDaemons():
 
 def execInDocker(name, cmd, stdout = True, stderr=True):
     start_time = time.time()
-    stream = False
+    stream = True
     #logger.info("executing in %s: %s" %  (name," ".join(cmd)))
     container = dockerclient.containers.get(name)
     (exitcode, output) = container.exec_run(cmd, stream=stream,stdout=stdout, stderr = stderr)     
     logger.info("Executing %s took in %f seconds" % (name, time.time() - start_time))
-    return {'output': [output], 'cmd':" ".join(cmd)}
+    
+
+    # If stream is False, then docker soups up the output, and we just decode it once
+    # when the caller wants it
+    if not stream:
+        return {
+                'output': lambda: output.decode(), 
+                'cmd':" ".join(cmd)
+                }
+    
+    # If the stream is True, then we need to iterate over output, and decode each
+    # chunk
+    return {
+         'output': lambda: "".join([chunk.decode() for chunk in output]), 
+         'cmd':" ".join(cmd)
+         }
+
+
 
 def startGeth(test):
     """
@@ -346,15 +370,6 @@ canonicalizers = {
     "hera" : VMUtils.HeraVM.canonicalized,
 }
 
-def readOutput(processInfo):
-    """ Ends the process, returns the canonical trace and also writes the 
-    full process output to a file, along with the command used to start the process"""
-
-    outp = ""
-    for chunk in processInfo['output']:
-        outp = outp + chunk.decode()
-    return outp
-
 
 
 def end_processes(test):
@@ -367,9 +382,9 @@ def end_processes(test):
     tracelen = 0
     for (proc_info, client_name) in test.procs:
         logger.info("Proc '%s'" % client_name)
-        canonicalizer = canonicalizers[client_name]
-        full_trace = readOutput(proc_info)
+        full_trace = proc_info["output"]()
         test.storeTrace(client_name, full_trace,proc_info['cmd'])
+        canonicalizer = canonicalizers[client_name]
         canon_trace = [VMUtils.toText(step) for step in canonicalizer(full_trace.split("\n"))]
         test.canon_traces.append(canon_trace)
         tracelen = len(canon_trace)
