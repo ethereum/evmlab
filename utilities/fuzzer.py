@@ -455,7 +455,7 @@ class TestExecutor():
 
         __end_previous_test()
 
-        return (n, len(failures), pass_count, failures)
+        return (n, len(self.fail_count), pass_count, self.failures)
 
     def status(self):
         import collections, statistics

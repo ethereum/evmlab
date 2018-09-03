@@ -448,6 +448,8 @@ class GethVM(VM):
 
 class ParityVM(VM):
 
+    staterooterr = re.compile("State root mismatch \(got: 0x(?P<stateroot>[0-9a-f]{64}), expected: 0x00000000000000000000000000000000000000000000000000000000deadc0de\)")
+
     def __init__(self,executable="evmbin", docker = False):
         super().__init__(executable, docker)
     
@@ -543,6 +545,14 @@ class ParityVM(VM):
 
                 # Ignored for now
                 if 'error' in p_step.keys() or 'output' in p_step.keys():
+                    # Except if the error is due to missing stateroot:
+                    # If a statetest is used which does not have a proper postsatate, then Parity will 
+                    # output an error, and we can parse the actual stateroot from it. 
+                    if 'error' in p_step.keys():
+                        matcher = ParityVM.staterooterr.search(p_step['error'])
+                        if matcher and len(canon_steps) and INCLUDE_STATEROOT:
+                            canon_steps.append({'stateRoot' : matcher.group('stateroot')})
+
                     continue
 
                 if not 'op' in p_step.keys():
