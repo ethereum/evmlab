@@ -392,6 +392,8 @@ class GethVM(VM):
                     logger.warn('Exception [1] parsing geth output:')
                     traceback.print_exc(file=sys.stdout)
                     logger.warn(e)
+                    # Temporary workaround for https://github.com/paritytech/parity-ethereum/issues/9456 
+                    parsed_steps.append({'error' : 'Parity invalid json error'})
 
         canon_steps = []
         if len(parsed_steps) == 0:
@@ -440,13 +442,17 @@ class GethVM(VM):
             traceback.print_exc(file=sys.stdout)
             logger.warn(e)
 
-        return canon_steps+addendum
-
+        # Stateroot is no in the 'addendum'. However, if there was no execution, then parity won't display the poststate root, 
+        # so we only include it here if there was any actual opcodes processed. 
+        if len(canon_steps):
+            return canon_steps+addendum
+        return []
 
 
 class ParityVM(VM):
 
     staterooterr = re.compile("State root mismatch \(got: 0x(?P<stateroot>[0-9a-f]{64}), expected: 0x00000000000000000000000000000000000000000000000000000000deadc0de\)")
+    intermingled_err = re.compile('.+({"error":"[^"]*","gasUsed":"0x[0-9a-f]*","time":[\\d]+})')
 
     def __init__(self,executable="evmbin", docker = False):
         super().__init__(executable, docker)
@@ -520,8 +526,22 @@ class ParityVM(VM):
         from . import opcodes
         parsed_steps = []
         addendum = []
-        for line in output:
-            if len(line) > 0 and line[0] == "{":
+
+
+        outputiterator = iter(output)
+        for line in outputiterator:
+            if len(line) == 0:
+                continue
+            if line[0] == "{":
+                # Sometimes, the output from stderr and stdout are intermingled, with an error occurring in the middle of the text. We try
+                # to handle that. 
+                m = ParityVM.intermingled_err.search(line)
+                if m:
+                    errormsg = m.group(1)
+                    line = line.replace(errormsg, "")
+                    line = line + outputiterator.__next__()
+                    parsed_steps.append(json.loads(errormsg))
+
                 try:
                     parsed_steps.append(json.loads(line))
                 except Exception as e:
@@ -578,7 +598,9 @@ class ParityVM(VM):
             logger.warn('Exception [2] parsing parity output:')
             logger.warn(e)
 
-        return canon_steps+addendum
+        # Stateroot is no in the 'addendum'. However, if there was no execution, then parity won't display the poststate root, 
+        # so we only include it here if there was any actual opcodes processed. 
+        if len(canon_steps):
+            return canon_steps+addendum
 
-
-
+        return []

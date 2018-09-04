@@ -500,5 +500,38 @@ def main():
 
 
 if __name__ == '__main__':
-#    testSummary()
     main()
+
+
+def testParityInterleavedOutput():
+    """ Tests interleaved stdout/stderr, which happens when using Stream=True docker execution
+    Expected output:
+
+    {'pc': 0, 'gas': '0x477896', 'op': 91, 'depth': 0, 'stack': []}
+    {'pc': 1, 'gas': '0x477895', 'op': 96, 'depth': 0, 'stack': []}
+    {'pc': 3, 'gas': '0x477892', 'op': 97, 'depth': 0, 'stack': ['0xd1']}
+    {'pc': 6, 'gas': '0x47788f', 'op': 97, 'depth': 0, 'stack': ['0xd1', '0xc09a']}
+    {'pc': 9, 'gas': '0x47788c', 'op': 111, 'depth': 0, 'stack': ['0xd1', '0xc09a', '0xa7f6']}
+    {'pc': 26, 'gas': '0x477889', 'op': 20, 'depth': 0, 'stack': ['0xd1', '0xc09a', '0xa7f6', '0x948ec1a91609740f44b8d0c74c4785d8']}
+    {'pc': 27, 'gas': '0x477886', 'op': 99, 'depth': 0, 'stack': ['0xd1', '0xc09a', '0x0']}
+    {'pc': 32, 'gas': '0x477883', 'op': 81, 'depth': 0, 'stack': ['0xd1', '0xc09a', '0x0', '0x4ebfdb04']}
+    {'stateRoot': '3b63251e410b65ae32806a89e101b93e81b51096e4c00f6c3b547fe43350f504'}
+ 
+    """   
+    data = """# command
+# /parity-evm state-test --std-json /testfiles/martin-Tue_08_30_12-19208-13127-test.json
+
+{"test":"randomStatetestmartin-Tue_08_30_12-19208-13127:byzantium:0","action":"starting"}
+{"pc":0,"op":91,"opName":"JUMPDEST","gas":"0x477896","stack":[],"storage":{},"depth":1}
+{"pc":1,"op":96,"opName":"PUSH1","gas":"0x477895","stack":[],"storage":{},"depth":1}
+{"pc":3,"op":97,"opName":"PUSH2","gas":"0x477892","stack":["0xd1"],"storage":{},"depth":1}
+{"pc":6,"op":97,"opName":"PUSH2","gas":"0x47788f","stack":["0xd1","0xc09a"],"storage":{},"depth":1}
+{"pc":9,"op":111,"opName":"PUSH16","gas":"0x47788c","stack":["0xd1","0xc09a","0xa7f6"],"storage":{},"depth":1}
+{"pc":26,"op":20,"opName":"EQ","gas":"0x477889","stack":["0xd1","0xc09a","0xa7f6","0x948ec1a91609740f44b8d0c74c4785d8"],"storage":{},"depth":1}
+{"pc":27,"op":99,"opName":"PUSH4","gas":"0x477886","stack":["0xd1","0xc09a","0x0"],"storage":{},"depth":1}
+{"pc":32,"op":81,"opName":"MLOAD","gas":"0x{"error":"State root mismatch (got: 0x3b63251e410b65ae32806a89e101b93e81b51096e4c00f6c3b547fe43350f504, expected: 0x00000000000000000000000000000000000000000000000000000000deadc0de)","gasUsed":"0x266573df9038e0","time":273}
+477883","stack":["0xd1","0xc09a","0x0","0x4ebfdb04"],"storage":{},"depth":1}"""
+    output = VMUtils.ParityVM.canonicalized(data.split("\n"))
+    print("\n".join([str(x) for x in output]))
+
+
