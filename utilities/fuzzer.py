@@ -4,7 +4,7 @@
 Executes state tests on multiple clients, checking for EVM trace equivalence
 
 """
-import json, sys, re, os, subprocess, io, itertools, traceback, time, collections
+import json, sys, re, os, subprocess, io, itertools, traceback, time, collections, shutil
 from contextlib import redirect_stderr, redirect_stdout
 
 from evmlab import vm as VMUtils
@@ -162,7 +162,7 @@ class StateTest():
         # Save the actual test json
         saveloc = "%s/%s" % (cfg.artefacts, self.filename())
         logger.info("Saving testcase as %s", saveloc)
-        os.rename(self.fullfilename() , saveloc)
+        shutil.move(self.fullfilename() , saveloc)
 
         newTracefiles = []
 
@@ -170,7 +170,7 @@ class StateTest():
             fname = os.path.basename(f)
             newloc = "%s/%s" % (cfg.artefacts,fname)
             logger.info("Saving trace as %s", newloc)
-            os.rename(f, newloc)
+            shutil.move(f, newloc)
             newTracefiles.append(newloc)
     
         self.traceFiles = newTracefiles
