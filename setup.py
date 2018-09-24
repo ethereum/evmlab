@@ -35,8 +35,13 @@ setup(name='Evmlab',
       long_description_content_type='text/markdown',  # requires twine and recent setuptools
       packages=find_packages(),
       package_data={'evmlab.tools.reproducer': ["templates/*"]},
-      install_requires=["requests", "web3", "eth-hash[pycryptodome]", "rlp>=1.0"],
+      install_requires=["requests",
+                        "web3",
+                        "eth-hash[pycryptodome]",
+                        "rlp>=1.0"],
       extras_require={"consolegui": ["urwid"],
                       "abidecoder": ["ethereum-input-decoder"],
-                      "docker": ["docker==3.0.0"]}
+                      "docker": ["docker==3.0.0"],
+                      "fuzztests": ["ethereum-dasm"],  # for smart evm-code generation
+                      }
       )
