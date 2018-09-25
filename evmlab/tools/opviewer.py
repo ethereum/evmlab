@@ -545,7 +545,7 @@ class DebugViewer(object):
   > tx:       %s
   > input:    %s
   > decoded*: %s""" % (txhash,
-                      txinput,
+                      txinput[:100]+"..." if len(txinput)>100 else txinput,
                       txinput_decoded))
 
         top = DebugViewer.wrap(urwid.Pile([

@@ -22,3 +22,4 @@ try:
 except ImportError as ie:
     RndCode = RndCodeBytes
     logging.warning("[!! Exception] Failed to Import RndCodeInstr() - %r"%ie)
+    logging.warning("----> Falling back to Random Code Generation based on byte distribution!")
