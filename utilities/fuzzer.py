@@ -285,7 +285,14 @@ def startDaemons():
 
 def execInDocker(name, cmd, stdout = True, stderr=True):
     start_time = time.time()
-    stream = True
+    
+    # For now, we need to disable stream, since otherwise the stderr and stdout 
+    # gets mixed, which causes false positives. 
+    # This really is a bottleneck, since it means all execution will be serial instead
+    # of paralell, and makes it really slow. The fix is either to fix the python docker
+    # api, or make sure that parity also prints the stateroot on stderr, which currently
+    # can only be read from stdout. 
+    stream = False
     #logger.info("executing in %s: %s" %  (name," ".join(cmd)))
     container = dockerclient.containers.get(name)
     (exitcode, output) = container.exec_run(cmd, stream=stream,stdout=stdout, stderr = stderr)     
