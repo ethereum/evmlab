@@ -1,11 +1,12 @@
 import random
 from .base import _RndBase, WeightedRandomizer, int2bytes
+from .code import _RndCodeBase
 from .address import RndAddress, RndDestAddress, RndAddressType
 
 import ethereum_dasm.asm.registry as asm_registry
 
 
-class RndCodeInstr(_RndBase):
+class RndCodeInstr(_RndCodeBase):
     """
     Random bytecode based on stat spread of instructions
     """
@@ -18,12 +19,6 @@ class RndCodeInstr(_RndBase):
     AVERAGE_CONTRACT_SIZE = 857
     MIN_CONTRACT_SIZE = 4
     MAX_CONTRACT_SIZE = 8816
-
-    def __init__(self, seed=None, length=None, prefix="0x", fill_arguments=True):
-        super().__init__(seed=seed)
-        self.length = length
-        self.prefix = prefix
-        self.fill_arguments = fill_arguments
 
     def random_code_byte_sequence(self, length=None):
         # todo: add gauss histogramm random.randgauss(min,max,avg) - triangle is not really correct here

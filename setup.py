@@ -42,6 +42,6 @@ setup(name='Evmlab',
       extras_require={"consolegui": ["urwid"],
                       "abidecoder": ["ethereum-input-decoder"],
                       "docker": ["docker==3.0.0"],
-                      "fuzztests": ["ethereum-dasm"],  # for smart evm-code generation
+                      "fuzztests": ["ethereum-dasm", "docker==3.0.0"],  # for smart evm-code generation
                       }
       )

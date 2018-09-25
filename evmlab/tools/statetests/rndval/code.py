@@ -5,7 +5,19 @@ import binascii
 from .base import _RndBase, WeightedRandomizer
 
 
-class RndCodeBytes(_RndBase):
+class _RndCodeBase(_RndBase):
+
+    FLAG_FOCUS_CONSTANTINOPLE = 1
+
+    def __init__(self, seed=None, length=None, prefix="0x", fill_arguments=True, flags=[]):
+        super().__init__(seed=seed)
+        self.length = length
+        self.prefix = prefix
+        self.fill_arguments = fill_arguments
+        self.flags = set(flags)
+
+
+class RndCodeBytes(_RndCodeBase):
     """
     Random bytecode (could be empty string)
     """
@@ -322,10 +334,7 @@ class RndCodeBytes(_RndBase):
     MIN_CONTRACT_SIZE = 6
     MAX_CONTRACT_SIZE = 11526
 
-    def __init__(self, seed=None, length=None, prefix="0x"):
-        super().__init__(seed=seed)
-        self.length = length
-        self.prefix = prefix
+
 
     def random_code_byte_sequence(self, length=None):
         # todo: add gauss histogramm random.randgauss(min,max,avg) - triangle is not really correct here
