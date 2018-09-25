@@ -4,6 +4,7 @@
 from evmlab.tools.statetests import rndval
 
 rnd_nonce = str(rndval.RndV())
+rnd_balance = str(rndval.RndHexInt())
 
 # https://github.com/ethereum/testeth/blob/develop/test/tools/fuzzTesting/createRandomTest.cpp#L241
 TEMPLATE_RandomStateTest = {
@@ -27,42 +28,42 @@ TEMPLATE_RandomStateTest = {
             },  
         "pre": {
             "ffffffffffffffffffffffffffffffffffffffff": {
-                "balance": rndval.RndHexInt(),
+                "balance": rnd_balance,
                 "code": rndval.RndCode(),
                 "nonce": rnd_nonce,
                 "storage": {
                 }
             },
             "1000000000000000000000000000000000000000": {
-                "balance": rndval.RndHexInt(),
+                "balance": rnd_balance,
                 "code": rndval.RndCode(),
                 "nonce": rnd_nonce,
                 "storage": {
                 }
             },
             "b94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
-                "balance": rndval.RndHexInt(),
+                "balance": rnd_balance,
                 "code": rndval.RndCode(),
                 "nonce": rnd_nonce,
                 "storage": {
                 }
             },
             "c94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
-                "balance": rndval.RndHexInt(),
+                "balance": rnd_balance,
                 "code": rndval.RndCode(),
                 "nonce": rnd_nonce,
                 "storage": {
                 }
             },
             "d94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
-                "balance": rndval.RndHexInt(),
+                "balance": rnd_balance,
                 "code": rndval.RndCode(),
                 "nonce": rnd_nonce,
                 "storage": {
                 }
             },
             "a94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
-                "balance": rndval.RndHexInt(),
+                "balance": rnd_balance,
                 "code": "0x",
                 "nonce": rnd_nonce,
                 "storage": {
@@ -82,7 +83,7 @@ TEMPLATE_RandomStateTest = {
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
             "to": rndval.RndDestAddress(),
             "value": [
-                #rndval.RndHex32(),
+                rnd_balance,
                 "0"
             ]
         }
@@ -124,21 +125,21 @@ OLD_TEMPLATE_RandomStateTest = {
         },
         "pre": {
             "0x095e7baea6a6c7c4c2dfeb977efac326af552d87": {
-                "balance": rndval.RndHexInt(),
+                "balance": rnd_balance,
                 "code": rndval.RndCode(),
                 "nonce": rnd_nonce,
                 "storage": {
                 }
             },
             "0x945304eb96065b2a98b57a48a06ae28d285a71b5": {
-                "balance": rndval.RndHexInt(),
+                "balance": rnd_balance,
                 "code": rndval.RndCode(),
                 "nonce": rnd_nonce,
                 "storage": {
                 }
             },
             "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
-                "balance": rndval.RndHexInt(),
+                "balance": rnd_balance,
                 "code": rndval.RndCode(),
                 "nonce": rnd_nonce,
                 "storage": {
@@ -157,8 +158,8 @@ OLD_TEMPLATE_RandomStateTest = {
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
             "to": rndval.RndDestAddress(),
             "value": [
-                "0"
-                #rndval.RndHex32(),
+                "0",
+                rnd_balance,
             ]
         }
     }
