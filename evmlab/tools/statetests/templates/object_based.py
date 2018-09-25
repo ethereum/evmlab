@@ -82,7 +82,7 @@ TEMPLATE_RandomStateTest = {
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
             "to": rndval.RndDestAddress(),
             "value": [
-                rndval.RndHex32(),
+                #rndval.RndHex32(),
                 "0"
             ]
         }
@@ -157,7 +157,8 @@ OLD_TEMPLATE_RandomStateTest = {
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
             "to": rndval.RndDestAddress(),
             "value": [
-                rndval.RndHex32(),
+                "0"
+                #rndval.RndHex32(),
             ]
         }
     }
