@@ -4,8 +4,8 @@
 from evmlab.tools.statetests import rndval
 
 rnd_nonce = str(rndval.RndV())
-rnd_balance = str(rndval.RndHexInt())
-rnd_send_value = rndval.hex2(int(rnd_balance,16)-500000000) if int(rnd_balance,16)>500000000 else rndval.hex2(0)  # reserve for exec/gas.
+rnd_balance = rndval.RndHexInt(_min=2**24-1)
+rnd_send_value = rndval.RndHexInt(_min=0, _max=max(0,2**24))  # reserve for exec/gas.
 rnd_code_flags = set([rndval.RndCode.FLAG_FOCUS_CONSTANTINOPLE,])  # indicate that we want to blend in more CONSTANTINOPLE instructions.
 
 # https://github.com/ethereum/testeth/blob/develop/test/tools/fuzzTesting/createRandomTest.cpp#L241
