@@ -28,10 +28,10 @@
                     <li> Passes: <code>{{ status.pass }} </code> </li>
                     <li> Failures: <code>{{ status.fail }} </code> </li>
                     <li> Speed : <code>{{ status.speed }} </code> tests/second </li>
-                    <li> Avg trace length: <code>{{ status.mean }} </code> </li>
-                    <li> Trace length std dev: <code>{{ status.stdev }} </code> </li>
-                    <li> No of 0-length traces: <code>{{ status.numZero }} </code> </li>
-                    <li> Longest trace: <code>{{ status.max }} </code> </li>
+                    <li> Avg trace length (last 100): <code>{{ status.mean }} </code> </li>
+                    <li> Trace length std dev (last 100): <code>{{ status.stdev }} </code> </li>
+                    <li> No of 0-length traces (last 100): <code>{{ status.numZero }} </code> </li>
+                    <li> Longest trace (last 100): <code>{{ status.max }} </code> </li>
                 </ul>
             </div>
         </div>
