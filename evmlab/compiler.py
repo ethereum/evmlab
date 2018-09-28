@@ -21,6 +21,9 @@ OR            = 0x17 # Pops: 2, Pushes: 1, Gas: 3],
 XOR           = 0x18 # Pops: 2, Pushes: 1, Gas: 3],
 NOT           = 0x19 # Pops: 1, Pushes: 1, Gas: 3],
 BYTE          = 0x1a # Pops: 2, Pushes: 1, Gas: 3],
+SHL           = 0x1b 
+SHR           = 0x1c
+SAR           = 0x1d
 SHA3          = 0x20 # Pops: 2, Pushes: 1, Gas: 30],
 ADDRESS       = 0x30 # Pops: 0, Pushes: 1, Gas: 2],
 BALANCE       = 0x31 # Pops: 1, Pushes: 1, Gas: 20],
@@ -62,11 +65,12 @@ LOG2          = 0xa2 # Pops: 4, Pushes: 0, Gas: 1125],
 LOG3          = 0xa3 # Pops: 5, Pushes: 0, Gas: 1500],
 LOG4          = 0xa4 # Pops: 6, Pushes: 0, Gas: 1875],
 CREATE        = 0xf0 # Pops: 3, Pushes: 1, Gas: 32000],
-CREATE2       = 0xfb # 
 CALL          = 0xf1 # Pops: 7, Pushes: 1, Gas: 40],
 CALLCODE      = 0xf2 # Pops: 7, Pushes: 1, Gas: 40],
 RETURN        = 0xf3 # Pops: 2, Pushes: 0, Gas: 0],
 DELEGATECALL  = 0xf4 # Pops: 6, Pushes: 0, Gas: 40],
+CREATE2       = 0xf5 # 
+
 STATICCALL    = 0xfa
 REVERT        = 0xfd
 SUICIDE       = 0xff # Pops: 1, Pushes: 0, Gas: 0],
@@ -212,6 +216,14 @@ class Program():
 		else:
 			self.op(GAS)
 		self._addOp(CALL)
+		return self
+
+	def create2(self,value = 0,instart = 0, insize = 0, salt = 0):
+		self.push(salt)
+		self.push(insize)
+		self.push(instart)
+		self.push(value)
+		self._addOp(CREATE2)
 		return self
 
 	def callcode(self,gas ,address,value = 0,instart = 0, insize = 0, out = 0, outsize = 0):
