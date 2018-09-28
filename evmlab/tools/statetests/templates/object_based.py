@@ -73,21 +73,13 @@ TEMPLATE_RandomStateTest = {
             }
         },
         "transaction": {
-            "data": [
-                rndval.RndCode(flags=rnd_code_flags)
-            ],
-            "gasLimit": [
-                rndval.RndTransactionGasLimit(),
-                "3000000"
-            ],
+            "data": [rndval.RndCode(flags=rnd_code_flags)],
+            "gasLimit": [rndval.RndTransactionGasLimit(_min=34*14000)],
             "gasPrice": rndval.RndGasPrice(),
             "nonce": rnd_nonce,
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
             "to": rndval.RndDestAddress(),
-            "value": [
-                rnd_send_value,
-                "0"
-            ]
+            "value": [rnd_send_value]
         }
     }
 }

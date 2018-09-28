@@ -43,7 +43,7 @@ class RndTransactionGasLimit(RndHexInt):
     placeholder = "[TRANSACTIONGASLIMIT]"
 
     def __init__(self, seed=None, _min=None, _max=None):
-        super().__init__(seed=seed, _min=_min or 2**40, _max=_max or 2**49 -1)
+        super().__init__(seed=seed, _min=_min or 25000, _max=_max or 10000000)
 
 
 class RndGasPrice(RndHexInt):

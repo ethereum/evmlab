@@ -399,7 +399,7 @@ def end_processes(test):
         
     return tracelen
 
-def processTraces(test):
+def processTraces(test, forceSave=False):
     if test is None:
         return None
 
@@ -407,17 +407,19 @@ def processTraces(test):
 
     (equivalent, trace_output) = VMUtils.compare_traces(test.canon_traces, cfg.clientNames()) 
 
-    if equivalent:
+    if equivalent and not forceSave:
         test.removeFiles()
         return None
-    else:
+    
+    if not equivalent:
         logger.warning("CONSENSUS BUG!!!")
-        trace_summary = get_summary(trace_output)
-        # save the state-test
-        test.saveArtefacts()
-        # save combined trace and abbreviated trace
-        test.addArtefact("combined_trace.log","\n".join(trace_output))
-        test.addArtefact("shortened_trace.log","\n".join(trace_summary))
+
+    trace_summary = get_summary(trace_output)
+    # save the state-test
+    test.saveArtefacts()
+    # save combined trace and abbreviated trace
+    test.addArtefact("combined_trace.log","\n".join(trace_output))
+    test.addArtefact("shortened_trace.log","\n".join(trace_summary))
 
     return test
 
@@ -445,7 +447,7 @@ class TestExecutor():
                 self.traceLengths.append(traceLength)
 
             # Process previous traces
-            failingTestcase = processTraces(previous_test)
+            failingTestcase = processTraces(previous_test, forceSave = (traceLength == 0))
             if failingTestcase is None:
                 self.pass_count = self.pass_count +1
             else:
