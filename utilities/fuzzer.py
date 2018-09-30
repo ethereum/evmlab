@@ -447,7 +447,7 @@ class TestExecutor():
                 self.traceLengths.append(traceLength)
 
             # Process previous traces
-            failingTestcase = processTraces(previous_test, forceSave = (traceLength == 0))
+            failingTestcase = processTraces(previous_test, forceSave = False)
             if failingTestcase is None:
                 self.pass_count = self.pass_count +1
             else:
