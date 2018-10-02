@@ -113,6 +113,7 @@ class Genesis(object):
                 "eip658Transition" : self.config['byzantiumBlock'],
                 "eip145Transition" : self.config['constantinopleBlock'],
                 "eip1052Transition" : self.config['constantinopleBlock'],
+                "eip1014Transition" : self.config['constantinopleBlock'],
                 "eip1283Transition" : self.config['constantinopleBlock'],
 
     # Also new pre
