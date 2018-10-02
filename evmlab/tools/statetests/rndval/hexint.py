@@ -33,7 +33,7 @@ class RndBlockGasLimit(RndHexInt):
     placeholder = "[BLOCKGASLIMIT]"
 
     def __init__(self, seed=None, _min=None, _max=None):
-        super().__init__(seed=seed, _min=_min or 100000, _max=_max or 2 ** 55 - 1)
+        super().__init__(seed=seed, _min=_min or 2**50, _max=_max or 2 ** 64 - 1)
 
 
 class RndTransactionGasLimit(RndHexInt):

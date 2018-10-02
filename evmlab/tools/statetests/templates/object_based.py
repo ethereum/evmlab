@@ -4,8 +4,8 @@
 from evmlab.tools.statetests import rndval
 
 rnd_nonce = str(rndval.RndV())
-rnd_balance = str(rndval.RndHexInt())
-rnd_send_value = rndval.hex2(int(rnd_balance,16)-500000000) if int(rnd_balance,16)>500000000 else rndval.hex2(0)  # reserve for exec/gas.
+rnd_balance = rndval.RndHexInt(_min=2**24-1)
+rnd_send_value = rndval.RndHexInt(_min=0, _max=max(0,2**24))  # reserve for exec/gas.
 rnd_code_flags = set([rndval.RndCode.FLAG_FOCUS_CONSTANTINOPLE,])  # indicate that we want to blend in more CONSTANTINOPLE instructions.
 
 # https://github.com/ethereum/testeth/blob/develop/test/tools/fuzzTesting/createRandomTest.cpp#L241
@@ -73,21 +73,13 @@ TEMPLATE_RandomStateTest = {
             }
         },
         "transaction": {
-            "data": [
-                rndval.RndCode(flags=rnd_code_flags)
-            ],
-            "gasLimit": [
-                rndval.RndTransactionGasLimit(),
-                "3000000"
-            ],
+            "data": [rndval.RndCode(flags=rnd_code_flags)],
+            "gasLimit": [rndval.RndTransactionGasLimit(_min=34*14000)],
             "gasPrice": rndval.RndGasPrice(),
             "nonce": rnd_nonce,
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
             "to": rndval.RndDestAddress(),
-            "value": [
-                rnd_send_value,
-                "0"
-            ]
+            "value": [rnd_send_value]
         }
     }
 }
