@@ -39,7 +39,7 @@ def traceStats(canon_trace):
     numConstantinople = 0 
     for step in canon_trace:
         if "depth" in step.keys() and int(step['depth']) > maxdepth:
-            maxdepth = int(step[depth])
+            maxdepth = int(step['depth'])
         if "opname" in step:
             op = step["opname"]
             if op in ["SHR", "SAR", "SHL", "EXTCODEHASH","CREATE2"]:
