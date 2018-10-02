@@ -32,6 +32,9 @@ opcodes = {
     0x18: ['XOR', 2, 1, 3],
     0x19: ['NOT', 1, 1, 3],
     0x1a: ['BYTE', 2, 1, 3],
+    0x1b: ['SHL', 2, 1, 3],
+    0x1c: ['SHR', 2, 1, 3],
+    0x1d: ['SAR', 2, 1, 3],
     0x20: ['SHA3', 2, 1, 30],
     0x30: ['ADDRESS', 0, 1, 2],
     0x31: ['BALANCE', 1, 1, 20],
@@ -48,6 +51,7 @@ opcodes = {
     0x3c: ['EXTCODECOPY', 4, 0, 20],
     0x3d: ['RETURNDATASIZE', 0, 1, 2],
     0x3e: ['RETURNDATACOPY', 3, 0, 3],
+    0x3f: ['EXTCODEHASH', 1, 1, 400],
     0x40: ['BLOCKHASH', 1, 1, 20],
     0x41: ['COINBASE', 0, 1, 2],
     0x42: ['TIMESTAMP', 0, 1, 2],
@@ -76,12 +80,14 @@ opcodes = {
     0xf2: ['CALLCODE', 7, 1, 40],
     0xf3: ['RETURN', 2, 0, 0],
     0xf4: ['DELEGATECALL', 6, 0, 40],
+    0xf4: ['CREATE2', 4, 1, 32000],
     0xfa: ['STATICCALL', 6, 1, 40],
     0xfd: ['REVERT', 2, 0, 0],
     0xff: ['SUICIDE', 1, 0, 0],
 }
 
 opcodesMetropolis = { 0x3d, 0x3e, 0xfa, 0xfd }
+opcodesConstantinople = { 0x1b,0x1c,0x1d, 0xf4, 0x3f }
 
 for i in range(1, 33):
     opcodes[0x5f + i] = ['PUSH' + str(i), 0, 1, 3]
