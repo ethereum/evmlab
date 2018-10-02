@@ -292,7 +292,9 @@ def execInDocker(name, cmd, stdout = True, stderr=True):
     # of paralell, and makes it really slow. The fix is either to fix the python docker
     # api, or make sure that parity also prints the stateroot on stderr, which currently
     # can only be read from stdout. 
-    stream = False
+
+    # Update, now using stream again, with 1>&2 (piping stdout into stderr)
+    stream = True
     #logger.info("executing in %s: %s" %  (name," ".join(cmd)))
     container = dockerclient.containers.get(name)
     (exitcode, output) = container.exec_run(cmd, stream=stream,stdout=stdout, stderr = stderr)     
@@ -330,7 +332,8 @@ def startGeth(test):
     
 
 def startParity(test):
-    cmd = ["/parity-evm","state-test", "--std-json","/testfiles/%s" % os.path.basename(test.filename())]
+#    cmd = ["/parity-evm","state-test", "--std-json","/testfiles/%s" % os.path.basename(test.filename())]
+    cmd = ["/bin/sh","-c","/parity-evm state-test --std-json /testfiles/%s 1>&2" % os.path.basename(test.filename())]
     return execInDocker("parity", cmd)
 
 def startHera(test):
@@ -387,17 +390,24 @@ def end_processes(test):
     if test is None: 
         return None
     tracelen = 0
+    canon_steps = None
+    canon_trace = []
     for (proc_info, client_name) in test.procs:
         logger.info("Proc '%s'" % client_name)
         full_trace = proc_info["output"]()
         test.storeTrace(client_name, full_trace,proc_info['cmd'])
         canonicalizer = canonicalizers[client_name]
-        canon_trace = [VMUtils.toText(step) for step in canonicalizer(full_trace.split("\n"))]
+        canon_steps = canonicalizer(full_trace.split("\n"))
+        canon_trace = [VMUtils.toText(step) for step in canon_steps]
         test.canon_traces.append(canon_trace)
         tracelen = len(canon_trace)
         logger.info("Processed %s steps for %s on test %s" % (tracelen, client_name, test.identifier))
-        
-    return tracelen
+    
+    stats = VMUtils.traceStats(canon_steps)
+    #print(stats)
+    #print(canon_steps)
+    #print("\n".join(canon_trace))
+    return (tracelen, stats)
 
 def processTraces(test, forceSave=False):
     if test is None:
@@ -430,6 +440,8 @@ class TestExecutor():
         self.fail_count = 0
         self.failures = []
         self.traceLengths = collections.deque([],100)
+        self.traceDepths = collections.deque([], 100)
+        self.traceConstantinopleOps = collections.deque([], 100)
         self.start_time = time.time()
 
 
@@ -442,9 +454,12 @@ class TestExecutor():
             nonlocal n
 
             # End previous procs
-            traceLength = end_processes(previous_test)
-            if traceLength is not None:
+            data = end_processes(previous_test)
+            if data is not None:
+                (traceLength, stats) = data
                 self.traceLengths.append(traceLength)
+                self.traceDepths.append(stats['maxDepth'])
+                self.traceConstantinopleOps.append(stats['constatinopleOps'])
 
             # Process previous traces
             failingTestcase = processTraces(previous_test, forceSave = False)
@@ -474,11 +489,11 @@ class TestExecutor():
             start_processes(test)
 
             __end_previous_test()
-
+            #input("Press Enter to continue...")
             previous_test = test
 
         __end_previous_test()
-
+        
         return (n, len(self.fail_count), pass_count, self.failures)
 
     def status(self):
@@ -494,6 +509,8 @@ class TestExecutor():
             "stdev" : statistics.stdev(self.traceLengths) if len(self.traceLengths) >2 else "NA",
             "numZero" : self.traceLengths.count(0) if self.traceLengths else "NA" ,
             "max" : max(self.traceLengths) if self.traceLengths else "NA",
+            "maxDepth" : max(self.traceDepths) if self.traceDepths else "NA",
+            "numConst" : statistics.mean(self.traceConstantinopleOps) if self.traceConstantinopleOps else "NA",
         }
 
 def testSummary():
