@@ -43,7 +43,7 @@ class RndAddress(RndByteSequence):
                                                         "0000000000000000000000000000000000000006",
                                                         "0000000000000000000000000000000000000007",
                                                         "0000000000000000000000000000000000000008"],
-                 RndAddressType.SPECIAL_CREATE: ["0000000000000000000000000000000000000000"]}
+                 RndAddressType.SPECIAL_CREATE: [None]}
 
     def __init__(self, seed=None, length=20, prefix="0x", _types=[RndAddressType.RANDOM]):
         super().__init__(seed=seed, length=length, prefix=prefix)
@@ -93,7 +93,7 @@ class RndAddress(RndByteSequence):
             #if types_set != set([RndAddressType.PRECOMPILED, RndAddressType.STATE_ACCOUNT]):
             if types_set.intersection([RndAddressType.SPECIAL_ALL, RndAddressType.SPECIAL_CREATE]):
                 if self.randomPercent()<probabilities["emptyAddressProbability"]:
-                    return self._get_rnd_address_from_list(self.addresses.get(RndAddressType.SPECIAL_CREATE))
+                    return ""
 
             # RANDOM
             if self.randomPercent()<probabilities["randomAddressProbability"]:
@@ -119,4 +119,3 @@ class RndDestAddress(RndAddress):
                                                                   RndAddressType.SPECIAL_CREATE]):
         super().__init__(seed=seed, length=length, prefix=prefix)
         self.types = _types
-

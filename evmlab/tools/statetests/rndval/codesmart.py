@@ -82,8 +82,13 @@ opcodes = {
     0xff: ['SUICIDE', 1, 0, 0],
 }
 valid_opcodes = list(opcodes.keys())
+const_opcodes = [0x1b, #: ['SHL', 2, 1, 3],
+                    0x1c, #: ['SHR', 2, 1, 3],
+                    0x1d, #: ['SAR', 2, 1, 3],
+                    0xf4, #: ['CREATE2', 4, 1, 32000],
+                    0x3f] #: ['EXTCODEHASH', 1, 1, 400],
 
-
+constantinople_skewed_set = valid_opcodes + const_opcodes + const_opcodes  + const_opcodes 
 class RndCodeInstr(_RndCodeBase):
     """
     Random bytecode based on stat spread of instructions
@@ -110,7 +115,7 @@ class RndCodeInstr(_RndCodeBase):
         b = []
         for _ in range(length):
 #            b.append(valid_opcodes[random.randint(0,len(valid_opcodes)-1)])
-            b.append(random.choice(valid_opcodes))
+            b.append(random.choice(constantinople_skewed_set))
 
 #        for _ in range(128):
 #            b.append(rnd_prolog.random())

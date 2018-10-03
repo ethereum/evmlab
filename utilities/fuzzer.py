@@ -546,7 +546,7 @@ def testSpeedGenerateTests():
         #test.update(t)
         test_obj = json.loads(json.dumps(t, cls=randomtest.RandomTestsJsonEncoder))
         x = str(test_obj)
-        #print(x)
+        print(test_obj["randomStatetest"]["transaction"]["to"])
         x1 = time.time()
         print("%d %f (tot %f/s)" % (counter, x1 - x0, counter / (x1 - start) ))
         counter = counter +1
