@@ -76,7 +76,7 @@ opcodes = {
     0xf2: ['CALLCODE', 7, 1, 40],
     0xf3: ['RETURN', 2, 0, 0],
     0xf4: ['DELEGATECALL', 6, 0, 40],
-    0xf4: ['CREATE2', 4, 1, 32000],
+    0xf5: ['CREATE2', 4, 1, 32000],
     0xfa: ['STATICCALL', 6, 1, 40],
     0xfd: ['REVERT', 2, 0, 0],
     0xff: ['SUICIDE', 1, 0, 0],
@@ -85,7 +85,7 @@ valid_opcodes = list(opcodes.keys())
 const_opcodes = [0x1b, #: ['SHL', 2, 1, 3],
                     0x1c, #: ['SHR', 2, 1, 3],
                     0x1d, #: ['SAR', 2, 1, 3],
-                    0xf4, #: ['CREATE2', 4, 1, 32000],
+                    0xf5, #: ['CREATE2', 4, 1, 32000],
                     0x3f] #: ['EXTCODEHASH', 1, 1, 400],
 
 constantinople_skewed_set = valid_opcodes + const_opcodes + const_opcodes  + const_opcodes 
