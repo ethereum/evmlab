@@ -80,7 +80,7 @@ opcodes = {
     0xf2: ['CALLCODE', 7, 1, 40],
     0xf3: ['RETURN', 2, 0, 0],
     0xf4: ['DELEGATECALL', 6, 0, 40],
-    0xf4: ['CREATE2', 4, 1, 32000],
+    0xf5: ['CREATE2', 4, 1, 32000],
     0xfa: ['STATICCALL', 6, 1, 40],
     0xfd: ['REVERT', 2, 0, 0],
     0xff: ['SUICIDE', 1, 0, 0],

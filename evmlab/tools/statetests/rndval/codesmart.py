@@ -89,6 +89,11 @@ const_opcodes = [0x1b, #: ['SHL', 2, 1, 3],
                     0x3f] #: ['EXTCODEHASH', 1, 1, 400],
 
 constantinople_skewed_set = valid_opcodes + const_opcodes + const_opcodes  + const_opcodes 
+
+from evmlab import decode_hex
+def as_bytes(s):
+    return decode_hex(s)
+
 class RndCodeInstr(_RndCodeBase):
     """
     Random bytecode based on stat spread of instructions
@@ -147,7 +152,6 @@ class RndCodeInstr(_RndCodeBase):
     def _fill_arguments(self, instructions):
         probabilities = {'smartCodeProbability': 99}
         #https://github.com/ethereum/testeth/blob/7cbbb6fed4941420fbae738828fa1339c990e3d3/test/tools/fuzzTesting/fuzzHelper.cpp#L391
-
         def create_push_for_data(data):
             # expect bytes but silently convert int2bytes
             if isinstance(data, int):
@@ -173,9 +177,24 @@ class RndCodeInstr(_RndCodeBase):
                     for _ in range(times):
                         yield asm_registry.create_instruction("PUSH%s"%self.randomUniInt(1,32)).randomize_operand()
                     args_filled = True
+                elif instr.name.startswith("LOG"):
+                    # There can be any number of topics, 
+                    # followed by memstart and memsize, which must be reasonable
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # msize
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # mstart
+                    args_filled = True
+                elif instr.name=="MLOAD":
+                    yield create_push_for_data(self.randomSmallMemoryLength())
+                    args_filled = True
                 elif instr.name=="MSTORE":
                     yield create_push_for_data(self.randomByteSequence(self.randomLength32()))
                     yield create_push_for_data(self.randomSmallMemoryLength())
+                    args_filled = True
+                elif instr.name=="MSTORE8":
+                    #yield create_push_for_data(self.randomByteSequence(self.randomLength32())) # value
+                    # We skip pushing the value, and use whatever is already on the stack
+                    # Only set a reasonable offset
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # offset
                     args_filled = True
                 elif instr.name=="RETURNDATACOPY":
                     yield create_push_for_data(self.randomSmallMemoryLength())
@@ -183,32 +202,37 @@ class RndCodeInstr(_RndCodeBase):
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     args_filled = True
                 elif instr.name=="EXTCODECOPY":
-                    yield create_push_for_data(self.randomMemoryLength())
-                    yield create_push_for_data(self.randomMemoryLength())
-                    yield create_push_for_data(self.randomMemoryLength())
-                    yield create_push_for_data(RndAddress().as_bytes())
+                    yield create_push_for_data(self.randomSmallMemoryLength())   # length
+                    yield create_push_for_data(self.randomMemoryLength())        # codeoffset
+                    yield create_push_for_data(self.randomSmallMemoryLength())   # memoffset
+                    yield create_push_for_data(RndDestAddress().as_bytes())      # address
+                    args_filled = True
+                elif instr.name=="CODECOPY":
+                    yield create_push_for_data(self.randomSmallMemoryLength())   # length
+                    yield create_push_for_data(self.randomMemoryLength())        # codeoffset
+                    yield create_push_for_data(self.randomSmallMemoryLength())   # memoffset
                     args_filled = True
                 elif instr.name=="CREATE":
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomSmallMemoryLength())
-                    yield create_push_for_data(self.randomUniInt())
+                    yield create_push_for_data(self.randomUniInt(max=255))
                     args_filled = True
                 elif instr.name in ("CALL", "CALLCODE"):
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomSmallMemoryLength())
-                    yield create_push_for_data(self.randomUniInt())
-                    yield create_push_for_data(RndDestAddress().as_bytes())
-                    yield create_push_for_data(self.randomUniInt())
+                    yield create_push_for_data(self.randomUniInt(max=255))   # value
+                    yield create_push_for_data(RndDestAddress().as_bytes())  # address
+                    yield create_push_for_data(self.randomUniInt())          # gas 
                     args_filled = True
                 elif instr.name in ("STATICCALL","DELEGATECALL"):
-                    yield create_push_for_data(self.randomSmallMemoryLength())
-                    yield create_push_for_data(self.randomSmallMemoryLength())
-                    yield create_push_for_data(self.randomSmallMemoryLength())
-                    yield create_push_for_data(self.randomSmallMemoryLength())
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # retsize
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # retoffset
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # insize
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # inoffset
                     yield create_push_for_data(RndDestAddress().as_bytes())
-                    yield create_push_for_data(self.randomUniInt())
+                    yield create_push_for_data(self.randomUniInt())            # gas
                     args_filled = True
                 elif instr.name=="SUICIDE":
                     yield create_push_for_data(RndDestAddress().as_bytes())
@@ -219,14 +243,14 @@ class RndCodeInstr(_RndCodeBase):
                     args_filled = True
                 elif instr.name=="CREATE2":
                     # todo: rework
-                    yield create_push_for_data(self.randomUniInt())
+                    yield create_push_for_data(self.randomUniInt()) # salt
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomSmallMemoryLength())
-                    yield create_push_for_data(self.randomUniInt())
+                    yield create_push_for_data(self.randomUniInt(max=255)) # value
                     args_filled = True
-                elif instr.name=="EXTCODEHASH":
-                    # todo: rework
-                    yield create_push_for_data(RndDestAddress().as_bytes())  # slot
+                elif instr.name in ["EXTCODEHASH", "EXTCODESIZE"]:
+                    # todo: rework                    
+                    yield create_push_for_data(RndDestAddress().as_bytes())  # address
                     args_filled = True
                 elif instr.category in ("bitwise-logic","comparison"):
                     for _ in instr.args:
@@ -244,9 +268,14 @@ class RndCodeInstr(_RndCodeBase):
             yield instr
 
     def generate(self, length=50):
-        instructions = [asm_registry.create_instruction(opcode=opcode) for opcode in self.random_code_byte_sequence(self.length)]
+        if self.fill_arguments:
+            length = length // 2
+                
+        instructions = [asm_registry.create_instruction(opcode=opcode) for opcode in self.random_code_byte_sequence(length)]
         if self.fill_arguments:
             instructions = self._fill_arguments(instructions)
 
-        serialized = ''.join(e.serialize() for e in instructions)
-        return "%s%s" % (self.prefix, serialized)
+        serialized = ''.join(e.serialize() for e in instructions)     
+#        asm = ' '.join(str(e) for e in instructions)
+#        print(asm)
+        return  "%s%s" % (self.prefix, serialized)
