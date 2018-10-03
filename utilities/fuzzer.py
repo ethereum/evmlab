@@ -525,8 +525,38 @@ def main():
     TestExecutor().startFuzzing()
 
 
+def testSpeedGenerateTests():
+    """This method produces json-files, each containing one statetest, with _one_ poststate. 
+    It stores each test with a filename that is unique per user and per process, so that two
+    paralell executions should not interfere with eachother. 
+    
+    returns (filename, object) 
+    """
+
+    from evmlab.tools.statetests import templates
+    from evmlab.tools.statetests import randomtest
+    import time
+    t = templates.new(templates.object_based.TEMPLATE_RandomStateTest)
+    test = {}
+    test.update(t)
+    counter = 0
+    start = time.time()
+    while True: 
+        x0 = time.time()
+        #test.update(t)
+        test_obj = json.loads(json.dumps(t, cls=randomtest.RandomTestsJsonEncoder))
+        x = str(test_obj)
+        #print(x)
+        x1 = time.time()
+        print("%d %f (tot %f/s)" % (counter, x1 - x0, counter / (x1 - start) ))
+        counter = counter +1
+
+
 if __name__ == '__main__':
     main()
+    #testSpeedGenerateTests()
+
+
 
 
 def testParityInterleavedOutput():
