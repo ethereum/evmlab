@@ -15,10 +15,10 @@ TEMPLATE_RandomStateTest = {
             "compressed_random_state": rndval.RandomSeed(),
         },
         "_info": {
-            "comment": "",
+            "comment": "This test was generated from Evmlab",
             "filledwith": "evmlab",
-            "lllcversion": "not availalbe",
-            "source": "not available"
+            "lllcversion": "not available",
+            "source": "not available",
             "sourceHash": "not available"
         },
         "env": {
