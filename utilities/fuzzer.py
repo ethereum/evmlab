@@ -99,14 +99,14 @@ class StateTest():
     """ This class represents a single statetest, with a single post-tx result: one transaction
     executed on one single fork
     """
-    def __init__(self, statetest, counter):
+    def __init__(self, statetest, counter, overwriteFork=True):
         self.number = None
         self.identifier = "%s-%d" %(cfg.host_id, counter)
 
-        # Replace the fork with what we are currently configured for
-        postState = statetest['randomStatetest']['post']['Byzantium']
-        del(statetest['randomStatetest']['post']['Byzantium'])
-        statetest['randomStatetest']['post'][cfg.fork_config] = postState 
+        if overwriteFork and "Byzantium" in statetest['randomStatetest']['post'].keys():
+            # Replace the fork with what we are currently configured for
+            postState = statetest['randomStatetest']['post'].pop('Byzantium')
+            statetest['randomStatetest']['post'][cfg.fork_config] = postState 
 
 
         # Replace the top level name 'randomStatetest' with something meaningful (same as filename)        
