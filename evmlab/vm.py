@@ -12,9 +12,9 @@ FNULL = open(os.devnull, 'w')
 
 valid_opcodes = opcodes.reverse_opcodes.keys()
 
-# The 'stateRoot' output is missing from some clients (parity). 
-# Enable this once they implement it
-INCLUDE_STATEROOT=True
+# The 'stateRoot' is disabled, because of false positives
+# with the new execution model where the coinbase is touched
+INCLUDE_STATEROOT=False
 
 strip_0x = remove_0x_head
 bstrToInt = lambda b_str: int(b_str.replace("b", "").replace("'", ""))
