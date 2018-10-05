@@ -12,9 +12,10 @@ FNULL = open(os.devnull, 'w')
 
 valid_opcodes = opcodes.reverse_opcodes.keys()
 
-# The 'stateRoot' is disabled, because of false positives
-# with the new execution model where the coinbase is touched
-INCLUDE_STATEROOT=False
+# The 'stateRoot' comparison can be disabled, in which case
+# the analysis will check only the internal states after every 
+# opcode, but ignore the poststate roothash
+INCLUDE_STATEROOT=True
 
 strip_0x = remove_0x_head
 bstrToInt = lambda b_str: int(b_str.replace("b", "").replace("'", ""))
