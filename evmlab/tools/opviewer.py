@@ -539,9 +539,9 @@ class DebugViewer(object):
             txinput_decoded = ethereum_input_decoder.AbiMethod.from_input_lookup(ethereum_input_decoder.Utils.str_to_bytes(txinput)) if ethereum_input_decoder else "<input decoder not installed>"
         except Exception as e:  # not going to import from eth_abi to not make the code depending on it
             txinput_decoded = "!! DecodingError: %s" %e
-
-
-        inp_view = urwid.Text("""
+        inp_view = urwid.Text("No transaction available")
+        if txhash is not None:
+            inp_view = urwid.Text("""
   > tx:       %s
   > input:    %s
   > decoded*: %s""" % (txhash,
