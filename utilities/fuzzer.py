@@ -95,37 +95,26 @@ class Config():
 
 cfg =Config('statetests.ini')
 
-class StateTest():
-    """ This class represents a single statetest, with a single post-tx result: one transaction
-    executed on one single fork
-    """
-    def __init__(self, statetest, counter, overwriteFork=True):
-        self.number = None
-        self.identifier = "%s-%d" %(cfg.host_id, counter)
+class RawStateTest():
 
-        if overwriteFork and "Byzantium" in statetest['randomStatetest']['post'].keys():
-            # Replace the fork with what we are currently configured for
-            postState = statetest['randomStatetest']['post'].pop('Byzantium')
-            statetest['randomStatetest']['post'][cfg.fork_config] = postState 
-
-
-        # Replace the top level name 'randomStatetest' with something meaningful (same as filename)        
-        statetest['randomStatetest%s' % self.identifier] =statetest.pop('randomStatetest', None) 
+    def __init__(self, statetest, identifier, filename):
+        self.identifier = identifier
+        self._filename = filename
         self.statetest = statetest
         self.canon_traces = []
         self.procs = []
         self.traceFiles = []
         self.additionalArtefacts = []
 
+    def filename(self):
+        return self._filename
+
     def id(self):
         return self.identifier
 
+
     def fullfilename(self):
         return os.path.abspath("%s/%s" % (cfg.testfilesPath(),self.filename()))
-
-    def filename(self):
-        return "%s-test.json" % self.identifier
-
 
     def writeToFile(self):
         # write to unique tmpfile
@@ -145,8 +134,11 @@ class StateTest():
             logger.debug("Removing trace file %s" % f)
             os.remove(f)
 
+    def tempTraceFilename(self, client):
+        return "%s-%s.trace.log" % (self.identifier, client)
+
     def tempTraceLocation(self, client):
-        return os.path.abspath("%s/%s-%s.trace.log" % (cfg.logfilesPath(),self.identifier, client))
+        return os.path.abspath("%s/%s" % (cfg.logfilesPath(),self.tempTraceFilename(client)))
 
     def storeTrace(self, client, output, command):
         filename = self.tempTraceLocation(client)
@@ -189,6 +181,34 @@ class StateTest():
             "traces": [os.path.basename(f) for f in self.traceFiles],
             "other" : [os.path.basename(f) for f in self.additionalArtefacts], 
         }
+
+class StateTest(RawStateTest):
+    """ This class represents a single statetest, with a single post-tx result: one transaction
+    executed on one single fork
+    """
+
+    def __init__(self, statetest, counter, overwriteFork=True):
+        self.number = None
+        identifier = "%s-%d" %(cfg.host_id, counter)
+        filename =  "%s-test.json" % identifier
+        super().__init__(statetest, identifier, filename)
+
+
+        if overwriteFork and "Byzantium" in statetest['randomStatetest']['post'].keys():
+            # Replace the fork with what we are currently configured for
+            postState = statetest['randomStatetest']['post'].pop('Byzantium')
+            statetest['randomStatetest']['post'][cfg.fork_config] = postState 
+
+
+        # Replace the top level name 'randomStatetest' with something meaningful (same as filename)        
+        statetest['randomStatetest%s' % self.identifier] =statetest.pop('randomStatetest', None) 
+
+        self.statetest = statetest
+        self.canon_traces = []
+        self.procs = []
+        self.traceFiles = []
+        self.additionalArtefacts = []
+
 
 def generateTests():
     """This method produces json-files, each containing one statetest, with _one_ poststate. 
@@ -237,13 +257,11 @@ def startDaemon(clientname, imagename):
         name=clientname,
         detach=True, 
         remove=True,
-        volumes={cfg.testfilesPath():{ 'bind':'/testfiles/', 'mode':"rw"}})
+        volumes={
+            cfg.testfilesPath():{ 'bind':'/testfiles/', 'mode':"rw"},
+            cfg.logfilesPath():{ 'bind':'/logs/', 'mode':"rw"},
+            })
 
-        ##    cmd = ["docker", "run", "--rm", "-t",
-        ##          "--name", clientname, 
-        ##         "-v", "/tmp/testfiles/:/testfiles/", 
-        ##       "--entrypoint","sleep", imagename, "356d"]
-        ##  return {'proc':VMUtils.startProc(cmd ), 'cmd': " ".join(cmd), 'output' : 'stdout'}
     logger.info("Started docker daemon %s %s" % (imagename, clientname))
 
 def killDaemon(clientname):
@@ -298,7 +316,6 @@ def execInDocker(name, cmd, stdout = True, stderr=True):
     #logger.info("executing in %s: %s" %  (name," ".join(cmd)))
     container = dockerclient.containers.get(name)
     (exitcode, output) = container.exec_run(cmd, stream=stream,stdout=stdout, stderr = stderr)     
-    logger.info("Executing %s took in %f seconds" % (name, time.time() - start_time))
     
 
     # If stream is False, then docker soups up the output, and we just decode it once
@@ -316,6 +333,9 @@ def execInDocker(name, cmd, stdout = True, stderr=True):
          'cmd':" ".join(cmd)
          }
 
+def shWrap(cmd, output):
+    """ Wraps a command in /bin/sh, with output to the given file"""
+    return ["/bin/sh","-c"," ".join(cmd) + " &> /logs/%s" % output]
 
 
 def startGeth(test):
@@ -328,12 +348,14 @@ def startGeth(test):
 
     """
     cmd = ["evm","--json","--nomemory","statetest","/testfiles/%s" % os.path.basename(test.filename())]
+    cmd = shWrap(cmd, test.tempTraceFilename('geth'))
     return execInDocker("geth", cmd, stdout = False)
-    
+
 
 def startParity(test):
-#    cmd = ["/parity-evm","state-test", "--std-json","/testfiles/%s" % os.path.basename(test.filename())]
-    cmd = ["/bin/sh","-c","/parity-evm state-test --std-json /testfiles/%s 1>&2" % os.path.basename(test.filename())]
+    cmd = ["/parity-evm","state-test", "--std-json","/testfiles/%s" % os.path.basename(test.filename())]
+    #cmd = ["/bin/sh","-c","/parity-evm state-test --std-json /testfiles/%s 1>&2" % os.path.basename(test.filename())]
+    cmd = shWrap(cmd,test.tempTraceFilename('parity'))
     return execInDocker("parity", cmd)
 
 def startHera(test):
@@ -393,18 +415,25 @@ def end_processes(test):
     canon_steps = None
     canon_trace = []
     for (proc_info, client_name) in test.procs:
-        logger.info("Proc '%s'" % client_name)
+        t0 = time.time()
         full_trace = proc_info["output"]()
-        test.storeTrace(client_name, full_trace,proc_info['cmd'])
+        t1 = time.time()
+        #logger.info("Wait for %s took in %.02f milliseconds" % (client_name, 1000 * (t1 - t0)))
+        #test.storeTrace(client_name, full_trace,proc_info['cmd'])
         canonicalizer = canonicalizers[client_name]
-        canon_steps = canonicalizer(full_trace.split("\n"))
-        canon_trace = [VMUtils.toText(step) for step in canon_steps]
+        canon_steps = []
+        with open(test.tempTraceLocation(client_name)) as output:
+            canon_step_generator = canonicalizer(output)
+            canon_trace = [VMUtils.toText(step) for step in canon_step_generator]
         test.canon_traces.append(canon_trace)
         tracelen = len(canon_trace)
-        logger.info("Processed %s steps for %s on test %s" % (tracelen, client_name, test.identifier))
-    
+        t2 = time.time()
+        logger.info("Processed %s steps for %s on test %s, wtime: %.02f ms, pTime:%.02f ms" 
+            % (tracelen, client_name, test.identifier, 1000 * (t1 - t0), 1000 * (t2 - t1)))
+
+
     stats = VMUtils.traceStats(canon_steps)
-    print(stats)
+    #print(stats)
     #print(canon_steps)
     #print("\n".join(canon_trace))
     return (tracelen, stats)
@@ -482,7 +511,7 @@ class TestExecutor():
         for test in generateTests():
             n = n+1
             #Prepare the current test
-            logger.info("Test id: %s" % test.id())
+            #logger.info("Test id: %s" % test.id())
             test.writeToFile()
 
             # Start new procs
