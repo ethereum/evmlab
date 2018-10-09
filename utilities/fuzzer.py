@@ -95,37 +95,26 @@ class Config():
 
 cfg =Config('statetests.ini')
 
-class StateTest():
-    """ This class represents a single statetest, with a single post-tx result: one transaction
-    executed on one single fork
-    """
-    def __init__(self, statetest, counter, overwriteFork=True):
-        self.number = None
-        self.identifier = "%s-%d" %(cfg.host_id, counter)
+class RawStateTest():
 
-        if overwriteFork and "Byzantium" in statetest['randomStatetest']['post'].keys():
-            # Replace the fork with what we are currently configured for
-            postState = statetest['randomStatetest']['post'].pop('Byzantium')
-            statetest['randomStatetest']['post'][cfg.fork_config] = postState 
-
-
-        # Replace the top level name 'randomStatetest' with something meaningful (same as filename)        
-        statetest['randomStatetest%s' % self.identifier] =statetest.pop('randomStatetest', None) 
+    def __init__(self, statetest, identifier, filename):
+        self.identifier = identifier
+        self._filename = filename
         self.statetest = statetest
         self.canon_traces = []
         self.procs = []
         self.traceFiles = []
         self.additionalArtefacts = []
 
+    def filename(self):
+        return self._filename
+
     def id(self):
         return self.identifier
 
+
     def fullfilename(self):
         return os.path.abspath("%s/%s" % (cfg.testfilesPath(),self.filename()))
-
-    def filename(self):
-        return "%s-test.json" % self.identifier
-
 
     def writeToFile(self):
         # write to unique tmpfile
@@ -189,6 +178,34 @@ class StateTest():
             "traces": [os.path.basename(f) for f in self.traceFiles],
             "other" : [os.path.basename(f) for f in self.additionalArtefacts], 
         }
+
+class StateTest(RawStateTest):
+    """ This class represents a single statetest, with a single post-tx result: one transaction
+    executed on one single fork
+    """
+
+    def __init__(self, statetest, counter, overwriteFork=True):
+        self.number = None
+        identifier = "%s-%d" %(cfg.host_id, counter)
+        filename =  "%s-test.json" % identifier
+        super().__init__(statetest, identifier, filename)
+
+
+        if overwriteFork and "Byzantium" in statetest['randomStatetest']['post'].keys():
+            # Replace the fork with what we are currently configured for
+            postState = statetest['randomStatetest']['post'].pop('Byzantium')
+            statetest['randomStatetest']['post'][cfg.fork_config] = postState 
+
+
+        # Replace the top level name 'randomStatetest' with something meaningful (same as filename)        
+        statetest['randomStatetest%s' % self.identifier] =statetest.pop('randomStatetest', None) 
+
+        self.statetest = statetest
+        self.canon_traces = []
+        self.procs = []
+        self.traceFiles = []
+        self.additionalArtefacts = []
+
 
 def generateTests():
     """This method produces json-files, each containing one statetest, with _one_ poststate. 
