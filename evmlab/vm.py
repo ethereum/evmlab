@@ -79,26 +79,13 @@ def toText(op):
             fmt = fmt + " err: OOG"
         return fmt.format(**op)
     return "N/A"
-""" Not used (??)
-def getIntrinsicGas(data):
-    import ethereum.transactions as transactions
-    tx = transactions.Transaction(
-        nonce=0,
-        gasprice=0,
-        startgas=0,
-        to=b"",
-        value=0,
-        data=decode_hex(remove_0x_head(data)))
-    
-    return tx.intrinsic_gas_used
-"""
+
 def compare_traces(clients_canon_traces, names):
 
     """ Compare 'canonical' traces from the clients"""
 
     full_output = []
     log = lambda x: full_output.append(x)
-
 
     canon_traces = list(itertools.zip_longest(*clients_canon_traces))
 
@@ -403,70 +390,66 @@ class GethVM(VM):
     def canonicalized(output):
         from . import opcodes
         addendum = []
-        parsed_steps = []
+        counter = 0
         for line in output:
-            if len(line) > 0 and line[0] == "{":
+            if len(line) == 0:
+                continue
+            step = None
+            if line[0] == "{":
                 try:
-                    parsed_steps.append(json.loads(line))
+                    step = json.loads(line)
                 except Exception as e:
                     logger.warn('Exception [1] parsing geth output:')
                     traceback.print_exc(file=sys.stdout)
                     logger.warn(e)
-                    # Temporary workaround for https://github.com/paritytech/parity-ethereum/issues/9456 
-                    parsed_steps.append({'error' : 'Parity invalid json error'})
-
-        canon_steps = []
-        if len(parsed_steps) == 0:
-            return canon_steps
+                    #step = ({'error' : 'Geth invalid json error'})
+            if step is None:
+                continue
             
-        try:
-            if 'output' in parsed_steps[-1]:
+            if 'stateRoot' in step.keys() :
+                # don't log stateRoot when tx doesnt execute, to match cpp and parity
+                # should be last step
+                if INCLUDE_STATEROOT:
+                    addendum.append(step)
+                continue
+
+            # Ignored for now
+            if 'error' in step.keys() and 'output' in step.keys():
+                continue
+            if 'time' in step.keys():
                 # last one is {"output":"","gasUsed":"0x34a48","time":4787059}
                 # Remove    
-                parsed_steps = parsed_steps[:-1]
+                continue
 
-            for step in parsed_steps:
-                if 'stateRoot' in step.keys() :
-                    # don't log stateRoot when tx doesnt execute, to match cpp and parity
-                    # should be last step
-                    if INCLUDE_STATEROOT:
-                        addendum.append(step)
-                    continue
-                # Ignored for now
-                if 'error' in step.keys() and 'output' in step.keys():
-                    continue
-                if 'time' in step.keys():
-                    continue
+            if not 'op' in step.keys():
+                logger.warn("Missing 'op': %s" % str(step))
+                continue
 
-                if not 'op' in step.keys():
-                    logger.warn("Missing 'op': %s" % str(step))
-                    continue
+            if step['op'] == 0:
+                # skip STOPs
+                continue
+            if step['opName'] == "" or step['op'] not in opcodes.opcodes:
+                # invalid opcode
+                continue
+            trace_step = {
+                'pc'  : step['pc'],
+                'gas': step['gas'],
+                'op': step['op'],
+                # we want a 0-based depth
+                'depth' : step['depth'] -1,
+                'stack' : step['stack'],
+            }
+            yield trace_step
+            counter = counter +1
 
-                if step['op'] == 0:
-                    # skip STOPs
-                    continue
-                if step['opName'] == "" or step['op'] not in opcodes.opcodes:
-                    # invalid opcode
-                    continue
-                trace_step = {
-                    'pc'  : step['pc'],
-                    'gas': step['gas'],
-                    'op': step['op'],
-                    # we want a 0-based depth
-                    'depth' : step['depth'] -1,
-                    'stack' : step['stack'],
-                }
-                canon_steps.append(trace_step)
-        except Exception as e:
-            logger.warn('Exception [2] parsing geth output:')
-            traceback.print_exc(file=sys.stdout)
-            logger.warn(e)
 
         # Stateroot is no in the 'addendum'. However, if there was no execution, then parity won't display the poststate root, 
         # so we only include it here if there was any actual opcodes processed. 
-        if len(canon_steps):
-            return canon_steps+addendum
-        return []
+        if counter > 0:
+            for step in addendum:
+                yield step
+#            return canon_steps+addendum
+#        return []
 
 
 class ParityVM(VM):
@@ -544,83 +527,74 @@ class ParityVM(VM):
     @staticmethod
     def canonicalized(output):
         from . import opcodes
-        parsed_steps = []
+        canon_steps = []
         addendum = []
-
-
-        outputiterator = iter(output)
-        for line in outputiterator:
+        counter = 0
+        #outputiterator = iter(output)
+        for line in output:
             if len(line) == 0:
                 continue
+            p_step = None
             if line[0] == "{":
-                # Sometimes, the output from stderr and stdout are intermingled, with an error occurring in the middle of the text. We try
-                # to handle that. 
-                m = ParityVM.intermingled_err.search(line)
-                if m:
-                    errormsg = m.group(1)
-                    line = line.replace(errormsg, "")
-                    line = line + outputiterator.__next__()
-                    parsed_steps.append(json.loads(errormsg))
-
                 try:
-                    parsed_steps.append(json.loads(line))
+                    p_step = json.loads(line)
                 except Exception as e:
                     logger.warn('Exception [1] parsing parity output:')
                     logger.warn(e)
                     logger.warn(line)
+            if p_step is None:
+                continue
 
-        canon_steps = []
-        try:
-            for p_step in parsed_steps:
-                if 'test' in p_step.keys():
-                    # first step of trace has test name
-                    continue
+            if 'test' in p_step.keys():
+                # first step of trace has test name
+                continue
 
-                if 'stateRoot' in p_step.keys():
-                    # dont log the stateRoot for basic tx's (that have no EVM steps)
-                    # should be last step
-                    if len(canon_steps) and INCLUDE_STATEROOT:
-                        addendum.append(step)
-                    continue
+            if 'stateRoot' in p_step.keys():
+                # dont log the stateRoot for basic tx's (that have no EVM steps)
+                # should be last step
+                if len(canon_steps) and INCLUDE_STATEROOT:
+                    addendum.append(step)
+                continue
 
-                # Ignored for now
-                if 'error' in p_step.keys() or 'output' in p_step.keys():
-                    # Except if the error is due to missing stateroot:
-                    # If a statetest is used which does not have a proper postsatate, then Parity will 
-                    # output an error, and we can parse the actual stateroot from it. 
-                    if 'error' in p_step.keys() and INCLUDE_STATEROOT:
-                        matcher = ParityVM.staterooterr.search(p_step['error'])
-                        if matcher :
-                            addendum.append({'stateRoot' : matcher.group('stateroot')})
+            # Ignored for now
+            if 'error' in p_step.keys() or 'output' in p_step.keys():
+                # Except if the error is due to missing stateroot:
+                # If a statetest is used which does not have a proper postsatate, then Parity will 
+                # output an error, and we can parse the actual stateroot from it. 
+                if 'error' in p_step.keys() and INCLUDE_STATEROOT:
+                    matcher = ParityVM.staterooterr.search(p_step['error'])
+                    if matcher :
+                        addendum.append({'stateRoot' : matcher.group('stateroot')})
 
-                    continue
+                continue
 
-                if not 'op' in p_step.keys():
-                    logger.warn("Missing 'op': %s" % str(p_step))
-                    continue
-                    
-                if p_step['op'] == 0:
-                    # skip STOPs
-                    continue
-                if p_step['opName'] == "" or p_step['op'] not in opcodes.opcodes:
-                    # invalid opcode
-                    continue
-                trace_step = {
-                    'pc'  : p_step['pc'],
-                    'gas': p_step['gas'],
-                    'op': p_step['op'],
-                    # parity depth starts at 1, but we want a 0-based depth
-                    'depth' : p_step['depth'] -1,
-                    'stack' : p_step['stack'],
-                }
-                canon_steps.append(trace_step)
-        except Exception as e:
-            logger.warn('Exception [2] parsing parity output:')
-            logger.warn(e)
+            if not 'op' in p_step.keys():
+                logger.warn("Missing 'op': %s" % str(p_step))
+                continue
+                
+            if p_step['op'] == 0:
+                # skip STOPs
+                continue
+            if p_step['opName'] == "" or p_step['op'] not in opcodes.opcodes:
+                # invalid opcode
+                continue
+            trace_step = {
+                'pc'  : p_step['pc'],
+                'gas': p_step['gas'],
+                'op': p_step['op'],
+                # parity depth starts at 1, but we want a 0-based depth
+                'depth' : p_step['depth'] -1,
+                'stack' : p_step['stack'],
+            }
+            yield trace_step
+            counter = counter +1
+
 
         # Stateroot is no in the 'addendum'. However, if there was no execution, then parity won't display the poststate root, 
         # so we only include it here if there was any actual opcodes processed. 
-        if len(canon_steps):
-            return canon_steps+addendum
+
+        if counter > 0:
+            for step in addendum:
+                yield step
 
         return []
