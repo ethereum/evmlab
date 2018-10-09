@@ -40,6 +40,7 @@ EXTCODESIZE   = 0x3b # Pops: 1, Pushes: 1, Gas: 20],
 EXTCODECOPY   = 0x3c # Pops: 4, Pushes: 0, Gas: 20],
 RETURNDATASIZE= 0x3D
 RETURNDATACOPY= 0x3E
+EXTCODEHASH   = 0x3F
 BLOCKHASH     = 0x40 # Pops: 1, Pushes: 1, Gas: 20],
 
 COINBASE      = 0x41 # Pops: 0, Pushes: 1, Gas: 2],

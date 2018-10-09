@@ -47,12 +47,11 @@ class Stats():
             if self.stopped:
                 yield step
                 continue
-                
+
             if "depth" in step.keys() and int(step['depth']) > self.maxdepth:
                 self.maxdepth = int(step['depth'])
-            if "opname" in step:
-                op = step["opname"]
-                if op in ["SHR", "SAR", "SHL", "EXTCODEHASH","CREATE2"]:
+            if "op" in step:
+                if step["op"] in [0x1b, 0x1c, 0x1d, 0x3F,0xF5]:
                     self.numConstantinople = self.numConstantinople + 1
             yield step
 
