@@ -142,12 +142,12 @@ class RawStateTest():
 
     def storeTrace(self, client, output, command):
         filename = self.tempTraceLocation(client)
-        logging.debug("Writing %s full trace to %s" % (self.id(), filename ))
-        with open(filename, "w+") as f: 
-            f.write("# command\n")
-            f.write("# %s\n\n" % command)
-            f.write(output)
-
+        logging.debug("%s full trace %s saved to %s" % (client, self.id(), filename ))
+#        with open(filename, "w+") as f: 
+#            f.write("# command\n")
+#            f.write("# %s\n\n" % command)
+#            f.write(output)
+#
         self.traceFiles.append(filename)
 
     def saveArtefacts(self):
@@ -414,17 +414,21 @@ def end_processes(test):
     tracelen = 0
     canon_steps = None
     canon_trace = []
+    first = True
+    stats = VMUtils.Stats()
     for (proc_info, client_name) in test.procs:
         t0 = time.time()
         full_trace = proc_info["output"]()
         t1 = time.time()
         #logger.info("Wait for %s took in %.02f milliseconds" % (client_name, 1000 * (t1 - t0)))
-        #test.storeTrace(client_name, full_trace,proc_info['cmd'])
+        test.storeTrace(client_name, full_trace,proc_info['cmd'])
         canonicalizer = canonicalizers[client_name]
         canon_steps = []
         with open(test.tempTraceLocation(client_name)) as output:
             canon_step_generator = canonicalizer(output)
-            canon_trace = [VMUtils.toText(step) for step in canon_step_generator]
+            stat_generator = stats.traceStats(canon_step_generator)
+            canon_trace = [VMUtils.toText(step) for step in stat_generator]
+        stats.stop()
         test.canon_traces.append(canon_trace)
         tracelen = len(canon_trace)
         t2 = time.time()
@@ -432,11 +436,10 @@ def end_processes(test):
             % (tracelen, client_name, test.identifier, 1000 * (t1 - t0), 1000 * (t2 - t1)))
 
 
-    stats = VMUtils.traceStats(canon_steps)
     #print(stats)
     #print(canon_steps)
     #print("\n".join(canon_trace))
-    return (tracelen, stats)
+    return (tracelen, stats.result())
 
 def processTraces(test, forceSave=False):
     if test is None:
@@ -475,7 +478,6 @@ class TestExecutor():
 
     def postprocess_test(self, test, reporting=False):
         # End previous procs
-        print("posprocessing")
         if test is None:
             return
         data = end_processes(test)
@@ -510,7 +512,7 @@ class TestExecutor():
         self.start_time = time.time()
         n = 0
         running_tests = []
-        MAX_PARALELL = 5
+        MAX_PARALELL = 10
         for test in generateTests():
             n = n+1
             #Prepare the current test
@@ -522,7 +524,7 @@ class TestExecutor():
             running_tests.insert(0, test)
             
             if len(running_tests) >= MAX_PARALELL:
-                self.postprocess_test(running_tests.pop(), n % 10)
+                self.postprocess_test(running_tests.pop(), n % 10 == 0)
     
             #input("Press Enter to continue...")
 
