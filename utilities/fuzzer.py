@@ -473,55 +473,61 @@ class TestExecutor():
         self.traceConstantinopleOps = collections.deque([], 100)
         self.start_time = time.time()
 
+    def postprocess_test(self, test, reporting=False):
+        # End previous procs
+        print("posprocessing")
+        if test is None:
+            return
+        data = end_processes(test)
+        if data is not None:
+            (traceLength, stats) = data
+            self.traceLengths.append(traceLength)
+            self.traceDepths.append(stats['maxDepth'])
+            self.traceConstantinopleOps.append(stats['constatinopleOps'])
+
+        # Process previous traces
+        failingTestcase = processTraces(test, forceSave = False)
+        if failingTestcase is None:
+            self.pass_count = self.pass_count +1
+        else:
+            self.fail_count = self.fail_count +1
+            self.failures.append(failingTestcase.listArtefacts())
+
+        if reporting:
+        # Do some reporting
+            time_elapsed = time.time() - self.start_time
+            logger.info("Fails: {}, Pass: {}, #test {} speed: {:f} tests/s".format(
+                    self.fail_count, 
+                    self.pass_count, 
+                    (self.fail_count + self.pass_count),
+                    (self.fail_count + self.pass_count) / time_elapsed
+                ))
+
+
 
     def startFuzzing(self):   
         previous_test = None
         self.start_time = time.time()
         n = 0
-
-        def __end_previous_test():
-            nonlocal n
-
-            # End previous procs
-            data = end_processes(previous_test)
-            if data is not None:
-                (traceLength, stats) = data
-                self.traceLengths.append(traceLength)
-                self.traceDepths.append(stats['maxDepth'])
-                self.traceConstantinopleOps.append(stats['constatinopleOps'])
-
-            # Process previous traces
-            failingTestcase = processTraces(previous_test, forceSave = False)
-            if failingTestcase is None:
-                self.pass_count = self.pass_count +1
-            else:
-                self.fail_count = self.fail_count +1
-                self.failures.append(failingTestcase.listArtefacts())
- 
-            # Do some reporting
-            if n % 10 == 0:
-                time_elapsed = time.time() - self.start_time
-                logger.info("Fails: {}, Pass: {}, #test {} speed: {:f} tests/s".format(
-                        self.fail_count, 
-                        self.pass_count, 
-                        (self.fail_count + self.pass_count),
-                        (self.fail_count + self.pass_count) / time_elapsed
-                    ))
-
+        running_tests = []
+        MAX_PARALELL = 5
         for test in generateTests():
             n = n+1
             #Prepare the current test
             #logger.info("Test id: %s" % test.id())
             test.writeToFile()
-
             # Start new procs
             start_processes(test)
-
-            __end_previous_test()
+            # Put the new test to the first position
+            running_tests.insert(0, test)
+            
+            if len(running_tests) >= MAX_PARALELL:
+                self.postprocess_test(running_tests.pop(), n % 10)
+    
             #input("Press Enter to continue...")
-            previous_test = test
 
-        __end_previous_test()
+        while len(running_tests) > 0:
+            self.postprocess_test(running_tests.pop(), len(running_tests) == 0)
         
         return (n, len(self.fail_count), pass_count, self.failures)
 
