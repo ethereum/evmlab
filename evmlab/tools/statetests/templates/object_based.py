@@ -14,17 +14,24 @@ TEMPLATE_RandomStateTest = {
         "_fuzz": {
             "compressed_random_state": rndval.RandomSeed(),
         },
+        "_info": {
+            "comment": "This test was generated from Evmlab",
+            "filledwith": "evmlab",
+            "lllcversion": "not available",
+            "source": "not available",
+            "sourceHash": "not available"
+        },
         "env": {
             "currentCoinbase": rndval.RndAddress(),
             "currentDifficulty": "0x20000",
-            "currentGasLimit": rndval.RndBlockGasLimit(),
+            "currentGasLimit": "0x1312D00", # Set to 20M for now
             "currentNumber": "1",
             "currentTimestamp": "1000",
             "previousHash": rndval.RndHash32()
         },
         "post": {"Byzantium" : [{ # dummy to make statetests happy
             "hash" : "0x00000000000000000000000000000000000000000000000000000000deadc0de",
-            "logs" : "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+            "logs" : "0x00000000000000000000000000000000000000000000000000000000deadbeef",
             "indexes" : {"data":0, "gas": 0, "value":0}
             }]
             },  
@@ -78,7 +85,7 @@ TEMPLATE_RandomStateTest = {
             "gasPrice": rndval.RndGasPrice(),
             "nonce": rnd_nonce,
             "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-            "to": rndval.RndDestAddress(),
+            "to": rndval.RndDestAddressOrZero(),
             "value": [rnd_send_value]
         }
     }
@@ -96,7 +103,7 @@ OLD_TEMPLATE_RandomStateTest = {
             "source": "src/GeneralStateTestsFiller/stRandom2/randomStatetest386Filler.json",
             "sourceHash": "c9d4a1fbb5f614cb885897bc4714a4a553e13fa28ef952d975378780b591072c"
         },
-        "env": {
+        "env": { 
             "currentCoinbase": rndval.RndAddress(),
             "currentDifficulty": "0x20000",
             "currentGasLimit": rndval.RndBlockGasLimit(),

@@ -4,7 +4,95 @@ from .code import _RndCodeBase
 from .address import RndAddress, RndDestAddress, RndAddressType
 
 import ethereum_dasm.asm.registry as asm_registry
+opcodes = {
+    0x00: ['STOP', 0, 0, 0],
+    0x01: ['ADD', 2, 1, 3],
+    0x02: ['MUL', 2, 1, 5],
+    0x03: ['SUB', 2, 1, 3],
+    0x04: ['DIV', 2, 1, 5],
+    0x05: ['SDIV', 2, 1, 5],
+    0x06: ['MOD', 2, 1, 5],
+    0x07: ['SMOD', 2, 1, 5],
+    0x08: ['ADDMOD', 3, 1, 8],
+    0x09: ['MULMOD', 3, 1, 8],
+    0x0a: ['EXP', 2, 1, 10],
+    0x0b: ['SIGNEXTEND', 2, 1, 5],
+    0x10: ['LT', 2, 1, 3],
+    0x11: ['GT', 2, 1, 3],
+    0x12: ['SLT', 2, 1, 3],
+    0x13: ['SGT', 2, 1, 3],
+    0x14: ['EQ', 2, 1, 3],
+    0x15: ['ISZERO', 1, 1, 3],
+    0x16: ['AND', 2, 1, 3],
+    0x17: ['OR', 2, 1, 3],
+    0x18: ['XOR', 2, 1, 3],
+    0x19: ['NOT', 1, 1, 3],
+    0x1a: ['BYTE', 2, 1, 3],
+    0x1b: ['SHL', 2, 1, 3],
+    0x1c: ['SHR', 2, 1, 3],
+    0x1d: ['SAR', 2, 1, 3],
+    0x20: ['SHA3', 2, 1, 30],
+    0x30: ['ADDRESS', 0, 1, 2],
+    0x31: ['BALANCE', 1, 1, 20],
+    0x32: ['ORIGIN', 0, 1, 2],
+    0x33: ['CALLER', 0, 1, 2],
+    0x34: ['CALLVALUE', 0, 1, 2],
+    0x35: ['CALLDATALOAD', 1, 1, 3],
+    0x36: ['CALLDATASIZE', 0, 1, 2],
+    0x37: ['CALLDATACOPY', 3, 0, 3],
+    0x38: ['CODESIZE', 0, 1, 2],
+    0x39: ['CODECOPY', 3, 0, 3],
+    0x3a: ['GASPRICE', 0, 1, 2],
+    0x3b: ['EXTCODESIZE', 1, 1, 20],
+    0x3c: ['EXTCODECOPY', 4, 0, 20],
+    0x3d: ['RETURNDATASIZE', 0, 1, 2],
+    0x3e: ['RETURNDATACOPY', 3, 0, 3],
+    0x3f: ['EXTCODEHASH', 1, 1, 400],
+    0x40: ['BLOCKHASH', 1, 1, 20],
+    0x41: ['COINBASE', 0, 1, 2],
+    0x42: ['TIMESTAMP', 0, 1, 2],
+    0x43: ['NUMBER', 0, 1, 2],
+    0x44: ['DIFFICULTY', 0, 1, 2],
+    0x45: ['GASLIMIT', 0, 1, 2],
+    0x50: ['POP', 1, 0, 2],
+    0x51: ['MLOAD', 1, 1, 3],
+    0x52: ['MSTORE', 2, 0, 3],
+    0x53: ['MSTORE8', 2, 0, 3],
+    0x54: ['SLOAD', 1, 1, 50],
+    0x55: ['SSTORE', 2, 0, 0],
+    0x56: ['JUMP', 1, 0, 8],
+    0x57: ['JUMPI', 2, 0, 10],
+    0x58: ['PC', 0, 1, 2],
+    0x59: ['MSIZE', 0, 1, 2],
+    0x5a: ['GAS', 0, 1, 2],
+    0x5b: ['JUMPDEST', 0, 0, 1],
+    0xa0: ['LOG0', 2, 0, 375],
+    0xa1: ['LOG1', 3, 0, 750],
+    0xa2: ['LOG2', 4, 0, 1125],
+    0xa3: ['LOG3', 5, 0, 1500],
+    0xa4: ['LOG4', 6, 0, 1875],
+    0xf0: ['CREATE', 3, 1, 32000],
+    0xf1: ['CALL', 7, 1, 40],
+    0xf2: ['CALLCODE', 7, 1, 40],
+    0xf3: ['RETURN', 2, 0, 0],
+    0xf4: ['DELEGATECALL', 6, 0, 40],
+    0xf5: ['CREATE2', 4, 1, 32000],
+    0xfa: ['STATICCALL', 6, 1, 40],
+    0xfd: ['REVERT', 2, 0, 0],
+    0xff: ['SUICIDE', 1, 0, 0],
+}
+valid_opcodes = list(opcodes.keys())
+const_opcodes = [0x1b, #: ['SHL', 2, 1, 3],
+                    0x1c, #: ['SHR', 2, 1, 3],
+                    0x1d, #: ['SAR', 2, 1, 3],
+                    0xf5, #: ['CREATE2', 4, 1, 32000],
+                    0x3f] #: ['EXTCODEHASH', 1, 1, 400],
 
+constantinople_skewed_set = valid_opcodes + const_opcodes + const_opcodes  + const_opcodes 
+
+from evmlab import decode_hex
+def as_bytes(s):
+    return decode_hex(s)
 
 class RndCodeInstr(_RndCodeBase):
     """
@@ -20,46 +108,50 @@ class RndCodeInstr(_RndCodeBase):
     MIN_CONTRACT_SIZE = 4
     MAX_CONTRACT_SIZE = 8816
 
+
     def random_code_byte_sequence(self, length=None):
         # todo: add gauss histogramm random.randgauss(min,max,avg) - triangle is not really correct here
         length = length or int(random.triangular(self.MIN_CONTRACT_SIZE, 2 * self.AVERAGE_CONTRACT_SIZE + self.MIN_CONTRACT_SIZE))  # use gauss
 
-        rnd_prolog = WeightedRandomizer(self.LIKELYHOOD_PROLOG_BY_OPCODE_INT)
-        rnd_epilog = WeightedRandomizer(self.LIKELYHOOD_EPILOG_BY_OPCODE_INT)  # not completely true as this incorps. pro/epilog
-        rnd_corpus = WeightedRandomizer(self.LIKELYHOOD_BY_OPCODE_INT)
-
+#        rnd_prolog = WeightedRandomizer(self.LIKELYHOOD_PROLOG_BY_OPCODE_INT)
+#        rnd_epilog = WeightedRandomizer(self.LIKELYHOOD_EPILOG_BY_OPCODE_INT)  # not completely true as this incorps. pro/epilog
+#        rnd_corpus = WeightedRandomizer(self.LIKELYHOOD_BY_OPCODE_INT)
+#       
         b = []
-        for _ in range(128):
-            b.append(rnd_prolog.random())
-            #  hack ahead -
-            if self.FLAG_FOCUS_CONSTANTINOPLE in self.flags:
-                # 10% chance of inserting a constantinople instr
-                if self.randomPercent() < 5:
-                    b.append(random.choice([asm_registry.INSTRUCTIONS_BY_NAME["CREATE2"].opcode,
-                                           asm_registry.INSTRUCTIONS_BY_NAME["EXTCODEHASH"].opcode]))
+        for _ in range(length):
+#            b.append(valid_opcodes[random.randint(0,len(valid_opcodes)-1)])
+            b.append(random.choice(constantinople_skewed_set))
 
-        for _ in range(length - 128 * 2):
-            b.append(rnd_corpus.random())
-            if self.FLAG_FOCUS_CONSTANTINOPLE in self.flags:
-                # 10% chance of inserting a constantinople instr
-                if self.randomPercent() < 5:
-                    b.append(random.choice([asm_registry.INSTRUCTIONS_BY_NAME["CREATE2"].opcode,
-                                           asm_registry.INSTRUCTIONS_BY_NAME["EXTCODEHASH"].opcode]))
-
-        for _ in range(128):
-            b.append(rnd_epilog.random())
-            if self.FLAG_FOCUS_CONSTANTINOPLE in self.flags:
-                # 10% chance of inserting a constantinople instr
-                if self.randomPercent() < 5:
-                    b.append(random.choice([asm_registry.INSTRUCTIONS_BY_NAME["CREATE2"].opcode,
-                                           asm_registry.INSTRUCTIONS_BY_NAME["EXTCODEHASH"].opcode]))
-
+#        for _ in range(128):
+#            b.append(rnd_prolog.random())
+#            #  hack ahead -
+#            if self.FLAG_FOCUS_CONSTANTINOPLE in self.flags:
+#                # 10% chance of inserting a constantinople instr
+#                if self.randomPercent() < 5:
+#                    b.append(random.choice([asm_registry.INSTRUCTIONS_BY_NAME["CREATE2"].opcode,
+#                                           asm_registry.INSTRUCTIONS_BY_NAME["EXTCODEHASH"].opcode]))
+#
+#        for _ in range(length - 128 * 2):
+#            b.append(rnd_corpus.random())
+#            if self.FLAG_FOCUS_CONSTANTINOPLE in self.flags:
+#                # 10% chance of inserting a constantinople instr
+#                if self.randomPercent() < 5:
+#                    b.append(random.choice([asm_registry.INSTRUCTIONS_BY_NAME["CREATE2"].opcode,
+#                                           asm_registry.INSTRUCTIONS_BY_NAME["EXTCODEHASH"].opcode]))
+#
+#        for _ in range(128):
+#            b.append(rnd_epilog.random())
+#            if self.FLAG_FOCUS_CONSTANTINOPLE in self.flags:
+#                # 10% chance of inserting a constantinople instr
+#                if self.randomPercent() < 5:
+#                    b.append(random.choice([asm_registry.INSTRUCTIONS_BY_NAME["CREATE2"].opcode,
+#                                           asm_registry.INSTRUCTIONS_BY_NAME["EXTCODEHASH"].opcode]))
+#
         return bytes(b)
 
     def _fill_arguments(self, instructions):
         probabilities = {'smartCodeProbability': 99}
         #https://github.com/ethereum/testeth/blob/7cbbb6fed4941420fbae738828fa1339c990e3d3/test/tools/fuzzTesting/fuzzHelper.cpp#L391
-
         def create_push_for_data(data):
             # expect bytes but silently convert int2bytes
             if isinstance(data, int):
@@ -85,9 +177,24 @@ class RndCodeInstr(_RndCodeBase):
                     for _ in range(times):
                         yield asm_registry.create_instruction("PUSH%s"%self.randomUniInt(1,32)).randomize_operand()
                     args_filled = True
+                elif instr.name.startswith("LOG"):
+                    # There can be any number of topics, 
+                    # followed by memstart and memsize, which must be reasonable
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # msize
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # mstart
+                    args_filled = True
+                elif instr.name=="MLOAD":
+                    yield create_push_for_data(self.randomSmallMemoryLength())
+                    args_filled = True
                 elif instr.name=="MSTORE":
                     yield create_push_for_data(self.randomByteSequence(self.randomLength32()))
                     yield create_push_for_data(self.randomSmallMemoryLength())
+                    args_filled = True
+                elif instr.name=="MSTORE8":
+                    #yield create_push_for_data(self.randomByteSequence(self.randomLength32())) # value
+                    # We skip pushing the value, and use whatever is already on the stack
+                    # Only set a reasonable offset
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # offset
                     args_filled = True
                 elif instr.name=="RETURNDATACOPY":
                     yield create_push_for_data(self.randomSmallMemoryLength())
@@ -95,32 +202,37 @@ class RndCodeInstr(_RndCodeBase):
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     args_filled = True
                 elif instr.name=="EXTCODECOPY":
-                    yield create_push_for_data(self.randomMemoryLength())
-                    yield create_push_for_data(self.randomMemoryLength())
-                    yield create_push_for_data(self.randomMemoryLength())
-                    yield create_push_for_data(RndAddress().as_bytes())
+                    yield create_push_for_data(self.randomSmallMemoryLength())   # length
+                    yield create_push_for_data(self.randomMemoryLength())        # codeoffset
+                    yield create_push_for_data(self.randomSmallMemoryLength())   # memoffset
+                    yield create_push_for_data(RndDestAddress().as_bytes())      # address
+                    args_filled = True
+                elif instr.name=="CODECOPY":
+                    yield create_push_for_data(self.randomSmallMemoryLength())   # length
+                    yield create_push_for_data(self.randomMemoryLength())        # codeoffset
+                    yield create_push_for_data(self.randomSmallMemoryLength())   # memoffset
                     args_filled = True
                 elif instr.name=="CREATE":
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomSmallMemoryLength())
-                    yield create_push_for_data(self.randomUniInt())
+                    yield create_push_for_data(self.randomUniInt(max=255))
                     args_filled = True
                 elif instr.name in ("CALL", "CALLCODE"):
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomSmallMemoryLength())
-                    yield create_push_for_data(self.randomUniInt())
-                    yield create_push_for_data(RndDestAddress().as_bytes())
-                    yield create_push_for_data(self.randomUniInt())
+                    yield create_push_for_data(self.randomUniInt(max=255))   # value
+                    yield create_push_for_data(RndDestAddress().as_bytes())  # address
+                    yield create_push_for_data(self.randomUniInt())          # gas 
                     args_filled = True
                 elif instr.name in ("STATICCALL","DELEGATECALL"):
-                    yield create_push_for_data(self.randomSmallMemoryLength())
-                    yield create_push_for_data(self.randomSmallMemoryLength())
-                    yield create_push_for_data(self.randomSmallMemoryLength())
-                    yield create_push_for_data(self.randomSmallMemoryLength())
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # retsize
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # retoffset
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # insize
+                    yield create_push_for_data(self.randomSmallMemoryLength()) # inoffset
                     yield create_push_for_data(RndDestAddress().as_bytes())
-                    yield create_push_for_data(self.randomUniInt())
+                    yield create_push_for_data(self.randomUniInt())            # gas
                     args_filled = True
                 elif instr.name=="SUICIDE":
                     yield create_push_for_data(RndDestAddress().as_bytes())
@@ -131,14 +243,14 @@ class RndCodeInstr(_RndCodeBase):
                     args_filled = True
                 elif instr.name=="CREATE2":
                     # todo: rework
-                    yield create_push_for_data(self.randomUniInt())
+                    yield create_push_for_data(self.randomUniInt()) # salt
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomSmallMemoryLength())
-                    yield create_push_for_data(self.randomUniInt())
+                    yield create_push_for_data(self.randomUniInt(max=255)) # value
                     args_filled = True
-                elif instr.name=="EXTCODEHASH":
-                    # todo: rework
-                    yield create_push_for_data(self.randomSmallUniInt())  # slot
+                elif instr.name in ["EXTCODEHASH", "EXTCODESIZE"]:
+                    # todo: rework                    
+                    yield create_push_for_data(RndDestAddress().as_bytes())  # address
                     args_filled = True
                 elif instr.category in ("bitwise-logic","comparison"):
                     for _ in instr.args:
@@ -156,9 +268,14 @@ class RndCodeInstr(_RndCodeBase):
             yield instr
 
     def generate(self, length=50):
-        instructions = [asm_registry.create_instruction(opcode=opcode) for opcode in self.random_code_byte_sequence(self.length)]
+        if self.fill_arguments:
+            length = length // 2
+                
+        instructions = [asm_registry.create_instruction(opcode=opcode) for opcode in self.random_code_byte_sequence(length)]
         if self.fill_arguments:
             instructions = self._fill_arguments(instructions)
 
-        serialized = ''.join(e.serialize() for e in instructions)
-        return "%s%s" % (self.prefix, serialized)
+        serialized = ''.join(e.serialize() for e in instructions)     
+#        asm = ' '.join(str(e) for e in instructions)
+#        print(asm)
+        return  "%s%s" % (self.prefix, serialized)

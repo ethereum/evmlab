@@ -99,14 +99,14 @@ class StateTest():
     """ This class represents a single statetest, with a single post-tx result: one transaction
     executed on one single fork
     """
-    def __init__(self, statetest, counter):
+    def __init__(self, statetest, counter, overwriteFork=True):
         self.number = None
         self.identifier = "%s-%d" %(cfg.host_id, counter)
 
-        # Replace the fork with what we are currently configured for
-        postState = statetest['randomStatetest']['post']['Byzantium']
-        del(statetest['randomStatetest']['post']['Byzantium'])
-        statetest['randomStatetest']['post'][cfg.fork_config] = postState 
+        if overwriteFork and "Byzantium" in statetest['randomStatetest']['post'].keys():
+            # Replace the fork with what we are currently configured for
+            postState = statetest['randomStatetest']['post'].pop('Byzantium')
+            statetest['randomStatetest']['post'][cfg.fork_config] = postState 
 
 
         # Replace the top level name 'randomStatetest' with something meaningful (same as filename)        
@@ -404,7 +404,7 @@ def end_processes(test):
         logger.info("Processed %s steps for %s on test %s" % (tracelen, client_name, test.identifier))
     
     stats = VMUtils.traceStats(canon_steps)
-    #print(stats)
+    print(stats)
     #print(canon_steps)
     #print("\n".join(canon_trace))
     return (tracelen, stats)
@@ -525,39 +525,32 @@ def main():
     TestExecutor().startFuzzing()
 
 
+def testSpeedGenerateTests():
+    """This method produces json-files, each containing one statetest, with _one_ poststate. 
+    It stores each test with a filename that is unique per user and per process, so that two
+    paralell executions should not interfere with eachother. 
+    
+    returns (filename, object) 
+    """
+
+    from evmlab.tools.statetests import templates
+    from evmlab.tools.statetests import randomtest
+    import time
+    t = templates.new(templates.object_based.TEMPLATE_RandomStateTest)
+    test = {}
+    test.update(t)
+    counter = 0
+    start = time.time()
+    while True: 
+        x0 = time.time()
+        #test.update(t)
+        test_obj = json.loads(json.dumps(t, cls=randomtest.RandomTestsJsonEncoder))
+        x = str(test_obj)
+        print(test_obj["randomStatetest"]["transaction"]["to"])
+        x1 = time.time()
+        print("%d %f (tot %f/s)" % (counter, x1 - x0, counter / (x1 - start) ))
+        counter = counter +1
+
+
 if __name__ == '__main__':
     main()
-
-
-def testParityInterleavedOutput():
-    """ Tests interleaved stdout/stderr, which happens when using Stream=True docker execution
-    Expected output:
-
-    {'pc': 0, 'gas': '0x477896', 'op': 91, 'depth': 0, 'stack': []}
-    {'pc': 1, 'gas': '0x477895', 'op': 96, 'depth': 0, 'stack': []}
-    {'pc': 3, 'gas': '0x477892', 'op': 97, 'depth': 0, 'stack': ['0xd1']}
-    {'pc': 6, 'gas': '0x47788f', 'op': 97, 'depth': 0, 'stack': ['0xd1', '0xc09a']}
-    {'pc': 9, 'gas': '0x47788c', 'op': 111, 'depth': 0, 'stack': ['0xd1', '0xc09a', '0xa7f6']}
-    {'pc': 26, 'gas': '0x477889', 'op': 20, 'depth': 0, 'stack': ['0xd1', '0xc09a', '0xa7f6', '0x948ec1a91609740f44b8d0c74c4785d8']}
-    {'pc': 27, 'gas': '0x477886', 'op': 99, 'depth': 0, 'stack': ['0xd1', '0xc09a', '0x0']}
-    {'pc': 32, 'gas': '0x477883', 'op': 81, 'depth': 0, 'stack': ['0xd1', '0xc09a', '0x0', '0x4ebfdb04']}
-    {'stateRoot': '3b63251e410b65ae32806a89e101b93e81b51096e4c00f6c3b547fe43350f504'}
- 
-    """   
-    data = """# command
-# /parity-evm state-test --std-json /testfiles/martin-Tue_08_30_12-19208-13127-test.json
-
-{"test":"randomStatetestmartin-Tue_08_30_12-19208-13127:byzantium:0","action":"starting"}
-{"pc":0,"op":91,"opName":"JUMPDEST","gas":"0x477896","stack":[],"storage":{},"depth":1}
-{"pc":1,"op":96,"opName":"PUSH1","gas":"0x477895","stack":[],"storage":{},"depth":1}
-{"pc":3,"op":97,"opName":"PUSH2","gas":"0x477892","stack":["0xd1"],"storage":{},"depth":1}
-{"pc":6,"op":97,"opName":"PUSH2","gas":"0x47788f","stack":["0xd1","0xc09a"],"storage":{},"depth":1}
-{"pc":9,"op":111,"opName":"PUSH16","gas":"0x47788c","stack":["0xd1","0xc09a","0xa7f6"],"storage":{},"depth":1}
-{"pc":26,"op":20,"opName":"EQ","gas":"0x477889","stack":["0xd1","0xc09a","0xa7f6","0x948ec1a91609740f44b8d0c74c4785d8"],"storage":{},"depth":1}
-{"pc":27,"op":99,"opName":"PUSH4","gas":"0x477886","stack":["0xd1","0xc09a","0x0"],"storage":{},"depth":1}
-{"pc":32,"op":81,"opName":"MLOAD","gas":"0x{"error":"State root mismatch (got: 0x3b63251e410b65ae32806a89e101b93e81b51096e4c00f6c3b547fe43350f504, expected: 0x00000000000000000000000000000000000000000000000000000000deadc0de)","gasUsed":"0x266573df9038e0","time":273}
-477883","stack":["0xd1","0xc09a","0x0","0x4ebfdb04"],"storage":{},"depth":1}"""
-    output = VMUtils.ParityVM.canonicalized(data.split("\n"))
-    print("\n".join([str(x) for x in output]))
-
-

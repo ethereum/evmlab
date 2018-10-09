@@ -1,6 +1,7 @@
 import enum
 import random
 from .bytes import RndByteSequence
+from evmlab import decode_hex
 
 
 class RndAddressType(enum.Enum):
@@ -78,7 +79,6 @@ class RndAddress(RndByteSequence):
                 # pick from list
                 return self._get_rnd_address_from_list(self.addresses.get(_type))
             # otherwise fallthrough to multilist selection
-
         # todo: add probabilities
         types_set = set(self.types)
         if types_set.issubset([RndAddressType.PRECOMPILED, RndAddressType.STATE_ACCOUNT,
@@ -93,24 +93,39 @@ class RndAddress(RndByteSequence):
             #if types_set != set([RndAddressType.PRECOMPILED, RndAddressType.STATE_ACCOUNT]):
             if types_set.intersection([RndAddressType.SPECIAL_ALL, RndAddressType.SPECIAL_CREATE]):
                 if self.randomPercent()<probabilities["emptyAddressProbability"]:
-                    return self._get_rnd_address_from_list(self.addresses.get(RndAddressType.SPECIAL_CREATE))
+                    return ""
 
             # RANDOM
             if self.randomPercent()<probabilities["randomAddressProbability"]:
-                return super().generate()  # generate 20byte default random
+                a = super().generate()  # generate 20byte default random
+                return a
 
             # RETURN SENDERS address
             if self.randomPercent() < probabilities["sendingAddressProbability"]:
                 return self._get_rnd_address_from_list(self.addresses.get(RndAddressType.SENDING_ACCOUNT))
 
             # FALLBACK - state account
-            return self._get_rnd_address_from_list(self.addresses.get(RndAddressType.STATE_ACCOUNT))
-
+            a  = self._get_rnd_address_from_list(self.addresses.get(RndAddressType.STATE_ACCOUNT))
+            return a
         # RANDOM
         return super().generate()  # generate 20byte default random
 
+    def as_bytes(self):
+      data = self.generate()
+      if data != None:
+        return decode_hex(data[2:])
+       
 
 class RndDestAddress(RndAddress):
+
+    placeholder = "[DESTADDRESS]"
+
+    def __init__(self, seed=None, length=20, prefix="0x", _types=[RndAddressType.PRECOMPILED,
+                                                                  RndAddressType.STATE_ACCOUNT]):
+        super().__init__(seed=seed, length=length, prefix=prefix)
+        self.types = _types
+
+class RndDestAddressOrZero(RndAddress):
 
     placeholder = "[DESTADDRESS]"
 
@@ -119,4 +134,3 @@ class RndDestAddress(RndAddress):
                                                                   RndAddressType.SPECIAL_CREATE]):
         super().__init__(seed=seed, length=length, prefix=prefix)
         self.types = _types
-

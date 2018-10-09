@@ -12,8 +12,9 @@ FNULL = open(os.devnull, 'w')
 
 valid_opcodes = opcodes.reverse_opcodes.keys()
 
-# The 'stateRoot' output is missing from some clients (parity). 
-# Enable this once they implement it
+# The 'stateRoot' comparison can be disabled, in which case
+# the analysis will check only the internal states after every 
+# opcode, but ignore the poststate roothash
 INCLUDE_STATEROOT=True
 
 strip_0x = remove_0x_head
