@@ -89,11 +89,13 @@ class RndAddress(RndByteSequence):
                     return self._get_rnd_address_from_list(self.addresses.get(RndAddressType.BYZANTIUM_PRECOMPILED))
                 return self._get_rnd_address_from_list(self.addresses.get(RndAddressType.PRECOMPILED))
 
+# CREATE is disabled for now -- the logic below could fill the template with to: "0x", which is not correct. The correct
+# transaction would either have to: None, or no to-field present. 
             # CREATE  (if all or create is set)
             #if types_set != set([RndAddressType.PRECOMPILED, RndAddressType.STATE_ACCOUNT]):
-            if types_set.intersection([RndAddressType.SPECIAL_ALL, RndAddressType.SPECIAL_CREATE]):
-                if self.randomPercent()<probabilities["emptyAddressProbability"]:
-                    return ""
+#            if types_set.intersection([RndAddressType.SPECIAL_ALL, RndAddressType.SPECIAL_CREATE]):
+#                if self.randomPercent()<probabilities["emptyAddressProbability"]:
+#                    return ""
 
             # RANDOM
             if self.randomPercent()<probabilities["randomAddressProbability"]:
