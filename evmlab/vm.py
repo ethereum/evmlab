@@ -32,25 +32,38 @@ def toHexQuantities(vals):
     """ Formats a list of values into a list of hex-encoded values """
     return ['0x{0:01x}'.format(parse_int_or_hex(val)) for val in vals]
 
-def traceStats(canon_trace):
-    """traceStats returns some statistics about the trace"""
-    #canon_trace = [{'pc': 0, 'gas': '0x41f0fd', 'op': 97, 'depth': 0, 'stack': [], 'opname': 'PUSH2'}, {'pc': 3, 'gas': '0x41f0fa', 'op': 103, 'depth': 0, 'stack': ['0x7bb8'], 'opname': 'PUSH8'}, {'pc': 12, 'gas': '0x41f0f7', 'op': 63, 'depth': 0, 'stack': ['0x7bb8', '0xa4fb3dba573f5003'], 'opname': 'EXTCODEHASH'}]
+class Stats():
+    def __init__(self):
+        self.maxdepth= 0
+        self.numConstantinople = 0
+        self.stopped = False
 
-    maxdepth = 0 
-    numConstantinople = 0 
-    for step in canon_trace:
-        if "depth" in step.keys() and int(step['depth']) > maxdepth:
-            maxdepth = int(step['depth'])
-        if "opname" in step:
-            op = step["opname"]
-            if op in ["SHR", "SAR", "SHL", "EXTCODEHASH","CREATE2"]:
-                numConstantinople = numConstantinople + 1
-    
+    def traceStats(self, canon_trace):
+        """traceStats returns some statistics about the trace"""
+        #canon_trace = [{'pc': 0, 'gas': '0x41f0fd', 'op': 97, 'depth': 0, 'stack': [], 'opname': 'PUSH2'}, {'pc': 3, 'gas': '0x41f0fa', 'op': 103, 'depth': 0, 'stack': ['0x7bb8'], 'opname': 'PUSH8'}, {'pc': 12, 'gas': '0x41f0f7', 'op': 63, 'depth': 0, 'stack': ['0x7bb8', '0xa4fb3dba573f5003'], 'opname': 'EXTCODEHASH'}]
+        
 
-    return {
-        "maxDepth": maxdepth, 
-        "constatinopleOps": numConstantinople
-    }
+        for step in canon_trace:
+            if self.stopped:
+                yield step
+                continue
+
+            if "depth" in step.keys() and int(step['depth']) > self.maxdepth:
+                self.maxdepth = int(step['depth'])
+            if "op" in step:
+                if step["op"] in [0x1b, 0x1c, 0x1d, 0x3F,0xF5]:
+                    self.numConstantinople = self.numConstantinople + 1
+            yield step
+
+    def stop(self):
+        self.stopped = True
+
+    def result(self):      
+        return {
+            "maxDepth": self.maxdepth, 
+            "constatinopleOps": self.numConstantinople
+        }
+
 
 def toText(op):
     if len(op.keys()) == 0:
