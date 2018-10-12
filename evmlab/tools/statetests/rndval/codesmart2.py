@@ -34,5 +34,12 @@ class RndCode2(_RndCodeBase):
     def generate(self, length=None):
         distribution = evmcodegen.distributions.EVM_CATEGORY  # override this in here to adjust weights
         generator = evmcodegen.generators.distribution.GaussDistrCodeGen(distribution=distribution)
-        codegen = evmcodegen.codegen.CodeGen(generator=generator, valuemap=VALUEMAP)
-        return str(codegen.generate(length=length))
+
+        evmcode = evmcodegen.codegen.CodeGen()\
+            .generate(generator=generator, length=length, min_gas=100)\
+            .fix_stack_arguments(valuemap=VALUEMAP)\
+            .fix_jumps()
+
+        evmcode.fix_stack_balance()
+
+        return "0x%s" % evmcode.assemble().as_hexstring
