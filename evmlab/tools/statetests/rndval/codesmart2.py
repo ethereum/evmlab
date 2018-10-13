@@ -120,6 +120,8 @@ class RndCode2(_RndCodeBase):
 
     def generate(self, length=None):
         distribution = evmcodegen.distributions.EVM_CATEGORY  # override this in here to adjust weights
+        if length is None:
+            length = distribution.avg
         generator = evmcodegen.generators.distribution.GaussDistrCodeGen(distribution=distribution)
 
         evmcode = evmcodegen.codegen.CodeGen()\
