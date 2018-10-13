@@ -49,7 +49,7 @@ class InstructionMutators:
         len_instr = len(instructions)
         for _ in range(amount):
             index = Rnd.uni_integer(0, len_instr - 1)
-            instructions[index].randomize_operand()
+            Rnd.randomize_operand(instructions[index])
         return instructions
 
     @staticmethod
@@ -57,8 +57,8 @@ class InstructionMutators:
         len_instr = len(instructions)
         for _ in range(amount):
             index = Rnd.uni_integer(0, len_instr - 1)
-            instructions[index].insert(evmdasm.registry.create_instruction(opcode=Rnd.uni_integer(0x00, 0xff)))
-            instructions[index].randomize_operand()
+            instructions.insert(index, evmdasm.registry.create_instruction(opcode=Rnd.uni_integer(0x00, 0xff)))
+            Rnd.randomize_operand(instructions[index])
         return instructions
 
 
@@ -66,14 +66,21 @@ class BytecodeMutators:
 
     # add external mutation engines?
 
-    drop_byte = InstructionMutators.drop_item
+    @staticmethod
+    def drop_byte(bytecode, amount=1):
+        len_instr = len(bytecode)
+        for _ in range(amount):
+            index = Rnd.uni_integer(0, len_instr - 1)
+            bytecode = bytecode[:index] + bytecode[index + 1:]
+        return bytecode
+
 
     @staticmethod
     def dup_byte(bytecode, amount=1):
         len_instr = len(bytecode)
         for _ in range(amount):
             index = Rnd.uni_integer(0, len_instr - 1)
-            bytecode = bytecode[:index] + bytecode[index] + bytecode[index] + bytecode[index+1:]
+            bytecode = bytecode[:index] + bytes([bytecode[index], bytecode[index]]) + bytecode[index+1:]
         return bytecode
 
     @staticmethod
