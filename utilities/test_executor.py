@@ -17,6 +17,9 @@ logger.setLevel(logging.DEBUG)
 def runTest(test_obj, filename):
     id = "".join(filename.split("-")[:-1])
     print("id",id )
+    if len(id) == 0:
+        #Just use everything up to .json
+        id = "".join(filename.split(".")[:-1])
     test = RawStateTest(copy.deepcopy(test_obj),id, filename)
     test.writeToFile()
     start_processes(test)
