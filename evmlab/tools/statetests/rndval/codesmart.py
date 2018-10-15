@@ -85,6 +85,9 @@ valid_opcodes = list(opcodes.keys())
 const_opcodes = [0x1b, #: ['SHL', 2, 1, 3],
                     0x1c, #: ['SHR', 2, 1, 3],
                     0x1d, #: ['SAR', 2, 1, 3],
+                    0xf4, #: ['DELEGATECALL', 6, 0, 40], use more delegatecalls
+                    0x54, #: ['SLOAD', 1, 1, 50],
+                    0x55, 0x55, 0x55, 0x55, 0x55, #: ['SSTORE', 2, 0, 0], use more SSTOREs to cover the Net SSTORE gas EIP
                     0xf5, #: ['CREATE2', 4, 1, 32000],
                     0x3f] #: ['EXTCODEHASH', 1, 1, 400],
 
@@ -247,6 +250,15 @@ class RndCodeInstr(_RndCodeBase):
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomUniInt(max=255)) # value
+                    args_filled = True
+                elif instr.name=="SSTORE":
+                    # use 0-3 for storage keys/vals, to do overwrites and no-change writes.
+                    yield create_push_for_data(self.randomUniInt(max=3))
+                    yield create_push_for_data(self.randomUniInt(max=3))
+                    args_filled = True
+                elif instr.name=="SLOAD":
+                    # sstore mostly at 0-3, but want some sloads on empty locations
+                    yield create_push_for_data(self.randomUniInt(max=8))
                     args_filled = True
                 elif instr.name in ["EXTCODEHASH", "EXTCODESIZE"]:
                     # todo: rework                    

@@ -55,6 +55,8 @@ TEMPLATE_RandomStateTest = {
                 "code": rndval.RndCode(flags=rnd_code_flags),
                 "nonce": rnd_nonce,
                 "storage": {
+                    "0x00": "0x01",
+                    "0x01": "0x02"
                 }
             },
             "c94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
@@ -62,6 +64,8 @@ TEMPLATE_RandomStateTest = {
                 "code": rndval.RndCode(flags=rnd_code_flags),
                 "nonce": rnd_nonce,
                 "storage": {
+                    "0x00": "0x01",
+                    "0x01": "0x02"
                 }
             },
             "d94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
