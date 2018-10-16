@@ -2,6 +2,10 @@
 
 This package contains various tools to interact with the Ethereum virtual machine.
 
+
+For detailed information please consult the [Wiki](https://github.com/ethereum/evmlab/wiki)
+
+
 ## Project Structure
 
 | Folder       | Description   |
