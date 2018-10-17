@@ -123,15 +123,11 @@ class RawStateTest():
             json.dump(self.statetest, outfile)
 
     def removeFiles(self):
-        if True:
-            return
         f = self.fullfilename()
-        logger.debug("Removing test file %s" % f)
+        logger.info("Removing test artefacts %s" % ([f] + self.traceFiles))
         os.remove(f)
-
         #delete non-failed traces
         for f in self.traceFiles:
-            logger.debug("Removing trace file %s" % f)
             os.remove(f)
 
     def tempTraceFilename(self, client):
@@ -143,6 +139,7 @@ class RawStateTest():
     def storeTrace(self, client, output, command):
         filename = self.tempTraceLocation(client)
         logging.debug("%s full trace %s saved to %s" % (client, self.id(), filename ))
+#       Not needed when docker-processes write directly into files
 #        with open(filename, "w+") as f: 
 #            f.write("# command\n")
 #            f.write("# %s\n\n" % command)
