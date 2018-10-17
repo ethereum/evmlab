@@ -75,6 +75,12 @@ def toText(op):
         else:
             opname = "UNKNOWN"
         op['opname'] = opname
+
+        if 'stack' in op.keys():
+            stack = op['stack']
+            if len(stack) > 6:
+                _st = "... {}".format(stack[-4:])
+                op['stack'] = _st
         return "pc {pc:>5} op {opname:>10}({op:>3}) gas {gas:>8} depth {depth:>2} stack {stack}".format(**op)
     elif 'stateRoot' in op.keys():
         return "stateRoot {}".format(op['stateRoot'])
