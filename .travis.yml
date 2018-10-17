@@ -1,0 +1,8 @@
+language: python
+python:
+  - "3.6"
+install:
+  - pip install nosexcover
+  - python setup.py install
+script:
+  - python setup.py nosetests --with-xcoverage --cover-package=evmlab --cover-html --cover-branch --xcoverage-file=cobertura.xml
