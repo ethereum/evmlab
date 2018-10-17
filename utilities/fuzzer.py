@@ -11,7 +11,7 @@ from evmlab import vm as VMUtils
 
 import docker
 dockerclient = docker.from_env()
-
+import select
 import logging
 logger = logging.getLogger()
 logger.setLevel(logging.DEBUG)
@@ -136,7 +136,7 @@ class RawStateTest():
     def tempTraceLocation(self, client):
         return os.path.abspath("%s/%s" % (cfg.logfilesPath(),self.tempTraceFilename(client)))
 
-    def storeTrace(self, client, output, command):
+    def storeTrace(self, client, command):
         filename = self.tempTraceLocation(client)
         logging.debug("%s full trace %s saved to %s" % (client, self.id(), filename ))
 #       Not needed when docker-processes write directly into files
@@ -308,27 +308,30 @@ def execInDocker(name, cmd, stdout = True, stderr=True):
     # api, or make sure that parity also prints the stateroot on stderr, which currently
     # can only be read from stdout. 
 
-    # Update, now using stream again, with 1>&2 (piping stdout into stderr)
-    stream = True
+    # Update, now using socket, with 1>&2 (piping stdout into stderr)
+    stream = False
+    socket = True
     #logger.info("executing in %s: %s" %  (name," ".join(cmd)))
     container = dockerclient.containers.get(name)
-    (exitcode, output) = container.exec_run(cmd, stream=stream,stdout=stdout, stderr = stderr)     
+    (exitcode, output) = container.exec_run(cmd, stream=stream, socket = socket, stdout=stdout, stderr = stderr)     
     
+    retval = {'cmd':" ".join(cmd)}
 
     # If stream is False, then docker soups up the output, and we just decode it once
     # when the caller wants it
-    if not stream:
-        return {
-                'output': lambda: output.decode(), 
-                'cmd':" ".join(cmd)
-                }
     
-    # If the stream is True, then we need to iterate over output, and decode each
-    # chunk
-    return {
-         'output': lambda: "".join([chunk.decode() for chunk in output]), 
-         'cmd':" ".join(cmd)
-         }
+    if socket:
+        retval['output'] = output 
+    elif stream:
+        # If the stream is True, then we need to iterate over output, 
+        # and decode each chunk
+        retval['output'] = lambda: "".join([chunk.decode() for chunk in output])
+    else:
+        # If we're waiting for the output, just return the decoded immediately
+        retval['output'] =lambda: output.decode()
+
+    return retval
+    
 
 def shWrap(cmd, output):
     """ Wraps a command in /bin/sh, with output to the given file"""
@@ -414,11 +417,8 @@ def end_processes(test):
     first = True
     stats = VMUtils.Stats()
     for (proc_info, client_name) in test.procs:
-        t0 = time.time()
-        full_trace = proc_info["output"]()
         t1 = time.time()
-        #logger.info("Wait for %s took in %.02f milliseconds" % (client_name, 1000 * (t1 - t0)))
-        test.storeTrace(client_name, full_trace,proc_info['cmd'])
+        test.storeTrace(client_name, proc_info['cmd'])
         canonicalizer = canonicalizers[client_name]
         canon_steps = []
         with open(test.tempTraceLocation(client_name)) as output:
@@ -429,8 +429,8 @@ def end_processes(test):
         test.canon_traces.append(canon_trace)
         tracelen = len(canon_trace)
         t2 = time.time()
-        logger.info("Processed %s steps for %s on test %s, wtime: %.02f ms, pTime:%.02f ms" 
-            % (tracelen, client_name, test.identifier, 1000 * (t1 - t0), 1000 * (t2 - t1)))
+        logger.info("Processed %s steps for %s on test %s, pTime:%.02f ms" 
+            % (tracelen, client_name, test.identifier, 1000 * (t2 - t1)))
 
 
     #print(stats)
@@ -462,16 +462,60 @@ def processTraces(test, forceSave=False):
 
     return test
 
+def event_str(event):
+    r = []
+    if event & select.POLLIN:
+        r.append('IN')
+    if event & select.POLLOUT:
+        r.append('OUT')
+    if event & select.POLLPRI:
+        r.append('PRI')
+    if event & select.POLLERR:
+        r.append('ERR')
+    if event & select.POLLHUP:
+        r.append('HUP')
+    if event & select.POLLNVAL:
+        r.append('NVAL')
+    return ' '.join(r) 
+
 class TestExecutor():
 
     def __init__(self):
-        self.pass_count = 0
-        self.fail_count = 0
+        
+        self.stats = {
+            "pass_count" : 0,
+            "fail_count" : 0,
+            "start_time" : time.time(),
+            "total_count" : 0, 
+            "num_active_tests": 0, 
+            "num_active_sockets": 0,
+        }
         self.failures = []
         self.traceLengths = collections.deque([],100)
         self.traceDepths = collections.deque([], 100)
         self.traceConstantinopleOps = collections.deque([], 100)
-        self.start_time = time.time()
+
+    def onPass(self):
+        self.stats["pass_count"] = self.stats["pass_count"] +1
+        self.stats["total_count"] = self.stats["total_count"]+1
+
+
+    def onFail(self, testcase):
+        self.stats["fail_count"] = self.stats["fail_count"] +1
+        self.stats["total_count"] = self.stats["total_count"]+1
+        self.failures.append(failingTestcase.listArtefacts())
+
+    def numFails(self):
+        return self.stats["fail_count"]
+
+    def numPass(self):
+        return self.stats["pass_count"]
+
+    def numTotals(self):
+        return self.stats["total_count"]
+
+    def testsPerSecond(self):
+        return self.numTotals() / (time.time() - self.stats["start_time"])
 
     def postprocess_test(self, test, reporting=False):
         # End previous procs
@@ -487,64 +531,84 @@ class TestExecutor():
         # Process previous traces
         failingTestcase = processTraces(test, forceSave = False)
         if failingTestcase is None:
-            self.pass_count = self.pass_count +1
+            self.onPass()
         else:
-            self.fail_count = self.fail_count +1
-            self.failures.append(failingTestcase.listArtefacts())
+            self.onFail(failingTestcase)
 
         if reporting:
-        # Do some reporting
-            time_elapsed = time.time() - self.start_time
+            # Do some reporting
             logger.info("Fails: {}, Pass: {}, #test {} speed: {:f} tests/s".format(
-                    self.fail_count, 
-                    self.pass_count, 
-                    (self.fail_count + self.pass_count),
-                    (self.fail_count + self.pass_count) / time_elapsed
+                    self.numFails(), self.numPass(), self.numTotals(),self.testsPerSecond()
                 ))
 
-
-
     def startFuzzing(self):   
-        previous_test = None
-        self.start_time = time.time()
-        n = 0
-        running_tests = []
-        MAX_PARALELL = 10
-        for test in generateTests():
-            n = n+1
-            #Prepare the current test
-            #logger.info("Test id: %s" % test.id())
-            test.writeToFile()
-            # Start new procs
-            start_processes(test)
-            # Put the new test to the first position
-            running_tests.insert(0, test)
-            
-            if len(running_tests) >= MAX_PARALELL:
-                self.postprocess_test(running_tests.pop(), n % 10 == 0)
-    
-            #input("Press Enter to continue...")
+        self.stats["start_time"] = time.time()
+        # This is the max cap of paralellism, it's just to prevent
+        # things going out of hand if tests start piling up
+        # We don't expect to actually reach it
+        MAX_PARALELL = 50
+        # The poller which we use, to register our 
+        # processes IO channels on
+        poller = select.poll()
+        active_sockets = {}
 
-        while len(running_tests) > 0:
-            self.postprocess_test(running_tests.pop(), len(running_tests) == 0)
-        
-        return (n, len(self.fail_count), pass_count, self.failures)
+        # The poll-mask. We listen to everything, except 'ready to write'
+        mask = select.POLLIN|select.POLLPRI| select.POLLERR| select.POLLHUP|select.POLLNVAL
+
+        for test in generateTests():
+            if self.stats["num_active_tests"] < MAX_PARALELL:
+                test.writeToFile()
+                # Start new procs
+                start_processes(test)
+                self.stats["num_active_tests"] = self.stats["num_active_tests"] + 1
+                self.stats["num_active_sockets"] = len(active_sockets.keys())
+                # Put the new test to the first position
+                test.numprocs = 0
+                # Register the test IO channel with the poller
+                for (proc_info, client_name) in test.procs:
+                    socket = proc_info["output"]
+                    poller.register(socket, mask)
+                    # Make a lookup, socket->test
+                    active_sockets[socket.fileno()] = test
+                    # Stash the number of processes somewhere
+                    test.numprocs = test.numprocs + 1
+            else:
+                logger.info("Max paralellism hit -- will sleep for a bit")
+                time.sleep(10)
+            # Check if anyting happened
+            socketlist = poller.poll()
+            if len(socketlist) == 0:
+                continue
+            for (socket, event) in socketlist:
+                # At least one process for this test is finished
+                
+                # Stop listeninng to this socket                
+                poller.unregister(socket)
+                # Find the test
+                test  = active_sockets.pop(socket)
+                test.numprocs = test.numprocs-1
+                if test.numprocs == 0:
+                    logger.info("All procs finished for test %s" % test.id())
+                    self.stats["num_active_tests"] = self.stats["num_active_tests"] - 1
+                    self.postprocess_test(test)
 
     def status(self):
         import collections, statistics
         from datetime import datetime
         return {
-            "starttime" : datetime.utcfromtimestamp(self.start_time).strftime('%Y-%m-%d %H:%M:%S'),
-            "pass" : self.pass_count, 
-            "fail" : self.fail_count,
+            "starttime" : datetime.utcfromtimestamp(self.stats["start_time"]).strftime('%Y-%m-%d %H:%M:%S'),
+            "pass" : self.numPass(), 
+            "fail" : self.numFails(),
             "failures" : self.failures,
-            "speed" : (self.fail_count + self.pass_count) / (time.time() - self.start_time),
+            "speed" : self.testsPerSecond(),
             "mean" : statistics.mean(self.traceLengths) if self.traceLengths else "NA",
             "stdev" : statistics.stdev(self.traceLengths) if len(self.traceLengths) >2 else "NA",
             "numZero" : self.traceLengths.count(0) if self.traceLengths else "NA" ,
             "max" : max(self.traceLengths) if self.traceLengths else "NA",
             "maxDepth" : max(self.traceDepths) if self.traceDepths else "NA",
             "numConst" : statistics.mean(self.traceConstantinopleOps) if self.traceConstantinopleOps else "NA",
+            "activeSockets": self.stats["num_active_sockets"],
+            "activeTests": self.stats["num_active_tests"],
         }
 
 def testSummary():
