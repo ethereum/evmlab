@@ -556,22 +556,25 @@ class TestExecutor():
         mask = select.POLLIN|select.POLLPRI| select.POLLERR| select.POLLHUP|select.POLLNVAL
 
         for test in generateTests():
-            test.writeToFile()
-            # Start new procs
-            start_processes(test)
-            self.stats["num_active_tests"] = self.stats["num_active_tests"] + 1
-            self.stats["num_active_sockets"] = len(active_sockets.keys())
-            # Put the new test to the first position
-            test.numprocs = 0
-            # Register the test IO channel with the poller
-            for (proc_info, client_name) in test.procs:
-                socket = proc_info["output"]
-                poller.register(socket, mask)
-                # Make a lookup, socket->test
-                active_sockets[socket.fileno()] = test
-                # Stash the number of processes somewhere
-                test.numprocs = test.numprocs + 1
-
+            if self.stats["num_active_tests"] < MAX_PARALELL:
+                test.writeToFile()
+                # Start new procs
+                start_processes(test)
+                self.stats["num_active_tests"] = self.stats["num_active_tests"] + 1
+                self.stats["num_active_sockets"] = len(active_sockets.keys())
+                # Put the new test to the first position
+                test.numprocs = 0
+                # Register the test IO channel with the poller
+                for (proc_info, client_name) in test.procs:
+                    socket = proc_info["output"]
+                    poller.register(socket, mask)
+                    # Make a lookup, socket->test
+                    active_sockets[socket.fileno()] = test
+                    # Stash the number of processes somewhere
+                    test.numprocs = test.numprocs + 1
+            else:
+                logger.info("Max paralellism hit -- will sleep for a bit")
+                time.sleep(10)
             # Check if anyting happened
             socketlist = poller.poll()
             if len(socketlist) == 0:
