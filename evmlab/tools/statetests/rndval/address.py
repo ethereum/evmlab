@@ -113,9 +113,11 @@ class RndAddress(RndByteSequence):
         return super().generate()  # generate 20byte default random
 
     def as_bytes(self):
-      data = self.generate()
-      if data != None:
-        return decode_hex(data[2:])
+        data = self.generate()
+        if data is not None:
+            if data.startswith("0x"):
+                data = data[2:]
+            return decode_hex(data)
        
 
 class RndDestAddress(RndAddress):
