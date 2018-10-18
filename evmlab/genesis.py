@@ -100,7 +100,7 @@ class Genesis(object):
                 "accountStartNonce": "0x0",
                 "maximumExtraDataSize": "0x20",
                 "minGasLimit": "0x1388",
-                "networkID" : "0x0",
+                "networkID" : "0x1",
                 "eip98Transition": "0x0",
                 "eip86Transition": self.config['constantinopleBlock'],
                 "eip140Transition" : self.config['byzantiumBlock'],
