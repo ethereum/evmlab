@@ -38,10 +38,11 @@ setup(name='Evmlab',
       install_requires=["requests",
                         "web3",
                         "eth-hash[pycryptodome]",
-                        "rlp>=1.0"],
+                        "rlp>=1.0",
+                        "evmdasm"],
       extras_require={"consolegui": ["urwid"],
                       "abidecoder": ["ethereum-input-decoder"],
                       "docker": ["docker==3.0.0"],
-                      "fuzztests": ["ethereum-dasm", "docker==3.0.0"],  # for smart evm-code generation
+                      "fuzztests": ["docker==3.0.0"],
                       }
       )
