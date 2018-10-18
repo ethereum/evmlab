@@ -161,7 +161,7 @@ class RndCodeInstr(_RndCodeBase):
                 data = int2bytes(data)
 
             instr = asm_registry.create_instruction("PUSH%d"%len(data))
-            instr.set_operand(data)
+            instr.operand_bytes = data
             return instr
 
         for instr in instructions:
