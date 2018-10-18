@@ -3,7 +3,8 @@ from .base import _RndBase, WeightedRandomizer, int2bytes
 from .code import _RndCodeBase
 from .address import RndAddress, RndDestAddress, RndAddressType
 
-import ethereum_dasm.asm.registry as asm_registry
+from evmdasm.registry import registry as asm_registry
+
 opcodes = {
     0x00: ['STOP', 0, 0, 0],
     0x01: ['ADD', 2, 1, 3],

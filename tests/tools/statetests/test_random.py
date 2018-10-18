@@ -5,8 +5,10 @@
 import unittest
 import string
 import collections
+import evmdasm
 
 import evmlab.tools.statetests.rndval as rndval
+
 
 
 def is_all_hex(s):
@@ -61,6 +63,12 @@ class EthFillerTest(unittest.TestCase):
 
             #self.assertGreaterEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCodeInstr.MIN_CONTRACT_SIZE)
             self.assertLessEqual((len(txt_val) - len(expect_prefix)) // 2, rndval.RndCodeBytes.MAX_CONTRACT_SIZE) # must be greater equal as we insert argument push-codes
+            disassembly = evmdasm.EvmBytecode(txt_val).disassemble()
+            self.assertFalse(disassembly.errors)
+            self.assertGreaterEqual(len(disassembly), 1)
+            self.assertIsInstance(disassembly[0], evmdasm.Instruction)
+            self.assertNotIn("UNKNOWN", disassembly[0].name)
+
 
     def _test_hex_cls(self, cls=rndval.RndHexInt, _min=0, _max=2 ** 64 - 1):
         min_chars = len(rndval.hex2(_min))
