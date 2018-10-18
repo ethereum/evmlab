@@ -1,3 +1,5 @@
+[![Build Status](https://api.travis-ci.org/ethereum/evmlab.svg?branch=master)](https://travis-ci.org/ethereum/evmlab/)
+
 # EVM lab utilities
 
 This package contains various tools to interact with the Ethereum virtual machine.
