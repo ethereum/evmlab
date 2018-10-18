@@ -3,6 +3,6 @@ python:
   - "3.6"
 install:
   - pip install nosexcover
-  - python setup.py install
+  - pip install -e ".[consolegui,abidecoder,docker,fuzztests]"
 script:
   - python setup.py nosetests --with-xcoverage --cover-package=evmlab --cover-html --cover-branch --xcoverage-file=cobertura.xml
