@@ -251,7 +251,7 @@ class TestExecutor(object):
             self.traceConstantinopleOps.append(stats['constatinopleOps'])
 
         # Process previous traces
-        failingTestcase = self._fuzzer.processTraces(test, forceSave = False)
+        failingTestcase = self._fuzzer.processTraces(test, forceSave = self._fuzzer._config.cmdline_args.force_save)
         if failingTestcase is None:
             self.onPass()
         else:
@@ -650,17 +650,21 @@ def main():
     logger.addHandler(ch)
 
     ### setup cmdline parser
-    parser = argparse.ArgumentParser(description='Ethereum consensus fuzzer')
+    parser = argparse.ArgumentParser(description='Ethereum consensus fuzzer',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     loglevels = ['CRITICAL', 'FATAL', 'ERROR', 'WARNING', 'WARN', 'INFO', 'DEBUG', 'NOTSET']
     parser.add_argument("-v", "--verbosity", default="info",
-                      help="available loglevels: %s [default: %%default]" % ','.join(l.lower() for l in loglevels))
+                      help="available loglevels: %s" % ','.join(l.lower() for l in loglevels))
 
     # <required> configuration file: statetests.ini
     parser.add_argument("-c", "--configfile", default="statetests.ini", required=True,
-                        help="path to configuration file (statetests.ini)")
+                        help="path to configuration file")
+
+    grp_artefacts = parser.add_argument_group('Configure Output Artefacts')
+    grp_artefacts.add_argument("-x", "--force-save", action="store_true", help="Keep tracefiles/logs/testfiles for non-failing testcases (watch disk space!)")
 
     # TODO: <optional> evmcode generation settings
-    grp_evmcodegen = parser.add_argument_group('EVM CodeGeneration Settings')
+    #grp_evmcodegen = parser.add_argument_group('EVM CodeGeneration Settings')
     #grp_evmcodegen.add_option("-g", "--codegen", default="", help="select the evm code generation engine to be used")
     #grp_evmcodegen.add_option("-w", "--weights", default="", help="")
 
