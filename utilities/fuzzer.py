@@ -130,7 +130,7 @@ class RawStateTest(object):
 
     def storeTrace(self, client, command):
         filename = self.tempTraceLocation(client)
-        logging.debug("%s full trace %s saved to %s" % (client, self.id(), filename))
+        logger.debug("%s full trace %s saved to %s" % (client, self.id(), filename))
         #       Not needed when docker-processes write directly into files
         #        with open(filename, "w+") as f:
         #            f.write("# command\n")
@@ -375,7 +375,7 @@ class Fuzzer(object):
                 logger.warning("Not a docker client %s", client_name)
 
     def start_daemon(self, clientname, imagename):
-        self.dockerclient.containers.run(image=imagename,
+        self._dockerclient.containers.run(image=imagename,
                                     entrypoint="sleep",
                                     command=["356d"],
                                     name=clientname,
@@ -390,7 +390,7 @@ class Fuzzer(object):
 
     def kill_daemon(self, clientname):
         try:
-            c = self.dockerclient.containers.get(clientname)
+            c = self._dockerclient.containers.get(clientname)
             c.kill()
             c.stop()
         except Exception as e:
@@ -468,10 +468,10 @@ class Fuzzer(object):
 
     def start_processes(self, test):
 
-        starters = {'geth': Fuzzer.startGeth,
-                    'cpp': Fuzzer.startCpp,
-                    'parity': Fuzzer.startParity,
-                    'hera': Fuzzer.startHera}
+        starters = {'geth': self.startGeth,
+                    'cpp': self.startCpp,
+                    'parity': self.startParity,
+                    'hera': self.startHera}
 
         logger.info("Starting processes for %s on test %s" % (self._config.clientNames(), test.id()))
         # Start the processes
@@ -652,7 +652,7 @@ def main():
     ### setup cmdline parser
     parser = argparse.ArgumentParser(description='Ethereum consensus fuzzer')
     loglevels = ['CRITICAL', 'FATAL', 'ERROR', 'WARNING', 'WARN', 'INFO', 'DEBUG', 'NOTSET']
-    parser.add_argument("-v", "--verbosity", default="critical",
+    parser.add_argument("-v", "--verbosity", default="info",
                       help="available loglevels: %s [default: %%default]" % ','.join(l.lower() for l in loglevels))
 
     # <required> configuration file: statetests.ini
