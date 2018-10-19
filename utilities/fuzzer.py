@@ -63,6 +63,7 @@ class Config(object):
         ## extra options
         self.force_save = config[uname].get('force_save', False)
         self.enable_reporting = config[uname].get('enable_reporting', False)
+        self.docker_force_update_image = config[uname].get('docker_force_update_image', None)
 
 
 
@@ -82,6 +83,8 @@ class Config(object):
             self.force_save = self.cmdline_args.force_save
         if self.cmdline_args.enable_reporting is not None:
             self.enable_reporting = self.cmdline_args.enable_reporting
+        if self.cmdline_args.docker_force_update_image is not None:
+            self.docker_force_update_image = self.cmdline_args.docker_force_update_image
 
     def testfilesPath(self):
         return "%s/testfiles/" % self.temp_path
@@ -368,6 +371,14 @@ class Fuzzer(object):
         self._config = config
 
         self._dockerclient = docker.from_env()
+
+        if config.docker_force_update_image is not None:
+            for imgage in config.docker_force_update_image:
+                self.docker_remove_image(image=image, force=True)
+
+    def docker_remove_image(self, image, force=True):
+        self._dockerclient.images.remove(image=image, force=force)
+
 
     def start_daemons(self):
         """ startDaemons starts docker processes for all clients. The actual execution of
@@ -684,6 +695,10 @@ def main():
                                help="Keep tracefiles/logs/testfiles for non-failing testcases (watch disk space!) (default: False)")
     grp_artefacts.add_argument("-r", "--enable-reporting", default=None, action="store_true",
                                help="Output testrun statistics (num of passes/fails and speed (default: False)")
+
+    grp_docker = parser.add_argument_group('Docker Settings')
+    grp_docker.add_argument("-y", "--docker-force-update-image", default=None, action="append",
+                               help="Remove specified docker images before starting the fuzzer to force docker to download new versions of the image (default: [])")
 
 
     # TODO: <optional> evmcode generation settings
