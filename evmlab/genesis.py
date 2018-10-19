@@ -172,9 +172,8 @@ class Genesis(object):
             "nonce" : account['nonce'],
         }
         if 'storage' in account:
-            self.alloc[account['address'].lower()]['storage'] = {}
-            for key in account['storage']:
-                self.alloc[account['address'].lower()]['storage'][key] = account['storage'][key]
+            for key, value in account['storage'].items():
+                self.addStorage(account['address'], key, value)
 
     def add(self, account): 
             
