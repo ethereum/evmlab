@@ -333,32 +333,6 @@ class TestExecutor(object):
             "activeTests": self.stats["num_active_tests"],
         }
 
-def testSpeedGenerateTests():
-    """This method produces json-files, each containing one statetest, with _one_ poststate.
-    It stores each test with a filename that is unique per user and per process, so that two
-    paralell executions should not interfere with eachother.
-
-    returns (filename, object)
-    """
-
-    from evmlab.tools.statetests import templates
-    from evmlab.tools.statetests import randomtest
-    import time
-    t = templates.new(templates.object_based.TEMPLATE_RandomStateTest)
-    test = {}
-    test.update(t)
-    counter = 0
-    start = time.time()
-    while True:
-        x0 = time.time()
-        # test.update(t)
-        test_obj = json.loads(json.dumps(t, cls=randomtest.RandomTestsJsonEncoder))
-        x = str(test_obj)
-        print(test_obj["randomStatetest"]["transaction"]["to"])
-        x1 = time.time()
-        print("%d %f (tot %f/s)" % (counter, x1 - x0, counter / (x1 - start)))
-        counter = counter + 1
-
 
 class Fuzzer(object):
 
@@ -621,6 +595,33 @@ class Fuzzer(object):
         return self.execInDocker("cpp", cmd, stderr=False)
 
 
+def testSpeedGenerateTests():
+    """This method produces json-files, each containing one statetest, with _one_ poststate.
+    It stores each test with a filename that is unique per user and per process, so that two
+    paralell executions should not interfere with eachother.
+
+    returns (filename, object)
+    """
+
+    from evmlab.tools.statetests import templates
+    from evmlab.tools.statetests import randomtest
+    import time
+    t = templates.new(templates.object_based.TEMPLATE_RandomStateTest)
+    test = {}
+    test.update(t)
+    counter = 0
+    start = time.time()
+    while True:
+        x0 = time.time()
+        # test.update(t)
+        test_obj = json.loads(json.dumps(t, cls=randomtest.RandomTestsJsonEncoder))
+        x = str(test_obj)
+        print(test_obj["randomStatetest"]["transaction"]["to"])
+        x1 = time.time()
+        print("%d %f (tot %f/s)" % (counter, x1 - x0, counter / (x1 - start)))
+        counter = counter + 1
+
+
 def event_str(event):
     r = []
     if event & select.POLLIN:
@@ -639,7 +640,7 @@ def event_str(event):
 
 
 def main():
-    # setup logging
+    ### setup logging
     logger.setLevel(logging.DEBUG)
 
     ch = logging.StreamHandler()
@@ -648,7 +649,7 @@ def main():
     ch.setFormatter(formatter)
     logger.addHandler(ch)
 
-    # argparsing
+    ### setup cmdline parser
     parser = argparse.ArgumentParser(description='Ethereum consensus fuzzer')
     loglevels = ['CRITICAL', 'FATAL', 'ERROR', 'WARNING', 'WARN', 'INFO', 'DEBUG', 'NOTSET']
     parser.add_argument("-v", "--verbosity", default="critical",
@@ -663,12 +664,12 @@ def main():
     #grp_evmcodegen.add_option("-g", "--codegen", default="", help="select the evm code generation engine to be used")
     #grp_evmcodegen.add_option("-w", "--weights", default="", help="")
 
-    # parse args
-    (options, args) = parser.parse_args()
+    ### parse args
+    args = parser.parse_args()
 
-    if options.verbosity.upper() in loglevels:
-        options.verbosity = getattr(logging, options.verbosity.upper())
-        logger.setLevel(options.verbosity)
+    if args.verbosity.upper() in loglevels:
+        args.verbosity = getattr(logging, args.verbosity.upper())
+        logger.setLevel(args.verbosity)
     else:
         parser.error("invalid verbosity selected. please check --help")
 
@@ -676,7 +677,9 @@ def main():
     # TODO: MERGE statetests.ini and cmdline settings into one settings object and propagate it to all other classes.
     #       merge within Config() and make it always return sane settings or raise exceptions on conflicts
 
-    fuzzer = Fuzzer(config=Config(options))  # fix interface for config (only provide options and
+    ### create fuzzer instance, pass settings and begin executing tests.
+
+    fuzzer = Fuzzer(config=Config(args))
 
     # Start all docker daemons that we'll use during the execution
     fuzzer.start_daemons()
