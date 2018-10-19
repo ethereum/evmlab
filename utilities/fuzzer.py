@@ -62,7 +62,11 @@ class Config(object):
 
         ## extra options
         self.force_save = config[uname].get('force_save', False)
+        self.enable_reporting = config[uname].get('enable_reporting', False)
 
+
+
+        self._merge_cmdline_args()
         ## --- init ---
         logger.info("\n".join(self.info()))
 
@@ -76,6 +80,8 @@ class Config(object):
         # map cmdline args to config file sections here. e.g. [output] force_save = True  --> self.force_save
         if self.cmdline_args.force_save is not None:
             self.force_save = self.cmdline_args.force_save
+        if self.cmdline_args.enable_reporting is not None:
+            self.enable_reporting = self.cmdline_args.enable_reporting
 
     def testfilesPath(self):
         return "%s/testfiles/" % self.temp_path
@@ -265,7 +271,7 @@ class TestExecutor(object):
             self.traceConstantinopleOps.append(stats['constatinopleOps'])
 
         # Process previous traces
-        failingTestcase = self._fuzzer.processTraces(test, forceSave = self._fuzzer._config.cmdline_args.force_save)
+        failingTestcase = self._fuzzer.processTraces(test, forceSave=self._fuzzer._config.force_save)
         if failingTestcase is None:
             self.onPass()
         else:
@@ -326,7 +332,7 @@ class TestExecutor(object):
                 if test.numprocs == 0:
                     logger.info("All procs finished for test %s" % test.id())
                     self.stats["num_active_tests"] = self.stats["num_active_tests"] - 1
-                    self.postprocess_test(test)
+                    self.postprocess_test(test, reporting=self._fuzzer._config.enable_reporting)
 
     def status(self):
         import collections, statistics
@@ -673,8 +679,12 @@ def main():
     parser.add_argument("-c", "--configfile", default="statetests.ini", required=True,
                         help="path to configuration file (default: statetests.ini)")
 
-    grp_artefacts = parser.add_argument_group('Configure Output Artefacts')
-    grp_artefacts.add_argument("-x", "--force-save", default=None, action="store_true", help="Keep tracefiles/logs/testfiles for non-failing testcases (watch disk space!) (default: False)")
+    grp_artefacts = parser.add_argument_group('Configure Output Artefacts and Reporting')
+    grp_artefacts.add_argument("-x", "--force-save", default=None, action="store_true",
+                               help="Keep tracefiles/logs/testfiles for non-failing testcases (watch disk space!) (default: False)")
+    grp_artefacts.add_argument("-r", "--enable-reporting", default=None, action="store_true",
+                               help="Output testrun statistics (num of passes/fails and speed (default: False)")
+
 
     # TODO: <optional> evmcode generation settings
     #grp_evmcodegen = parser.add_argument_group('EVM CodeGeneration Settings')
