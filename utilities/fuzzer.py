@@ -20,8 +20,11 @@ class Config(object):
     def __init__(self, cmdline_args = None):
         """Parses 'statetests.ini'-file, which
         may contain user-specific configuration
+
+        Note: cmdline overrides statetests.ini!
         """
         self.cmdline_args = cmdline_args  # preserve cmdline args
+
         file = self.cmdline_args.configfile
 
         import configparser, getpass
@@ -57,11 +60,22 @@ class Config(object):
         # here = os.path.dirname(os.path.realpath(__file__))
         self.host_id = "%s-%s-%d" % (uname, time.strftime("%a_%H_%M_%S"), os.getpid())
 
+        ## extra options
+        self.force_save = config[uname].get('force_save', False)
+
+        ## --- init ---
         logger.info("\n".join(self.info()))
 
         os.makedirs(self.artefacts, exist_ok=True)
         os.makedirs(self.testfilesPath(), exist_ok=True)
         os.makedirs(self.logfilesPath(), exist_ok=True)
+
+
+    def _merge_cmdline_args(self):
+        """merge cmdline arguments to object attributes"""
+        # map cmdline args to config file sections here. e.g. [output] force_save = True  --> self.force_save
+        if self.cmdline_args.force_save is not None:
+            self.force_save = self.cmdline_args.force_save
 
     def testfilesPath(self):
         return "%s/testfiles/" % self.temp_path
@@ -650,18 +664,17 @@ def main():
     logger.addHandler(ch)
 
     ### setup cmdline parser
-    parser = argparse.ArgumentParser(description='Ethereum consensus fuzzer',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description='Ethereum consensus fuzzer')
     loglevels = ['CRITICAL', 'FATAL', 'ERROR', 'WARNING', 'WARN', 'INFO', 'DEBUG', 'NOTSET']
     parser.add_argument("-v", "--verbosity", default="info",
                       help="available loglevels: %s" % ','.join(l.lower() for l in loglevels))
 
     # <required> configuration file: statetests.ini
     parser.add_argument("-c", "--configfile", default="statetests.ini", required=True,
-                        help="path to configuration file")
+                        help="path to configuration file (default: statetests.ini)")
 
     grp_artefacts = parser.add_argument_group('Configure Output Artefacts')
-    grp_artefacts.add_argument("-x", "--force-save", action="store_true", help="Keep tracefiles/logs/testfiles for non-failing testcases (watch disk space!)")
+    grp_artefacts.add_argument("-x", "--force-save", default=None, action="store_true", help="Keep tracefiles/logs/testfiles for non-failing testcases (watch disk space!) (default: False)")
 
     # TODO: <optional> evmcode generation settings
     #grp_evmcodegen = parser.add_argument_group('EVM CodeGeneration Settings')
