@@ -225,7 +225,7 @@ class TestExecutor(object):
     def onFail(self, testcase):
         self.stats["fail_count"] = self.stats["fail_count"] + 1
         self.stats["total_count"] = self.stats["total_count"] + 1
-        self.failures.append(failingTestcase.listArtefacts())
+        self.failures.append(testcase.listArtefacts())
 
     def numFails(self):
         return self.stats["fail_count"]
