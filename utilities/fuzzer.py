@@ -5,6 +5,7 @@ Executes state tests on multiple clients, checking for EVM trace equivalence
 
 """
 import json, sys, os, time, collections, shutil
+import signal
 import argparse
 import select
 import docker
@@ -405,6 +406,15 @@ class Fuzzer(object):
             else:
                 logger.warning("Not a docker client %s", client_name)
 
+    def stop_daemons(self):
+        # Start the processes
+        for (client_name, isDocker, cmd) in self._config.active_clients:
+            if isDocker:
+                logger.info("Stopping daemon for %s : %s", client_name, cmd)
+                self.kill_daemon(client_name)
+            else:
+                logger.warning("Not a docker client %s", client_name)
+
     def start_daemon(self, clientname, imagename):
         self._dockerclient.containers.run(image=imagename,
                                     entrypoint="sleep",
@@ -669,6 +679,7 @@ def event_str(event):
         r.append('NVAL')
     return ' '.join(r)
 
+
 def configFuzzer():
     ### setup logging
 
@@ -722,10 +733,20 @@ def configFuzzer():
     ### create fuzzer instance, pass settings and begin executing tests.
 
     fuzzer = Fuzzer(config=Config(args))
+
+    ### setup signal handler (catches ctrl+c SIGINT)
+    def signal_handler(*args, **kwargs):
+        logger.warning("SIGINT - Aborting execution. please stand by until the docker instances are shut down.")
+        fuzzer.stop_daemons()
+        logger.info("BYE BYE.")
+        sys.exit(1)
+
+    signal.signal(signal.SIGINT, signal_handler)
+
     return fuzzer
 
+
 def main():
-    ### setup logging
     # Start all docker daemons that we'll use during the execution
     fuzzer = configFuzzer()
     fuzzer.start_daemons()
