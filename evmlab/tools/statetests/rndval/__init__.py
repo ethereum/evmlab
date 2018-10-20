@@ -24,9 +24,9 @@ except ImportError as ie:
     logging.warning("[!! Exception] Failed to Import RndCodeInstr() - %r"%ie)
     logging.warning("----> Falling back to Random Code Generation based on byte distribution!")
 
-try:
-    from .codesmart2 import RndCode2
-    RndCode = RndCode2
-except ImportError as ie:
-    logging.warning("[!! Exception] Failed to Import RndCodeInstr() - %r"%ie)
-    logging.warning("----> Falling back to Random Code Generation based on byte distribution!")
+#try:
+#    from .codesmart2 import RndCode2
+#    RndCode = RndCode2
+#except ImportError as ie:
+#    logging.warning("[!! Exception] Failed to Import RndCodeInstr() - %r"%ie)
+#    logging.warning("----> Falling back to Random Code Generation based on byte distribution!")
