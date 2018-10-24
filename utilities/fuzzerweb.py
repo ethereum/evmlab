@@ -15,7 +15,8 @@ except ImportError:
     sys.exit(1)
 
 
-f = fuzzer.TestExecutor()
+f = fuzzer.configFuzzer()
+
  
 @app.route("/")
 def index():
@@ -46,13 +47,14 @@ def flaskRunner(host, port ):
 def main():
     host = "localhost"
     port = 8080
-    # Start all docker daemons that we'll use during the execution
-    fuzzer.startDaemons()
 
     thread = threading.Thread(target=flaskRunner, args = (host, port))
     thread.start()
 
-    f.startFuzzing()
+    # Start all docker daemons that we'll use during the execution
+    f.start_daemons()
+    fuzzer.TestExecutor(fuzzer=f).startFuzzing()
+
 
 if __name__ == '__main__':
 #    testSummary()

@@ -669,9 +669,9 @@ def event_str(event):
         r.append('NVAL')
     return ' '.join(r)
 
-
-def main():
+def configFuzzer():
     ### setup logging
+
     logger.setLevel(logging.DEBUG)
 
     ch = logging.StreamHandler()
@@ -722,8 +722,12 @@ def main():
     ### create fuzzer instance, pass settings and begin executing tests.
 
     fuzzer = Fuzzer(config=Config(args))
+    return fuzzer
 
+def main():
+    ### setup logging
     # Start all docker daemons that we'll use during the execution
+    fuzzer = configFuzzer()
     fuzzer.start_daemons()
 
     TestExecutor(fuzzer=fuzzer).startFuzzing()
