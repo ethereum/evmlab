@@ -373,7 +373,7 @@ class Fuzzer(object):
         self._dockerclient = docker.from_env()
 
         if config.docker_force_update_image is not None:
-            for imgage in config.docker_force_update_image:
+            for image in config.docker_force_update_image:
                 self.docker_remove_image(image=image, force=True)
 
     def docker_remove_image(self, image, force=True):

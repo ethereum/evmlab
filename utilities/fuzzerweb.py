@@ -16,11 +16,11 @@ except ImportError:
 
 
 f = fuzzer.configFuzzer()
-
+executor = fuzzer.TestExecutor(fuzzer=f)
  
 @app.route("/")
 def index():
-    return flask.render_template("index.html", status = f.status(), config = fuzzer.cfg.info())
+    return flask.render_template("index.html", status = executor.status(), config = f._config.info())
 
 @app.route("/download/")
 @app.route("/download/<artefact>")
@@ -53,7 +53,7 @@ def main():
 
     # Start all docker daemons that we'll use during the execution
     f.start_daemons()
-    fuzzer.TestExecutor(fuzzer=f).startFuzzing()
+    executor.startFuzzing()
 
 
 if __name__ == '__main__':
