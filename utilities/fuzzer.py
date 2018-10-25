@@ -301,6 +301,8 @@ class TestExecutor(object):
         mask = select.POLLIN | select.POLLPRI | select.POLLERR | select.POLLHUP | select.POLLNVAL
 
         for test in self._fuzzer.generate_tests():
+            test.socketEvent = ""
+            test.socketData = ""
             if self.stats["num_active_tests"] < MAX_PARALELL:
                 test.writeToFile()
                 # Start new procs
@@ -312,9 +314,12 @@ class TestExecutor(object):
                 # Register the test IO channel with the poller
                 for (proc_info, client_name) in test.procs:
                     socket = proc_info["output"]
+
                     poller.register(socket, mask)
-                    # Make a lookup, socket->test
-                    active_sockets[socket.fileno()] = test
+                    # Make a lookup, socket fd-> (test and socket)
+                    # The poller returns only the fd, a number, we need to 
+                    # remember the actual socket and the test
+                    active_sockets[socket.fileno()] = (test , socket)
                     # Stash the number of processes somewhere
                     test.numprocs = test.numprocs + 1
             else:
@@ -324,13 +329,22 @@ class TestExecutor(object):
             socketlist = poller.poll()
             if len(socketlist) == 0:
                 continue
-            for (socket, event) in socketlist:
+            for (socketfd, event) in socketlist:
                 # At least one process for this test is finished
 
                 # Stop listeninng to this socket
-                poller.unregister(socket)
+                poller.unregister(socketfd)
                 # Find the test
-                test = active_sockets.pop(socket)
+                (test, socket) = active_sockets.pop(socketfd)
+                # read it, close it
+                if event & (select.POLLIN| select.POLLPRI):
+                    # We don't expect any data here, but we'll take a peek and stash
+                    # it just in case
+                    data = socket.readall()
+                    test.socketData = test.socketData + str(data) 
+                #Also, we'll save the event, may assist with debugging later
+                test.socketEvent = test.socketEvent + ("[%d]" % event)
+                socket.close()
                 test.numprocs = test.numprocs - 1
                 if test.numprocs == 0:
                     logger.info("All procs finished for test %s" % test.id())
@@ -530,10 +544,18 @@ class Fuzzer(object):
             test.storeTrace(client_name, proc_info['cmd'])
             canonicalizer = self.canonicalizers[client_name]
             canon_steps = []
-            with open(test.tempTraceLocation(client_name)) as output:
-                canon_step_generator = canonicalizer(output)
-                stat_generator = stats.traceStats(canon_step_generator)
-                canon_trace = [VMUtils.toText(step) for step in stat_generator]
+            filename = test.tempTraceLocation(client_name)
+            try:
+                with open(filename) as output:
+                    canon_step_generator = canonicalizer(output)
+                    stat_generator = stats.traceStats(canon_step_generator)
+                    canon_trace = [VMUtils.toText(step) for step in stat_generator]
+            except FileNotFoundError:
+                # We hit these sometimes, maybe twice every million execs or so
+                logger.warning("The file %s could not be found!" % filename)
+                logger.warning("Socket event %s" % test.socketEvent)
+                logger.warning("Socket data %s" %  str(test.socketData))
+                #TODO, try to find out what happened -- if there's any output from the process
             stats.stop()
             test.canon_traces.append(canon_trace)
             tracelen = len(canon_trace)
