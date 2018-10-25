@@ -462,27 +462,28 @@ class Fuzzer(object):
         """
 
         from evmlab.tools.statetests import templates
-        from evmlab.tools.statetests import randomtest, statetests
+        from evmlab.tools.statetests import randomtest
+        from evmlab.tools.statetests.templates import statetest
 
-        st = statetests.StateTest(nonce="0x1d",
-                       codegenerators={"bytes": statetests.rndval.RndCodeBytes(),
-                                       "instr": statetests.rndval.RndCodeInstr(),
-                                       "smart": statetests.rndval.RndCode2()},
+        st = statetest.StateTest(nonce="0x1d",
+                       codegenerators={"bytes": statetest.rndval.RndCodeBytes(),
+                                       "instr": statetest.rndval.RndCodeInstr(),
+                                       "smart": statetest.rndval.RndCode2()},
                        codegenerators_weights={"bytes": 20,
                                                "instr": 20,
                                                "smart": 60},
                        fill_prestate_for_args=True,
                        fill_prestate_for_tx_to=True)
         st.info.fuzzer = "evmlab tin"
-        t = st.__dict__
 
-        t = templates.new(templates.object_based.TEMPLATE_RandomStateTest)
+
+        #t = templates.new(templates.object_based.TEMPLATE_RandomStateTest)
         test = {}
         counter = 0
 
         while True:
-            test.update(t)
-            test_obj = json.loads(json.dumps(t, cls=randomtest.RandomTestsJsonEncoder))
+            #test.update(t)
+            test_obj = json.loads(json.dumps(st.__dict__, cls=randomtest.RandomTestsJsonEncoder))
             s = StateTest(test_obj, counter, config=self._config)
             counter = counter + 1
             yield s

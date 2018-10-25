@@ -68,7 +68,7 @@ class StateTest(object):
                                             gasPrice= rndval.RndGasPrice(),
                                             nonce=self._nonce,
                                             to=rndval.RndDestAddressOrZero(),
-                                            value=rndval.RndHexInt(_min=0, _max=max(0, 2**24)))
+                                            value=[rndval.RndHexInt(_min=0, _max=max(0, 2**24))])
 
     def _random_storage(self, _min=0, _max=10):
         hx = rndval.RndHex32()
