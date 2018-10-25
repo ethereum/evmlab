@@ -76,12 +76,12 @@ class StateTest(object):
         return {hx:hx for hx in rnd_vals}
 
 
-    def _autofill_prestates_from_transaction(self):
-        if self.transaction.to in self.pre:
+    def _autofill_prestates_from_transaction(self, tx):
+        if tx.to in self.pre:
             # already there
             return self
 
-        self._autofill_prestate(self.transaction.to)
+        self._autofill_prestate(tx.to)
 
         return self
 
@@ -115,11 +115,13 @@ class StateTest(object):
 
 
     def _build(self):
-        if isinstance(self.transaction.to, rndval.RndAddress):
-            self.transaction.to = self.transaction.to.generate()
+        # clone the tx namespace and replace the generator with a concrete value (we can then refer to that value later)
+        tx = SimpleNamespace(**self.transaction.__dict__)
+        if isinstance(tx.to, rndval.RndAddress):
+            tx.to = tx.to.generate()
 
         if self._fill_prestate_for_tx_to:
-            self._autofill_prestates_from_transaction()
+            self._autofill_prestates_from_transaction(tx)
 
         if self._fill_prestate_for_args:
             self._autofill_prestates_from_stack_arguments()
@@ -129,7 +131,7 @@ class StateTest(object):
                        "env": self.env.__dict__,
                        "post": self.post,
                        "pre": {address:a.__dict__ for address,a in self.pre.items()},
-                       "transaction": self.transaction.__dict__}}
+                       "transaction": tx.__dict__}}
 
     @property
     def info(self):
