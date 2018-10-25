@@ -137,6 +137,9 @@ class RndCode2(_RndCodeBase):
             # balance it?
             evmcode.fix_stack_balance()
 
+        ##### store some metrix
+        self._addresses_seen = evmcode._addresses_seen
+
         ######## mutation ########
 
         # mutate instructions in 1% of cases - likely invalid code

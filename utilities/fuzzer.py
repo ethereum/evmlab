@@ -462,7 +462,19 @@ class Fuzzer(object):
         """
 
         from evmlab.tools.statetests import templates
-        from evmlab.tools.statetests import randomtest
+        from evmlab.tools.statetests import randomtest, statetests
+
+        st = statetests.StateTest(nonce="0x1d",
+                       codegenerators={"bytes": statetests.rndval.RndCodeBytes(),
+                                       "instr": statetests.rndval.RndCodeInstr(),
+                                       "smart": statetests.rndval.RndCode2()},
+                       codegenerators_weights={"bytes": 20,
+                                               "instr": 20,
+                                               "smart": 60},
+                       fill_prestate_for_args=True,
+                       fill_prestate_for_tx_to=True)
+        st.info.fuzzer = "evmlab tin"
+        t = st.__dict__
 
         t = templates.new(templates.object_based.TEMPLATE_RandomStateTest)
         test = {}
