@@ -469,9 +469,9 @@ class Fuzzer(object):
                        codegenerators={"bytes": statetest.rndval.RndCodeBytes(),
                                        "instr": statetest.rndval.RndCodeInstr(),
                                        "smart": statetest.rndval.RndCode2()},
-                       codegenerators_weights={"bytes": 20,
-                                               "instr": 20,
-                                               "smart": 60},
+                       codegenerators_weights={"bytes": 5,
+                                               "instr": 15,
+                                               "smart": 80},
                        fill_prestate_for_args=True,
                        fill_prestate_for_tx_to=True)
         st.info.fuzzer = "evmlab tin"
