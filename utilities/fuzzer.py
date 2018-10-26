@@ -385,6 +385,9 @@ class Fuzzer(object):
     def __init__(self, config=None):
         self._config = config
 
+        self._num_traces_processed = 0
+        self._total_trace_len = 0
+
         self._dockerclient = docker.from_env()
 
         if config.docker_force_update_image is not None:
@@ -582,9 +585,11 @@ class Fuzzer(object):
             stats.stop()
             test.canon_traces.append(canon_trace)
             tracelen = len(canon_trace)
+            self._num_traces_processed += 1
+            self._total_trace_len += tracelen
             t2 = time.time()
-            logger.info("Processed %s steps for %s on test %s, pTime:%.02f ms"
-                        % (tracelen, client_name, test.identifier, 1000 * (t2 - t1)))
+            logger.info("Processed %s steps for %s on test %s, pTime:%.02f ms  (avg. trace length for all traces: %d)"
+                        % (tracelen, client_name, test.identifier, 1000 * (t2 - t1), self._total_trace_len/self._num_traces_processed))
 
         # print(stats)
         # print(canon_steps)
