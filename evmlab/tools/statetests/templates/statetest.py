@@ -90,9 +90,8 @@ class StateTest(object):
             # already there
             return self
 
-        if address.startswith("0000000000000000000000000000000000000"):  #skipped the first 3 bytes
-            # appears to be an immediate CREATE, no need to push any prestates here
-            # todo: what about the other PRECOMPILED addresses? I guess it is save to skip prestates for them as they're precompiled anyway
+        if address.replace("0x","") not in rndval.RndAddress.addresses[rndval.RndAddressType.SENDING_ACCOUNT]+rndval.RndAddress.addresses[rndval.RndAddressType.STATE_ACCOUNT]:
+            # skip non state accounts
             return self
         # not a precompiled address?
         # add a random prestate for the address we interact with in the tx
@@ -101,7 +100,9 @@ class StateTest(object):
         ### random balance
         ### random storage
 
-        self.add_prestate(address="0x%s"%address.replace("0x",""), storage=self._random_storage(_min=0, _max=2))
+        self.add_prestate(address="0x%s"%address.replace("0x",""),
+                          code=self.pick_codegen().generate(length=random.randint(0,500)),  # limit length, main code is in first prestate
+                          storage=self._random_storage(_min=0, _max=2))
 
         return self
 
