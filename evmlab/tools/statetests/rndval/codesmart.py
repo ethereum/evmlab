@@ -153,6 +153,10 @@ class RndCodeInstr(_RndCodeBase):
 #
         return bytes(b)
 
+    def _track_address(self, address):
+        self._addresses_seen.add(address)
+        return address
+
     def _fill_arguments(self, instructions):
         probabilities = {'smartCodeProbability': 99}
         #https://github.com/ethereum/testeth/blob/7cbbb6fed4941420fbae738828fa1339c990e3d3/test/tools/fuzzTesting/fuzzHelper.cpp#L391
@@ -209,7 +213,7 @@ class RndCodeInstr(_RndCodeBase):
                     yield create_push_for_data(self.randomSmallMemoryLength())   # length
                     yield create_push_for_data(self.randomMemoryLength())        # codeoffset
                     yield create_push_for_data(self.randomSmallMemoryLength())   # memoffset
-                    yield create_push_for_data(RndDestAddress().as_bytes())      # address
+                    yield create_push_for_data(self._track_address(RndDestAddress().as_bytes()))      # address
                     args_filled = True
                 elif instr.name=="CODECOPY":
                     yield create_push_for_data(self.randomSmallMemoryLength())   # length
@@ -227,7 +231,7 @@ class RndCodeInstr(_RndCodeBase):
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomSmallMemoryLength())
                     yield create_push_for_data(self.randomUniInt(max=255))   # value
-                    yield create_push_for_data(RndDestAddress().as_bytes())  # address
+                    yield create_push_for_data(self._track_address(RndDestAddress().as_bytes()))  # address
                     yield create_push_for_data(self.randomUniInt())          # gas 
                     args_filled = True
                 elif instr.name in ("STATICCALL","DELEGATECALL"):
@@ -235,11 +239,11 @@ class RndCodeInstr(_RndCodeBase):
                     yield create_push_for_data(self.randomSmallMemoryLength()) # retoffset
                     yield create_push_for_data(self.randomSmallMemoryLength()) # insize
                     yield create_push_for_data(self.randomSmallMemoryLength()) # inoffset
-                    yield create_push_for_data(RndDestAddress().as_bytes())
+                    yield create_push_for_data(self._track_address(RndDestAddress().as_bytes()))
                     yield create_push_for_data(self.randomUniInt())            # gas
                     args_filled = True
                 elif instr.name=="SUICIDE":
-                    yield create_push_for_data(RndDestAddress().as_bytes())
+                    yield create_push_for_data(self._track_address(RndDestAddress().as_bytes()))
                     args_filled = True
                 elif instr.name in ("RETURN","REVERT"):
                     yield create_push_for_data(self.randomSmallMemoryLength())
@@ -263,7 +267,7 @@ class RndCodeInstr(_RndCodeBase):
                     args_filled = True
                 elif instr.name in ["EXTCODEHASH", "EXTCODESIZE"]:
                     # todo: rework                    
-                    yield create_push_for_data(RndDestAddress().as_bytes())  # address
+                    yield create_push_for_data(self._track_address(RndDestAddress().as_bytes()))  # address
                     args_filled = True
                 elif instr.category in ("bitwise-logic","comparison"):
                     for _ in instr.args:
@@ -283,7 +287,9 @@ class RndCodeInstr(_RndCodeBase):
     def generate(self, length=50):
         if self.fill_arguments:
             length = length // 2
-                
+
+        self._addresses_seen = set([])  # todo: hacky
+
         instructions = [asm_registry.create_instruction(opcode=opcode) for opcode in self.random_code_byte_sequence(length)]
         if self.fill_arguments:
             instructions = self._fill_arguments(instructions)
@@ -291,4 +297,5 @@ class RndCodeInstr(_RndCodeBase):
         serialized = ''.join(e.serialize() for e in instructions)     
 #        asm = ' '.join(str(e) for e in instructions)
 #        print(asm)
-        return  "%s%s" % (self.prefix, serialized)
+
+        return "%s%s" % (self.prefix, serialized)
