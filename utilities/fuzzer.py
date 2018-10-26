@@ -283,9 +283,9 @@ class TestExecutor(object):
 
         if reporting:
             # Do some reporting
-            logger.info("Fails: {}, Pass: {}, #test {} speed: {:f} tests/s (trace_len avg: {}, max: {})".format(
+            logger.info("Fails: {}, Pass: {}, #test {} speed: {:f} tests/s (trace_len avg: {}, max: {}, zero_trace_rate: {})".format(
                 self.numFails(), self.numPass(), self.numTotals(), self.testsPerSecond(),
-                self._fuzzer._total_trace_len / self._fuzzer._num_traces_processed, self._fuzzer._max_trace_len
+                self._fuzzer._total_trace_len / self._fuzzer._num_traces_processed, self._fuzzer._max_trace_len, self._fuzzer._num_zero_traces/self._fuzzer._num_traces_processed
             ))
 
     def startFuzzing(self):
@@ -389,6 +389,7 @@ class Fuzzer(object):
         self._num_traces_processed = 0
         self._total_trace_len = 0
         self._max_trace_len = 0
+        self._num_zero_traces = 0
 
         self._dockerclient = docker.from_env()
 
@@ -590,6 +591,8 @@ class Fuzzer(object):
             self._num_traces_processed += 1
             self._total_trace_len += tracelen
             self._max_trace_len = max(self._max_trace_len, tracelen)
+            if tracelen==0:
+                self._num_zero_traces += 1
             t2 = time.time()
             logger.info("Processed %s steps for %s on test %s, pTime:%.02f ms "
                         % (tracelen, client_name, test.identifier, 1000 * (t2 - t1)))
