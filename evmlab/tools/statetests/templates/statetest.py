@@ -1,11 +1,12 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 # Author : <github.com/tintinweb>
-from evmlab.tools.statetests import rndval
-from types import SimpleNamespace
-from evmlab.tools.statetests.rndval.base import WeightedRandomizer
 import random
-import binascii
+import json
+from types import SimpleNamespace
+from evmlab.tools.statetests import rndval, randomtest
+from evmlab.tools.statetests.rndval.base import WeightedRandomizer
+
 
 
 class Account(object):
@@ -25,16 +26,23 @@ class Account(object):
                 "storage": self.storage}
 
 
-class StateTest(object):
+class StateTestTemplate(object):
 
-    def __init__(self, nonce=None, codegenerators={}, codegenerators_weights={}, datalength=None, fill_prestate_for_tx_to=True, fill_prestate_for_args=False):
+    def __init__(self, nonce=None, codegenerators={}, datalength=None, fill_prestate_for_tx_to=True, fill_prestate_for_args=False):
         ### global settings
         self._nonce = nonce if nonce is not None else str(rndval.RndV())
-        self._codegenerators = codegenerators  # available code generators
-        self._codegenerators_weighted = WeightedRandomizer({obj:codegenerators_weights[name] for name,obj in codegenerators.items()})
-        self._datalength = datalength
+
+        ### set by setters below
+        self._codegenerators = None  # default
+        self._codegenerators_weighted = None
+        self._datalength = None
+
         self._fill_prestate_for_tx_to = fill_prestate_for_tx_to
         self._fill_prestate_for_args = fill_prestate_for_args
+
+        ## set the using a defined interface
+        self.codegens = codegenerators  # sets _codegenerators and _codegenerators_weighted
+        self.datalength = datalength  # sets _datalength
 
         ### info
         self._info = SimpleNamespace(fuzzer="evmlab",
@@ -63,7 +71,7 @@ class StateTest(object):
 
         ### transaction
         self._transaction = SimpleNamespace(secretKey="0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-                                            data=[self.pick_codegen("bytes").generate(length=self._datalength)],
+                                            data=[self.pick_codegen(rndval.RndCodeBytes).generate(length=self._datalength)],
                                             gasLimit=[rndval.RndTransactionGasLimit(_min=34 * 14000)],
                                             gasPrice= rndval.RndGasPrice(),
                                             nonce=self._nonce,
@@ -109,11 +117,10 @@ class StateTest(object):
     def _autofill_prestates_from_stack_arguments(self):
         # todo: hacky hack
         try:
-            for addr in self.pick_codegen("smart")._addresses_seen:
+            for addr in self.pick_codegen(rndval.RndCodeSmart2)._addresses_seen:
                 self._autofill_prestate(addr)
         except AttributeError as ae:
             pass  # addresses_seen is not available
-
 
     def _build(self):
         # clone the tx namespace and replace the generator with a concrete value (we can then refer to that value later)
@@ -131,8 +138,27 @@ class StateTest(object):
                        "_info": self.info.__dict__,
                        "env": self.env.__dict__,
                        "post": self.post,
-                       "pre": {address:a.__dict__ for address,a in self.pre.items()},
+                       "pre": {address: a.__dict__ for address,a in self.pre.items()},
                        "transaction": tx.__dict__}}
+
+    @property
+    def codegens(self):
+        return self._codegenerators
+
+    @codegens.setter
+    def codegens(self, weighted_codegens):
+        self._codegenerators = {engine: engine() for engine in
+                                weighted_codegens.keys()}  # instantiate available code generators
+        self._codegenerators_weighted = WeightedRandomizer(
+            {self._codegenerators[engine]: weight for engine, weight in weighted_codegens.items()})  #
+
+    @property
+    def datalength(self):
+        return self._datalength
+
+    @datalength.setter
+    def datalength(self, datalength):
+        self._datalength = datalength
 
     @property
     def info(self):
@@ -188,17 +214,17 @@ class StateTest(object):
     def __iter__(self):
         yield self._build()
 
+    def json(self):
+        return json.dumps(st.__dict__, cls=randomtest.RandomTestsJsonEncoder)
+
 
 if __name__=="__main__":
-    st = StateTest(nonce="0x1d",
-                   codegenerators={"bytes":rndval.RndCodeBytes(),
-                                   "instr":rndval.RndCodeInstr(),
-                                   "smart":rndval.RndCode2()},
-                   codegenerators_weights={"bytes":20,
-                                           "instr":20,
-                                           "smart":60},
-                   fill_prestate_for_args=True,
-                   fill_prestate_for_tx_to=True)
+    st = StateTestTemplate(nonce="0x1d",
+                           codegenerators={rndval.RndCodeBytes: 5,
+                                           rndval.RndCodeInstr: 25,
+                                           rndval.RndCodeSmart2: 70},
+                           fill_prestate_for_args=True,
+                           fill_prestate_for_tx_to=True)
     st.info.fuzzer = "evmlab tin"
 
     #st.env.currentCoinbase = rndval.RndDestAddress()
