@@ -67,11 +67,14 @@ class Config(object):
         # argparse preference.
         for arg, value in vars(self.cmdline_args).items():
             if value is not None:
-                config.set(uname, arg, value)
+                config.set(uname, arg, str(value))
 
         self.force_save = config[uname].get('force_save', False)
         self.enable_reporting = config[uname].get('enable_reporting', False)
         self.docker_force_update_image = config[uname].get('docker_force_update_image', None)
+
+        # expose default section
+        self.default = config[uname]
 
         # expose all the codegen settings
         self.codegen = config["codegen"]
@@ -85,7 +88,6 @@ class Config(object):
         os.makedirs(self.logfilesPath(), exist_ok=True)
 
         self._config = config
-
 
 
     def testfilesPath(self):
@@ -410,9 +412,10 @@ class Fuzzer(object):
 
         # todo: instantiate once?
         self.statetest_template = statetest.StateTestTemplate(nonce="0x1d",
-                                                                 codegenerators=codegens,
-                                                                 fill_prestate_for_args=True,
-                                                                 fill_prestate_for_tx_to=True)
+                                                              codegenerators=codegens,
+                                                              fill_prestate_for_args=True,
+                                                              fill_prestate_for_tx_to=True,
+                                                              _config = self._config.codegen)
         self.statetest_template.info.fuzzer = "evmlab tin"
 
     def docker_remove_image(self, image, force=True):
@@ -491,7 +494,7 @@ class Fuzzer(object):
 
         while True:
             #test.update(t)
-            test_obj = self.statetest_template.__dict__  # generates a new filled dict based on the template specification
+            test_obj = json.loads(self.statetest_template.json())   # generates a new filled dict based on the template specification
             s = StateTest(test_obj, counter, config=self._config)
             counter = counter + 1
             yield s

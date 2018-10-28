@@ -42,8 +42,9 @@ class _RndBase(object):
 
     QUOTE = "'"
 
-    def __init__(self, seed=None):
+    def __init__(self, seed=None, _config=None):
         self.seed = seed
+        self._config = _config
 
     def __str__(self):
         # for json serialization

@@ -125,15 +125,15 @@ class RndCodeSmart2(_RndCodeBase):
         generator = evmcodegen.generators.distribution.GaussDistrCodeGen(distribution=distribution)
 
         evmcode = evmcodegen.codegen.CodeGen()\
-            .generate(generator=generator, length=length, min_gas=100)\
+            .generate(generator=generator, length=length, min_gas=self._config_getint("engine.RndCodeSmart2.min_gas", 100))\
 
         # fix the stack and code in 99.5% of cases
-        if Rnd.uni_integer(0,1000) <= 995:
+        if Rnd.uni_integer(0,1000) <= self._config_getint("engine.RndCodeSmart2.fixes.fix_stack_arguments.p", 995):
             evmcode.fix_stack_arguments(valuemap=VALUEMAP)\
                 .fix_jumps()
 
         # fix stack balance in 95% of cases
-        if Rnd.percent() <= 95:
+        if Rnd.uni_integer(0,1000) <= self._config_getint("engine.RndCodeSmart2.fixes.fix_stack_balance.p", 950):
             # balance it?
             evmcode.fix_stack_balance()
 
@@ -143,21 +143,21 @@ class RndCodeSmart2(_RndCodeBase):
         ######## mutation ########
 
         # mutate instructions in 1% of cases - likely invalid code
-        if Rnd.percent() <= 1:
-            weights = {InstructionMutators.randomize_operand: 60,
-                       InstructionMutators.drop_item: 10,
-                       InstructionMutators.dup_instruction: 20,
-                       InstructionMutators.insert_random_instructions: 10}
+        if Rnd.uni_integer(0,1000) <= self._config_getint("engine.RndCodeSmart2.mutate.instructions.p", 10):
+            weights = {InstructionMutators.randomize_operand: self._config_getint("engine.RndCodeSmart2.mutate.instructions.randomize_operand.weight", 60),
+                       InstructionMutators.drop_item: self._config_getint("engine.RndCodeSmart2.mutate.instructions.drop_item.weight", 10),
+                       InstructionMutators.dup_instruction: self._config_getint("engine.RndCodeSmart2.mutate.instructions.dup_instruction.weight", 20),
+                       InstructionMutators.insert_random_instructions: self._config_getint("engine.RndCodeSmart2.mutate.instructions.insert_random_instructions.weight", 10)}
             mutator = WeightedRandomizer(weights=weights)
-            evmcode.instructions = mutator.random()(evmcode.instructions,Rnd.uni_integer(1,3))
+            evmcode.instructions = mutator.random()(evmcode.instructions,Rnd.uni_integer(1,self._config_getint("engine.RndCodeSmart2.mutate.instructions.max_amount", 3)))
 
         # mutate evmbytecode in 0.1% of  - very likely invalid code
-        if Rnd.uni_integer(0,1000) <= 1:
-            weights = {BytecodeMutators.dup_byte: 50,
-                       BytecodeMutators.insert_random_bytes: 10,
-                       BytecodeMutators.drop_byte: 20,
-                       BytecodeMutators.switch_random: 20}
+        if Rnd.uni_integer(0, 1000) <= self._config_getint("engine.RndCodeSmart2.mutate.bytecode.p", 1):
+            weights = {BytecodeMutators.dup_byte: self._config_getint("engine.RndCodeSmart2.mutate.bytecode.dup_byte.weight", 50),
+                       BytecodeMutators.insert_random_bytes: self._config_getint("engine.RndCodeSmart2.mutate.bytecode.insert_random_bytes.weight", 10),
+                       BytecodeMutators.drop_byte: self._config_getint("engine.RndCodeSmart2.mutate.bytecode.drop_byte.weight", 20),
+                       BytecodeMutators.switch_random: self._config_getint("engine.RndCodeSmart2.mutate.bytecode.switch_random.weight", 20)}
             mutator = WeightedRandomizer(weights=weights)
-            evmcode.instructions = evmdasm.EvmBytecode(mutator.random()(evmcode.assemble().as_bytes, Rnd.uni_integer(1, 3))).disassemble()
+            evmcode.instructions = evmdasm.EvmBytecode(mutator.random()(evmcode.assemble().as_bytes, Rnd.uni_integer(1, self._config_getint("engine.RndCodeSmart2.mutate.bytecode.max_amount", 3)))).disassemble()
 
         return "0x%s" % evmcode.assemble().as_hexstring

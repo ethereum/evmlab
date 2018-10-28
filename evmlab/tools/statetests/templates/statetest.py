@@ -28,9 +28,10 @@ class Account(object):
 
 class StateTestTemplate(object):
 
-    def __init__(self, nonce=None, codegenerators={}, datalength=None, fill_prestate_for_tx_to=True, fill_prestate_for_args=False):
+    def __init__(self, nonce=None, codegenerators={}, datalength=None, fill_prestate_for_tx_to=True, fill_prestate_for_args=False, _config=None):
         ### global settings
         self._nonce = nonce if nonce is not None else str(rndval.RndV())
+        self._config = _config
 
         ### set by setters below
         self._codegenerators = None  # default
@@ -147,7 +148,7 @@ class StateTestTemplate(object):
 
     @codegens.setter
     def codegens(self, weighted_codegens):
-        self._codegenerators = {engine: engine() for engine in
+        self._codegenerators = {engine: engine(_config=self._config) for engine in
                                 weighted_codegens.keys()}  # instantiate available code generators
         self._codegenerators_weighted = WeightedRandomizer(
             {self._codegenerators[engine]: weight for engine, weight in weighted_codegens.items()})  #
@@ -215,7 +216,7 @@ class StateTestTemplate(object):
         yield self._build()
 
     def json(self):
-        return json.dumps(st.__dict__, cls=randomtest.RandomTestsJsonEncoder)
+        return json.dumps(self.__dict__, cls=randomtest.RandomTestsJsonEncoder)
 
 
 if __name__=="__main__":
