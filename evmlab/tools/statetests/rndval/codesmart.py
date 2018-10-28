@@ -158,7 +158,6 @@ class RndCodeInstr(_RndCodeBase):
         return address
 
     def _fill_arguments(self, instructions):
-        probabilities = {'smartCodeProbability': 99}
         #https://github.com/ethereum/testeth/blob/7cbbb6fed4941420fbae738828fa1339c990e3d3/test/tools/fuzzTesting/fuzzHelper.cpp#L391
         def create_push_for_data(data):
             # expect bytes but silently convert int2bytes
@@ -171,7 +170,7 @@ class RndCodeInstr(_RndCodeBase):
 
         for instr in instructions:
             args_filled = False
-            if self.randomPercent() < probabilities["smartCodeProbability"]:
+            if self.randomPercent() < self._config_getint("engine.RndCodeInstr.smartCodeProbability.p", 990)/10:
                 # push arguments code
                 if instr.name.startswith("PUSH"):
                     instr.randomize_operand()

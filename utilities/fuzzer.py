@@ -406,7 +406,7 @@ class Fuzzer(object):
 
         codegens = {}
         for engine in (statetest.rndval.RndCodeBytes, statetest.rndval.RndCodeInstr, statetest.rndval.RndCodeSmart2):
-            if self._config.codegen.get("engine.%s.enabled" % engine.__name__, True):  # is engine enabled?
+            if self._config.codegen.getboolean("engine.%s.enabled" % engine.__name__, True):  # is engine enabled?
                 codegens[engine] = int(self._config.codegen.get("engine.%s.weight" % engine.__name__,
                                                                 "50"))  # create engine/weight mapping
 
