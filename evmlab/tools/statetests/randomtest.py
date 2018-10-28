@@ -20,7 +20,7 @@ def walk_iterable(d, prn):
             elif isinstance(v, list):
                 walk_iterable(d=v, prn=prn)
             else:
-                prn(d, k)  # provide dict and key for substitutaion
+                prn(d, k)  # provide dict and key for substitution
     elif isinstance(d, list):
         for k, v in enumerate(d):
             if isinstance(v, dict):
@@ -28,7 +28,7 @@ def walk_iterable(d, prn):
             elif isinstance(v, list):
                 walk_iterable(d=v, prn=prn)
             else:
-                prn(d, k)  # provide dict and key for substitutaion
+                prn(d, k)  # provide dict and key for substitution
 
 
 def get_classes():

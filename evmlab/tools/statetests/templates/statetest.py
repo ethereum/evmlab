@@ -218,6 +218,10 @@ class StateTestTemplate(object):
     def json(self):
         return json.dumps(self.__dict__, cls=randomtest.RandomTestsJsonEncoder)
 
+    def fill(self):
+        # todo: performance
+        return json.loads(self.json())
+
 
 if __name__=="__main__":
     st = StateTestTemplate(nonce="0x1d",

@@ -494,7 +494,8 @@ class Fuzzer(object):
 
         while True:
             #test.update(t)
-            test_obj = json.loads(self.statetest_template.json())   # generates a new filled dict based on the template specification
+            #test_obj = json.loads(self.statetest_template.json())   # generates a new filled dict based on the template specification
+            test_obj = self.statetest_template.fill()
             s = StateTest(test_obj, counter, config=self._config)
             counter = counter + 1
             yield s
