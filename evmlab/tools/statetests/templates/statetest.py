@@ -110,7 +110,7 @@ class StateTest(object):
         # todo: hacky hack
         try:
             for addr in self.pick_codegen("smart")._addresses_seen:
-                self._autofill_prestate(binascii.hexlify(addr).decode("utf-8"))
+                self._autofill_prestate(addr)
         except AttributeError as ae:
             pass  # addresses_seen is not available
 
