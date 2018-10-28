@@ -110,7 +110,7 @@ class BytecodeMutators:
         return bytecode
 
 
-class RndCode2(_RndCodeBase):
+class RndCodeSmart2(_RndCodeBase):
     """
     Random bytecode based on stat spread of instructions
     """
