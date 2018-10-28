@@ -119,7 +119,11 @@ class RndCodeSmart2(_RndCodeBase):
     # analyzed based on statedump.json
 
     def generate(self, length=None):
-        distribution = evmcodegen.distributions.EVM_CATEGORY  # override this in here to adjust weights
+        # override this in here to adjust weights
+        distribution = getattr(evmcodegen.distributions,
+                                self._config_get("engine.RndCodeSmart2.distribution", ""),
+                                evmcodegen.distributions.EVM_CATEGORY)
+
         if length is None:
             length = distribution.avg
         generator = evmcodegen.generators.distribution.GaussDistrCodeGen(distribution=distribution)
