@@ -1,19 +1,11 @@
-* make common utilities like opviewer/reproducer available via __main__ (python3 -m evmlab opviewer --args-to-opviewer)
-* rework project folder structure
-* publish to pip
 * refactor: logging (globally)
 * refactor: create reusable objects
 * refactor: get rid of file save/load logic. keep stuff in mem and encapsulate in objects.
 * opviewer: fix contract source loading
-* hint utf-8 on all files
-* fix setup.py dependencies
-* create unittests?
 * get rid of unnecessary files (I'm looking at you ignoreme.txt)
-* make core utilities available from evmlab package
 * cleanup __init__
 * pep-ify
 * add ci unittests and make them run on new PRs
 * move Dockerfiles to own subdir
 * document docker usage and/or geth-evm/parity-evm usage
 * can we make the code autosense for docker usage? (get rid of --no-docker flag)
-* get own infura api endpoint enabled for debug_traceTransaction
