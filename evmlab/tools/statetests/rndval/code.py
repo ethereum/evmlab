@@ -9,12 +9,27 @@ class _RndCodeBase(_RndBase):
 
     FLAG_FOCUS_CONSTANTINOPLE = 1
 
-    def __init__(self, seed=None, length=None, prefix="0x", fill_arguments=True, flags=[]):
-        super().__init__(seed=seed)
+    def __init__(self, seed=None, length=None, prefix="0x", fill_arguments=True, flags=[], _config=None):
+        super().__init__(seed=seed, _config=_config)
         self.length = length
         self.prefix = prefix
         self.fill_arguments = fill_arguments
         self.flags = set(flags)
+
+    def _config_getint(self, key, default=None):
+        if not self._config:
+            return default
+        return self._config.getint(key, default)
+
+    def _config_get(self, key, default=None):
+        if not self._config:
+            return default
+        return self._config.get(key, default)
+
+    def _config_getbool(self, key, default=None):
+        if not self._config:
+            return default
+        return self._config.getboolean(key, default)
 
 
 class RndCodeBytes(_RndCodeBase):

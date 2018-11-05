@@ -25,6 +25,7 @@ class Config(object):
         Note: cmdline overrides statetests.ini!
         """
         self.cmdline_args = cmdline_args  # preserve cmdline args
+        self._config = None  # keep the loaded configfile
 
         file = self.cmdline_args.configfile
 
@@ -61,14 +62,24 @@ class Config(object):
         # here = os.path.dirname(os.path.realpath(__file__))
         self.host_id = "%s-%s-%d" % (uname, time.strftime("%a_%H_%M_%S"), os.getpid())
 
-        ## extra options
+        ## override configfile settings from cmdline if set
+        # map argparse variables to configfile vars in section [DEFAULT]
+        # argparse preference.
+        for arg, value in vars(self.cmdline_args).items():
+            if value is not None:
+                config.set(uname, arg, str(value))
+
         self.force_save = config[uname].get('force_save', False)
         self.enable_reporting = config[uname].get('enable_reporting', False)
         self.docker_force_update_image = config[uname].get('docker_force_update_image', None)
 
+        # expose default section
+        self.default = config[uname]
+
+        # expose all the codegen settings
+        self.codegen = config["codegen"]
 
 
-        self._merge_cmdline_args()
         ## --- init ---
         logger.info("\n".join(self.info()))
 
@@ -76,16 +87,8 @@ class Config(object):
         os.makedirs(self.testfilesPath(), exist_ok=True)
         os.makedirs(self.logfilesPath(), exist_ok=True)
 
+        self._config = config
 
-    def _merge_cmdline_args(self):
-        """merge cmdline arguments to object attributes"""
-        # map cmdline args to config file sections here. e.g. [output] force_save = True  --> self.force_save
-        if self.cmdline_args.force_save is not None:
-            self.force_save = self.cmdline_args.force_save
-        if self.cmdline_args.enable_reporting is not None:
-            self.enable_reporting = self.cmdline_args.enable_reporting
-        if self.cmdline_args.docker_force_update_image is not None:
-            self.docker_force_update_image = self.cmdline_args.docker_force_update_image
 
     def testfilesPath(self):
         return "%s/testfiles/" % self.temp_path
@@ -283,8 +286,9 @@ class TestExecutor(object):
 
         if reporting:
             # Do some reporting
-            logger.info("Fails: {}, Pass: {}, #test {} speed: {:f} tests/s".format(
-                self.numFails(), self.numPass(), self.numTotals(), self.testsPerSecond()
+            logger.info("Fails: {}, Pass: {}, #test {} speed: {:f} tests/s (trace_len avg: {}, max: {}, zero_trace_rate: {})".format(
+                self.numFails(), self.numPass(), self.numTotals(), self.testsPerSecond(),
+                self._fuzzer._total_trace_len / self._fuzzer._num_traces_processed, self._fuzzer._max_trace_len, self._fuzzer._num_zero_traces/self._fuzzer._num_traces_processed
             ))
 
     def startFuzzing(self):
@@ -385,11 +389,34 @@ class Fuzzer(object):
     def __init__(self, config=None):
         self._config = config
 
+        self._num_traces_processed = 0
+        self._total_trace_len = 0
+        self._max_trace_len = 0
+        self._num_zero_traces = 0
+
         self._dockerclient = docker.from_env()
 
         if config.docker_force_update_image is not None:
             for image in config.docker_force_update_image:
                 self.docker_remove_image(image=image, force=True)
+
+
+        ##### Statetest Template init
+        from evmlab.tools.statetests.templates import statetest
+
+        codegens = {}
+        for engine in (statetest.rndval.RndCodeBytes, statetest.rndval.RndCodeInstr, statetest.rndval.RndCodeSmart2):
+            if self._config.codegen.getboolean("engine.%s.enabled" % engine.__name__, True):  # is engine enabled?
+                codegens[engine] = int(self._config.codegen.get("engine.%s.weight" % engine.__name__,
+                                                                "50"))  # create engine/weight mapping
+
+        # todo: instantiate once?
+        self.statetest_template = statetest.StateTestTemplate(nonce="0x1d",
+                                                              codegenerators=codegens,
+                                                              fill_prestate_for_args=True,
+                                                              fill_prestate_for_tx_to=True,
+                                                              _config = self._config.codegen)
+        self.statetest_template.info.fuzzer = "evmlab tin"
 
     def docker_remove_image(self, image, force=True):
         self._dockerclient.images.remove(image=image, force=force)
@@ -461,16 +488,14 @@ class Fuzzer(object):
         returns (filename, object)
         """
 
-        from evmlab.tools.statetests import templates
-        from evmlab.tools.statetests import randomtest
-
-        t = templates.new(templates.object_based.TEMPLATE_RandomStateTest)
+        #t = templates.new(templates.object_based.TEMPLATE_RandomStateTest)
         test = {}
         counter = 0
 
         while True:
-            test.update(t)
-            test_obj = json.loads(json.dumps(t, cls=randomtest.RandomTestsJsonEncoder))
+            #test.update(t)
+            #test_obj = json.loads(self.statetest_template.json())   # generates a new filled dict based on the template specification
+            test_obj = self.statetest_template.fill()
             s = StateTest(test_obj, counter, config=self._config)
             counter = counter + 1
             yield s
@@ -569,8 +594,13 @@ class Fuzzer(object):
             stats.stop()
             test.canon_traces.append(canon_trace)
             tracelen = len(canon_trace)
+            self._num_traces_processed += 1
+            self._total_trace_len += tracelen
+            self._max_trace_len = max(self._max_trace_len, tracelen)
+            if tracelen==0:
+                self._num_zero_traces += 1
             t2 = time.time()
-            logger.info("Processed %s steps for %s on test %s, pTime:%.02f ms"
+            logger.info("Processed %s steps for %s on test %s, pTime:%.02f ms "
                         % (tracelen, client_name, test.identifier, 1000 * (t2 - t1)))
 
         # print(stats)
@@ -736,8 +766,7 @@ def configFuzzer():
 
     # TODO: <optional> evmcode generation settings
     #grp_evmcodegen = parser.add_argument_group('EVM CodeGeneration Settings')
-    #grp_evmcodegen.add_option("-g", "--codegen", default="", help="select the evm code generation engine to be used")
-    #grp_evmcodegen.add_option("-w", "--weights", default="", help="")
+    #grp_evmcodegen.add_option("-g", "--codegen", nargs='+', default=["smart:70","instr:25","bytes:5"], help="select available evm code generation engines and weights (default: [smart:70, instr:25, bytes:5])")
 
     ### parse args
     args = parser.parse_args()
