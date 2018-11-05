@@ -6,7 +6,7 @@ Executes state tests on multiple clients, checking for EVM trace equivalence
 """
 import json, sys, os, time, collections, shutil
 import signal
-import argparse
+import argparse, queue, threading
 import select
 import docker
 import logging
@@ -309,7 +309,7 @@ class TestExecutor(object):
             test.socketEvent = ""
             test.socketData = ""
             if self.stats["num_active_tests"] < MAX_PARALELL:
-                test.writeToFile()
+                #test.writeToFile()
                 # Start new procs
                 self._fuzzer.start_processes(test)
                 self.stats["num_active_tests"] = self.stats["num_active_tests"] + 1
@@ -480,6 +480,7 @@ class Fuzzer(object):
 
     #   VMUtils.finishProc(VMUtils.startProc(["docker", "kill",clientname]))
 
+
     def generate_tests(self):
         """This method produces json-files, each containing one statetest, with _one_ poststate.
         It stores each test with a filename that is unique per user and per process, so that two
@@ -488,17 +489,22 @@ class Fuzzer(object):
         returns (filename, object)
         """
 
-        #t = templates.new(templates.object_based.TEMPLATE_RandomStateTest)
-        test = {}
-        counter = 0
+        # We'll offload test generation to another thread
+        q = queue.Queue(maxsize = 20)
+        def createATest():
+            counter = 0
+            while True:
+                test_obj = self.statetest_template.fill()
+                s = StateTest(test_obj, counter, config=self._config)
+                s.writeToFile()
+                counter = counter + 1
+                q.put(s, block=True)            
 
+        t = threading.Thread(target=createATest)
+        t.start()
+        # And here, just pop off the queue and yield
         while True:
-            #test.update(t)
-            #test_obj = json.loads(self.statetest_template.json())   # generates a new filled dict based on the template specification
-            test_obj = self.statetest_template.fill()
-            s = StateTest(test_obj, counter, config=self._config)
-            counter = counter + 1
-            yield s
+            yield q.get()
 
     def processTraces(self, test, forceSave=False):
         if test is None:
