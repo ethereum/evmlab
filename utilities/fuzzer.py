@@ -80,7 +80,7 @@ class Config(object):
         self.codegen = self._config["codegen"] if self._config.has_section("codegen") else None
 
         # expose all statetest settings
-        self.statetest = self._config["statetest"] if self._config.has_section("statetests") else None
+        self.statetest = self._config["statetest"] if self._config.has_section("statetest") else None
 
         ## --- init ---
         logger.info("config: using default: %s" % uname)

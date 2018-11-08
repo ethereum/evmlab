@@ -53,7 +53,7 @@ class StateTestTemplate(object):
                                      filledwith="evmlab randomfuzz")
 
         ### env
-        self._env = SimpleNamespace(currentCoinbase=self._config_get("env.coinbase", rndval.RndAddress()),
+        self._env = SimpleNamespace(currentCoinbase=self._config_get("env.coinbase", rndval.RndSourceAddress()),
                                     currentDifficulty=self._config_get("env.difficulty", "0x20000"),
                                     currentGasLimit=self._config_get("env.gaslimit", "0x1312D00"),
                                     currentNumber=self._config_get("env.number", "1"),
@@ -150,6 +150,7 @@ class StateTestTemplate(object):
         for cg in self._codegenerators.values():
             try:
                 all_addresses.update(cg._addresses_seen)
+                cg._addresses_seen = set()  # reset addresses seen
             except (KeyError, AttributeError) as ae:
                 #print(ae)
                 pass
@@ -164,15 +165,21 @@ class StateTestTemplate(object):
         if isinstance(tx.to, rndval.RndAddress):
             tx.to = tx.to.generate()
 
+        env = SimpleNamespace(**self.env.__dict__)
+        if isinstance(env.currentCoinbase, rndval.RndAddress):
+            env.currentCoinbase = env.currentCoinbase.generate()
+
         if self._fill_prestate_for_tx_to:
             self._autofill_prestates_from_transaction(tx)
 
         if self._fill_prestate_for_args:
             self._autofill_prestates_from_stack_arguments()
 
+        self.add_prestate(address=env.currentCoinbase, code="")
+
         return {"randomStatetest": {
                        "_info": self.info.__dict__,
-                       "env": self.env.__dict__,
+                       "env": env.__dict__,
                        "post": self.post,
                        "pre": {address: a.__dict__ for address,a in self.pre.items()},
                        "transaction": tx.__dict__}}
