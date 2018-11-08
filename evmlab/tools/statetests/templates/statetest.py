@@ -29,7 +29,8 @@ class Account(object):
 
 class StateTestTemplate(object):
 
-    def __init__(self, nonce=None, codegenerators={}, datalength=None, fill_prestate_for_tx_to=True, fill_prestate_for_args=False, _config=None):
+    def __init__(self, nonce=None, codegenerators={}, datalength=None,
+                 fill_prestate_for_tx_to=True, fill_prestate_for_args=False, _config=None):
         ### global settings
         self._nonce = nonce if nonce is not None else str(rndval.RndV())
         self._config = _config
@@ -48,16 +49,16 @@ class StateTestTemplate(object):
 
         ### info
         self._info = SimpleNamespace(fuzzer="evmlab",
-                                     comment="evmlab",
+                                     comment=self._config_get("info.comment", "evmlab"),
                                      filledwith="evmlab randomfuzz")
 
         ### env
-        self._env = SimpleNamespace(currentCoinbase=rndval.RndAddress(),
-                                    currentDifficulty="0x20000",
-                                    currentGasLimit="0x1312D00",
-                                    currentNumber="1",
-                                    currentTimestamp="1000",
-                                    previousHash=rndval.RndHash32())
+        self._env = SimpleNamespace(currentCoinbase=self._config_get("env.coinbase", rndval.RndAddress()),
+                                    currentDifficulty=self._config_get("env.difficulty", "0x20000"),
+                                    currentGasLimit=self._config_get("env.gaslimit", "0x1312D00"),
+                                    currentNumber=self._config_get("env.number", "1"),
+                                    currentTimestamp=self._config_get("env.timestamp", "1000"),
+                                    previousHash=self._config_get("env.previousHash", rndval.RndHash32()))
 
         ### post
         self._post = {"Byzantium": [
@@ -74,12 +75,27 @@ class StateTestTemplate(object):
         ### transaction
         self._transaction = SimpleNamespace(secretKey="0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
                                             data=[RndCodeBytes().generate(length=self._datalength)],
-                                            gasLimit=[rndval.RndTransactionGasLimit(_min=34 * 14000)],
+                                            gasLimit=[rndval.RndTransactionGasLimit(_min=self._config_getint("transaction.gaslimit.random.min",34*14000))],
                                             gasPrice=rndval.RndGasPrice(),
                                             nonce=self._nonce,
                                             to=rndval.RndDestAddressOrZero(),
-                                            value=[rndval.RndHexInt(_min=0, _max=max(0, 2**24))])
+                                            value=[rndval.RndHexInt(_min=self._config_getint("transaction.value.random.min", 0),
+                                                                    _max=self._config_getint("transaction.value.random.max", 2**24))])
 
+    def _config_getint(self, key, default=None):
+        if not self._config or not self._config.statetest:
+            return default
+        return self._config.statetest.getint(key, default)
+
+    def _config_get(self, key, default=None):
+        if not self._config or not self._config.statetest:
+            return default
+        return self._config.statetest.get(key, default)
+
+    def _config_getbool(self, key, default=None):
+        if not self._config or not self._config.statetest:
+            return default
+        return self._config.statetest.getboolean(key, default)
 
     def _random_storage(self, _min=0, _max=10):
         hx = rndval.RndHex32()
@@ -111,9 +127,19 @@ class StateTestTemplate(object):
         ### random balance
         ### random storage
 
+        codelength_min, codelength_max = self._config_getint("prestate.random.code.length.min", None), self._config_getint("prestate.random.code.length.max", None)
+        if codelength_min is not None:
+            if codelength_min == codelength_max or codelength_max is None:
+                codelength = codelength_min
+            else:
+                codelength = random.randint(codelength_min, codelength_max)
+        else:
+            codelength = None
+
         self.add_prestate(address="0x%s"%address.replace("0x",""),
-                          code=self.pick_codegen().generate(),  # limit length, main code is in first prestate
-                          storage=self._random_storage(_min=0, _max=2))
+                          code=self.pick_codegen().generate(length=codelength),  # limit length, main code is in first prestate
+                          storage=self._random_storage(_min=self._config_getint("prestate.storage.random.slots.min",0),
+                                                       _max=self._config_getint("prestate.storage.random.slots.max",2)))
 
         return self
 
@@ -157,7 +183,7 @@ class StateTestTemplate(object):
 
     @codegens.setter
     def codegens(self, weighted_codegens):
-        self._codegenerators = {engine: engine(_config=self._config) for engine in
+        self._codegenerators = {engine: engine(_config=self._config.codegen if self._config else None) for engine in
                                 weighted_codegens.keys()}  # instantiate available code generators
         self._codegenerators_weighted = WeightedRandomizer(
             {self._codegenerators[engine]: weight for engine, weight in weighted_codegens.items()})  #

@@ -77,7 +77,10 @@ class Config(object):
         self.default = self._config[uname]
 
         # expose all the codegen settings
-        self.codegen = self._config["codegen"]
+        self.codegen = self._config["codegen"] if self._config.has_section("codegen") else None
+
+        # expose all statetest settings
+        self.statetest = self._config["statetest"] if self._config.has_section("statetests") else None
 
         ## --- init ---
         logger.info("config: using default: %s" % uname)
@@ -86,7 +89,7 @@ class Config(object):
         # print all the settings
         for csect, cvals in self._config._sections.items():
             logger.debug("[%s]" % csect)
-            logger.debug("\n" + '\n   '.join("%s = %s"%(k,v) for k,v in cvals.items()))
+            logger.debug("\n   " + '\n   '.join("%s = %s"%(k,v) for k,v in cvals.items()))
 
         logger.debug("making artefacts, testfiles and logfiles dirs..")
         os.makedirs(self.artefacts, exist_ok=True)
@@ -434,7 +437,7 @@ class Fuzzer(object):
                                                               codegenerators=codegens,
                                                               fill_prestate_for_args=True,
                                                               fill_prestate_for_tx_to=True,
-                                                              _config=self._config.codegen)
+                                                              _config=self._config)
         self.statetest_template.info.fuzzer = "evmlab tin"
 
     def docker_remove_image(self, image, force=True):

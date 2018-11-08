@@ -285,7 +285,10 @@ class RndCodeInstr(_RndCodeBase):
             # finally push instruction
             yield instr
 
-    def generate(self, length=50):
+    def generate(self, length=None):
+
+        length = self._config_getint("engine.RndCodeInstr.default.length", 50) if length is None else length
+
         if self.fill_arguments:
             length = length // 2
 
