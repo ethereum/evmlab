@@ -5,6 +5,7 @@ Executes state tests on multiple clients, checking for EVM trace equivalence
 
 """
 import json, sys, os, time, collections, shutil
+import configparser, getpass
 import signal
 import argparse, queue, threading
 import select
@@ -12,8 +13,9 @@ import docker
 import logging
 
 from evmlab import vm as VMUtils
+from evmlab.tools.statetests.templates import statetest
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 class Config(object):
@@ -25,28 +27,26 @@ class Config(object):
         Note: cmdline overrides statetests.ini!
         """
         self.cmdline_args = cmdline_args  # preserve cmdline args
-        self._config = None  # keep the loaded configfile
+        self._config = configparser.ConfigParser()  # keep the loaded configfile
+        self._config.read(self.cmdline_args.configfile or "statetests.ini") # load statetests.ini
 
-        file = self.cmdline_args.configfile
-
-        import configparser, getpass
-        config = configparser.ConfigParser()
-        config.read(file)
+        # set default section to user-profile name if available
         uname = getpass.getuser()
-        if uname not in config.sections():
+        if uname not in self._config.sections():
             uname = "DEFAULT"
 
         # A list of clients-tuples: name , isDocker, path
         self.active_clients = []
-        for c in config[uname]['clients'].split(","):
+        for c in self._config[uname]['clients'].split(","):
             key = "{}.binary".format(c)
-            if key in config[uname]:
-                self.active_clients.append((c, False, config[uname][key]))
+            if key in self._config[uname]:
+                self.active_clients.append((c, False, self._config[uname][key]))
             key = "{}.docker_name".format(c)
-            if key in config[uname]:
-                self.active_clients.append((c, True, config[uname][key]))
+            if key in self._config[uname]:
+                self.active_clients.append((c, True, self._config[uname][key]))
 
-        self.fork_config = config[uname]['fork_config']
+
+        self.fork_config = self._config.get(uname, 'fork_config', fallback="")
 
         def resolve(path):
             path = path.strip()
@@ -55,9 +55,9 @@ class Config(object):
             return path
 
         # Artefacts are where stuff is stored
-        self.artefacts = resolve(config[uname]['artefacts'])
+        self.artefacts = resolve(self._config.get(uname,'artefacts'))
         # temp paths is where we put stuff we don't necessarily save
-        self.temp_path = resolve(config[uname]['tests_path'])
+        self.temp_path = resolve(self._config.get(uname,'tests_path'))
 
         # here = os.path.dirname(os.path.realpath(__file__))
         self.host_id = "%s-%s-%d" % (uname, time.strftime("%a_%H_%M_%S"), os.getpid())
@@ -67,38 +67,45 @@ class Config(object):
         # argparse preference.
         for arg, value in vars(self.cmdline_args).items():
             if value is not None:
-                config.set(uname, arg, str(value))
+                self._config.set(uname, arg, str(value))
 
-        self.force_save = config[uname].get('force_save', False)
-        self.enable_reporting = config[uname].get('enable_reporting', False)
-        self.docker_force_update_image = config[uname].get('docker_force_update_image', None)
+        self.force_save = self._config.get(uname, 'force_save', fallback=False)
+        self.enable_reporting = self._config.get(uname, 'enable_reporting', fallback=False)
+        self.docker_force_update_image = self._config.get(uname, 'docker_force_update_image', fallback=None)
 
         # expose default section
-        self.default = config[uname]
+        self.default = self._config[uname]
 
         # expose all the codegen settings
-        self.codegen = config["codegen"]
-
+        self.codegen = self._config["codegen"]
 
         ## --- init ---
-        logger.info("\n".join(self.info()))
+        logger.info("config: using default: %s" % uname)
+        logger.info("\n".join(self.info))
 
+        # print all the settings
+        for csect, cvals in self._config._sections.items():
+            logger.debug("[%s]" % csect)
+            logger.debug("\n" + '\n   '.join("%s = %s"%(k,v) for k,v in cvals.items()))
+
+        logger.debug("making artefacts, testfiles and logfiles dirs..")
         os.makedirs(self.artefacts, exist_ok=True)
-        os.makedirs(self.testfilesPath(), exist_ok=True)
-        os.makedirs(self.logfilesPath(), exist_ok=True)
+        os.makedirs(self.testfilesPath, exist_ok=True)
+        os.makedirs(self.logfilesPath, exist_ok=True)
 
-        self._config = config
-
-
+    @property
     def testfilesPath(self):
         return "%s/testfiles/" % self.temp_path
 
+    @property
     def logfilesPath(self):
         return "%s/logs/" % self.temp_path
 
+    @property
     def clientNames(self):
         return [name for (name, y, z) in self.active_clients]
 
+    @property
     def info(self):
         out = []
         out.append("Active clients:")
@@ -109,8 +116,8 @@ class Config(object):
         out.append("Fork config:   %s" % self.fork_config)
         out.append("Artefacts:     %s" % self.artefacts)
         out.append("Tempfiles:     %s" % self.temp_path)
-        out.append("Log path:      %s" % self.logfilesPath())
-        out.append("Test files:    %s" % self.testfilesPath())
+        out.append("Log path:      %s" % self.logfilesPath)
+        out.append("Test files:    %s" % self.testfilesPath)
         return out
 
 
@@ -126,23 +133,26 @@ class RawStateTest(object):
         self.additionalArtefacts = []
         self._config = config
 
+    @property
     def filename(self):
         return self._filename
 
+    @property
     def id(self):
         return self.identifier
 
+    @property
     def fullfilename(self):
-        return os.path.abspath("%s/%s" % (self._config.testfilesPath(),self.filename()))
+        return os.path.abspath("%s/%s" % (self._config.testfilesPath, self.filename))
 
     def writeToFile(self):
         # write to unique tmpfile
-        logger.debug("Writing file %s" % self.fullfilename())
-        with open(self.fullfilename(), 'w') as outfile:
+        logger.debug("Writing file %s" % self.fullfilename)
+        with open(self.fullfilename, 'w') as outfile:
             json.dump(self.statetest, outfile)
 
     def removeFiles(self):
-        f = self.fullfilename()
+        f = self.fullfilename
         logger.info("Removing test artefacts %s" % ([f] + self.traceFiles))
         os.remove(f)
         # delete non-failed traces
@@ -153,11 +163,11 @@ class RawStateTest(object):
         return "%s-%s.trace.log" % (self.identifier, client)
 
     def tempTraceLocation(self, client):
-        return os.path.abspath("%s/%s" % (self._config.logfilesPath(),self.tempTraceFilename(client)))
+        return os.path.abspath("%s/%s" % (self._config.logfilesPath,self.tempTraceFilename(client)))
 
     def storeTrace(self, client, command):
         filename = self.tempTraceLocation(client)
-        logger.debug("%s full trace %s saved to %s" % (client, self.id(), filename))
+        logger.debug("%s full trace %s saved to %s" % (client, self.id, filename))
         #       Not needed when docker-processes write directly into files
         #        with open(filename, "w+") as f:
         #            f.write("# command\n")
@@ -168,9 +178,9 @@ class RawStateTest(object):
 
     def saveArtefacts(self):
         # Save the actual test json
-        saveloc = "%s/%s" % (self._config.artefacts, self.filename())
+        saveloc = "%s/%s" % (self._config.artefacts, self.filename)
         logger.info("Saving testcase as %s", saveloc)
-        shutil.move(self.fullfilename(), saveloc)
+        shutil.move(self.fullfilename, saveloc)
 
         newTracefiles = []
 
@@ -184,7 +194,7 @@ class RawStateTest(object):
         self.traceFiles = newTracefiles
 
     def addArtefact(self, fname, data):
-        fullpath = "%s/%s-%s" % (self._config.artefacts, self.id(), fname)
+        fullpath = "%s/%s-%s" % (self._config.artefacts, self.id, fname)
         logger.info("Saving artefact %s", fullpath)
         with open(fullpath, "w+") as f:
             f.write(data)
@@ -192,8 +202,8 @@ class RawStateTest(object):
 
     def listArtefacts(self):
         return {
-            "id": self.id(),
-            "file": self.filename(),
+            "id": self.id,
+            "file": self.filename,
             "traces": [os.path.basename(f) for f in self.traceFiles],
             "other": [os.path.basename(f) for f in self.additionalArtefacts],
         }
@@ -352,9 +362,22 @@ class TestExecutor(object):
                 socket.close()
                 test.numprocs = test.numprocs - 1
                 if test.numprocs == 0:
-                    logger.info("All procs finished for test %s" % test.id())
+                    logger.info("All procs finished for test %s" % test.id)
                     self.stats["num_active_tests"] = self.stats["num_active_tests"] - 1
                     self.postprocess_test(test, reporting=self._fuzzer._config.enable_reporting)
+
+    def dry_run(self):
+        tstart = time.time()
+        self.stats["start_time"] = tstart
+        stats_after = 10
+
+        for nr, test in enumerate(self._fuzzer.generate_tests()):
+            logger.info("[*] Test #%d: generated statetest: %s"%(nr, test.fullfilename))
+            if nr % stats_after == 0:
+                tdiff = time.time() - tstart
+                tstart = time.time()
+                logger.info("%0.2f Tests/sec" % (stats_after/tdiff))
+
 
     def status(self):
         import collections, statistics
@@ -400,10 +423,6 @@ class Fuzzer(object):
             for image in config.docker_force_update_image:
                 self.docker_remove_image(image=image, force=True)
 
-
-        ##### Statetest Template init
-        from evmlab.tools.statetests.templates import statetest
-
         codegens = {}
         for engine in (statetest.rndval.RndCodeBytes, statetest.rndval.RndCodeInstr, statetest.rndval.RndCodeSmart2):
             if self._config.codegen.getboolean("engine.%s.enabled" % engine.__name__, True):  # is engine enabled?
@@ -415,7 +434,7 @@ class Fuzzer(object):
                                                               codegenerators=codegens,
                                                               fill_prestate_for_args=True,
                                                               fill_prestate_for_tx_to=True,
-                                                              _config = self._config.codegen)
+                                                              _config=self._config.codegen)
         self.statetest_template.info.fuzzer = "evmlab tin"
 
     def docker_remove_image(self, image, force=True):
@@ -434,7 +453,6 @@ class Fuzzer(object):
         ```
 
         """
-
         daemons = []
         # Start the processes
         for (client_name, isDocker, cmd) in self._config.active_clients:
@@ -464,8 +482,8 @@ class Fuzzer(object):
                                     detach=True,
                                     remove=True,
                                     volumes={
-                                        self._config.testfilesPath(): {'bind': '/testfiles/', 'mode': "rw"},
-                                        self._config.logfilesPath(): {'bind': '/logs/', 'mode': "rw"},
+                                        self._config.testfilesPath: {'bind': '/testfiles/', 'mode': "rw"},
+                                        self._config.logfilesPath: {'bind': '/logs/', 'mode': "rw"},
                                     })
 
         logger.info("Started docker daemon %s %s" % (imagename, clientname))
@@ -494,7 +512,7 @@ class Fuzzer(object):
         def createATest():
             counter = 0
             while True:
-                test_obj = self.statetest_template.fill()
+                test_obj = self.statetest_template.fill(reset_prestate=True)
                 s = StateTest(test_obj, counter, config=self._config)
                 s.writeToFile()
                 counter = counter + 1
@@ -506,13 +524,44 @@ class Fuzzer(object):
         while True:
             yield q.get()
 
+    def benchmark(self, method=None, duration=None):
+        counter = 0
+
+        def default_method():
+            return self.statetest_template.fill(reset_prestate=True)
+
+        method = method or default_method
+
+        tdiffs = []
+
+        start = time.time()
+        while True:
+            x0 = time.time()
+            test_obj = method()
+            print(test_obj["randomStatetest"]["transaction"]["to"])
+            x1 = time.time()
+
+            print("to: %s --> pre: %r" % (test_obj["randomStatetest"]["transaction"]["to"],
+                                          set(test_obj["randomStatetest"]["pre"].keys())))
+            s_per_test = x1-x0
+            tot_per_s = counter / (x1 - start)
+            print("%d %f (tot %f/s)" % (counter, s_per_test, tot_per_s))
+
+            counter = counter + 1
+            if duration:
+                tdiffs.append(s_per_test)
+                if x1 > start+duration:
+                    break
+
+        return sum(tdiffs)/len(tdiffs)
+
     def processTraces(self, test, forceSave=False):
         if test is None:
             return None
 
         # Process previous traces
 
-        (equivalent, trace_output) = VMUtils.compare_traces(test.canon_traces, self._config.clientNames())
+        (equivalent, trace_output) = VMUtils.compare_traces(test.canon_traces, self._config.clientNames)
 
         if equivalent and not forceSave:
             test.removeFiles()
@@ -559,7 +608,7 @@ class Fuzzer(object):
                     'parity': self.startParity,
                     'hera': self.startHera}
 
-        logger.info("Starting processes for %s on test %s" % (self._config.clientNames(), test.id()))
+        logger.info("Starting processes for %s on test %s" % (self._config.clientNames, test.id))
         # Start the processes
         for (client_name, x, y) in self._config.active_clients:
             if client_name in starters.keys():
@@ -662,13 +711,13 @@ class Fuzzer(object):
         docker exec -it <name> <command>
 
         """
-        cmd = ["evm", "--json", "--nomemory", "statetest", "/testfiles/%s" % os.path.basename(test.filename())]
+        cmd = ["evm", "--json", "--nomemory", "statetest", "/testfiles/%s" % os.path.basename(test.filename)]
         cmd = Fuzzer.shWrap(cmd, test.tempTraceFilename('geth'))
         return self.execInDocker("geth", cmd, stdout=False)
 
     def startParity(self, test):
-        cmd = ["/parity-evm", "state-test", "--std-json", "/testfiles/%s" % os.path.basename(test.filename())]
-        # cmd = ["/bin/sh","-c","/parity-evm state-test --std-json /testfiles/%s 1>&2" % os.path.basename(test.filename())]
+        cmd = ["/parity-evm", "state-test", "--std-json", "/testfiles/%s" % os.path.basename(test.filename)]
+        # cmd = ["/bin/sh","-c","/parity-evm state-test --std-json /testfiles/%s 1>&2" % os.path.basename(test.filename)]
         cmd = Fuzzer.shWrap(cmd, test.tempTraceFilename('parity'))
         return self.execInDocker("parity", cmd)
 
@@ -694,33 +743,6 @@ class Fuzzer(object):
         return self.execInDocker("cpp", cmd, stderr=False)
 
 
-def testSpeedGenerateTests():
-    """This method produces json-files, each containing one statetest, with _one_ poststate.
-    It stores each test with a filename that is unique per user and per process, so that two
-    paralell executions should not interfere with eachother.
-
-    returns (filename, object)
-    """
-
-    from evmlab.tools.statetests import templates
-    from evmlab.tools.statetests import randomtest
-    import time
-    t = templates.new(templates.object_based.TEMPLATE_RandomStateTest)
-    test = {}
-    test.update(t)
-    counter = 0
-    start = time.time()
-    while True:
-        x0 = time.time()
-        # test.update(t)
-        test_obj = json.loads(json.dumps(t, cls=randomtest.RandomTestsJsonEncoder))
-        x = str(test_obj)
-        print(test_obj["randomStatetest"]["transaction"]["to"])
-        x1 = time.time()
-        print("%d %f (tot %f/s)" % (counter, x1 - x0, counter / (x1 - start)))
-        counter = counter + 1
-
-
 def event_str(event):
     r = []
     if event & select.POLLIN:
@@ -740,11 +762,10 @@ def event_str(event):
 
 def configFuzzer():
     ### setup logging
-
     logger.setLevel(logging.DEBUG)
 
     ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
+    ch.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     ch.setFormatter(formatter)
     logger.addHandler(ch)
@@ -758,6 +779,10 @@ def configFuzzer():
     # <required> configuration file: statetests.ini
     parser.add_argument("-c", "--configfile", default="statetests.ini", required=True,
                         help="path to configuration file (default: statetests.ini)")
+    parser.add_argument("-D", "--dry-run", default=False, action="store_true",
+                        help="Simulate and print the output instead of running it with the docker backend (default: False)")
+    parser.add_argument("-B", "--benchmark", default=False, action="store_true",
+                        help="Benchmark test generation (default: False)")
 
     grp_artefacts = parser.add_argument_group('Configure Output Artefacts and Reporting')
     grp_artefacts.add_argument("-x", "--force-save", default=None, action="store_true",
@@ -768,28 +793,46 @@ def configFuzzer():
     grp_docker = parser.add_argument_group('Docker Settings')
     grp_docker.add_argument("-y", "--docker-force-update-image", default=None, action="append",
                                help="Remove specified docker images before starting the fuzzer to force docker to download new versions of the image (default: [])")
+    grp_docker = parser.add_argument_group('Docker Settings')
 
-
-    # TODO: <optional> evmcode generation settings
-    #grp_evmcodegen = parser.add_argument_group('EVM CodeGeneration Settings')
-    #grp_evmcodegen.add_option("-g", "--codegen", nargs='+', default=["smart:70","instr:25","bytes:5"], help="select available evm code generation engines and weights (default: [smart:70, instr:25, bytes:5])")
 
     ### parse args
     args = parser.parse_args()
 
     if args.verbosity.upper() in loglevels:
+        logger.debug("setting loglevel to %s"%args.verbosity)
         args.verbosity = getattr(logging, args.verbosity.upper())
         logger.setLevel(args.verbosity)
     else:
         parser.error("invalid verbosity selected. please check --help")
 
-
-    # TODO: MERGE statetests.ini and cmdline settings into one settings object and propagate it to all other classes.
-    #       merge within Config() and make it always return sane settings or raise exceptions on conflicts
-
     ### create fuzzer instance, pass settings and begin executing tests.
 
     fuzzer = Fuzzer(config=Config(args))
+
+    if args.benchmark:
+        duration = 10
+        logger.info("running benchmark for new and old method")
+        # benchmark old or new method?
+
+        # benchmark new method
+        logger.info("new method: %ssec duration"%duration)
+        avg = fuzzer.benchmark(duration=duration)
+        logger.info("new method avg generation time: %f (%f tests/s)" % (avg, 1 / avg))
+
+        # benchmark old method
+        from evmlab.tools.statetests import templates
+        from evmlab.tools.statetests import randomtest
+        t = templates.new(templates.object_based.TEMPLATE_RandomStateTest)
+
+        def old_method():
+            return json.loads(json.dumps(t, cls=randomtest.RandomTestsJsonEncoder))
+
+        logger.info("old method: %ssec duration" % duration)
+        avg = fuzzer.benchmark(old_method, duration=duration)
+        logger.info("old method avg generation time: %f (%f tests/s)" % (avg, 1/avg))
+
+        sys.exit(0)
 
     ### setup signal handler (catches ctrl+c SIGINT)
     def signal_handler(*args, **kwargs):
@@ -806,8 +849,13 @@ def configFuzzer():
 def main():
     # Start all docker daemons that we'll use during the execution
     fuzzer = configFuzzer()
-    fuzzer.start_daemons()
 
+    if fuzzer._config.default.getboolean("dry_run", False):
+        logger.warning("--DRY RUN mode-- Tests are just being generated and not being executed!")
+        TestExecutor(fuzzer=fuzzer).dry_run()
+        return
+
+    fuzzer.start_daemons()
     TestExecutor(fuzzer=fuzzer).startFuzzing()
 
 
