@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from evmlab.tools.statetests import rndval, randomtest
 from evmlab.tools.statetests.rndval.base import WeightedRandomizer
 
+from evmlab.tools.statetests.rndval import RndCodeBytes
 
 
 class Account(object):
@@ -72,12 +73,13 @@ class StateTestTemplate(object):
 
         ### transaction
         self._transaction = SimpleNamespace(secretKey="0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
-                                            data=[self.pick_codegen(rndval.RndCodeBytes).generate(length=self._datalength)],
+                                            data=[RndCodeBytes().generate(length=self._datalength)],
                                             gasLimit=[rndval.RndTransactionGasLimit(_min=34 * 14000)],
-                                            gasPrice= rndval.RndGasPrice(),
+                                            gasPrice=rndval.RndGasPrice(),
                                             nonce=self._nonce,
                                             to=rndval.RndDestAddressOrZero(),
                                             value=[rndval.RndHexInt(_min=0, _max=max(0, 2**24))])
+
 
     def _random_storage(self, _min=0, _max=10):
         hx = rndval.RndHex32()
@@ -110,18 +112,25 @@ class StateTestTemplate(object):
         ### random storage
 
         self.add_prestate(address="0x%s"%address.replace("0x",""),
-                          code=self.pick_codegen().generate(length=random.randint(0,500)),  # limit length, main code is in first prestate
+                          code=self.pick_codegen().generate(),  # limit length, main code is in first prestate
                           storage=self._random_storage(_min=0, _max=2))
 
         return self
 
     def _autofill_prestates_from_stack_arguments(self):
         # todo: hacky hack
-        try:
-            for addr in self.pick_codegen(rndval.RndCodeSmart2)._addresses_seen:
-                self._autofill_prestate(addr)
-        except AttributeError as ae:
-            pass  # addresses_seen is not available
+        all_addresses = set()
+
+        for cg in self._codegenerators.values():
+            try:
+                all_addresses.update(cg._addresses_seen)
+            except (KeyError, AttributeError) as ae:
+                #print(ae)
+                pass
+
+        for addr in all_addresses:
+            #print(addr)
+            self._autofill_prestate(addr)
 
     def _build(self):
         # clone the tx namespace and replace the generator with a concrete value (we can then refer to that value later)
@@ -218,8 +227,11 @@ class StateTestTemplate(object):
     def json(self):
         return json.dumps(self.__dict__, cls=randomtest.RandomTestsJsonEncoder)
 
-    def fill(self):
+    def fill(self, reset_prestate=False):
         # todo: performance
+        if reset_prestate:
+            self.pre = {}
+            # will be filled by _build
         return json.loads(self.json())
 
 
