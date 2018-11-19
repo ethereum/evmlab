@@ -34,7 +34,6 @@ class StateTestTemplate(object):
         ### global settings
         self._nonce = nonce if nonce is not None else str(rndval.RndV())
         self._config = _config
-
         ### set by setters below
         self._codegenerators = None  # default
         self._codegenerators_weighted = None
@@ -71,6 +70,12 @@ class StateTestTemplate(object):
 
         ### pre
         self._pre = {}
+        self.add_prestate(address="ffffffffffffffffffffffffffffffffffffffff")
+        self.add_prestate(address="1000000000000000000000000000000000000000")
+        self.add_prestate(address="b94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+        self.add_prestate(address="c94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+        self.add_prestate(address="d94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+        self.add_prestate(address="a94f5374fce5edbc8e2a8697c15331677e6ebf0b")
 
         ### transaction
         self._transaction = SimpleNamespace(secretKey="0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",

@@ -45,7 +45,7 @@ class RndAddress(RndByteSequence):
                                                         "0000000000000000000000000000000000000006",
                                                         "0000000000000000000000000000000000000007",
                                                         "0000000000000000000000000000000000000008"],
-                 RndAddressType.SPECIAL_CREATE: ["0000000000000000000000000000000000000000"]}
+                 RndAddressType.SPECIAL_CREATE: [""]}
 
     def __init__(self, seed=None, length=20, prefix="0x", _types=[RndAddressType.RANDOM]):
         super().__init__(seed=seed, length=length, prefix=prefix)
@@ -94,9 +94,9 @@ class RndAddress(RndByteSequence):
 # transaction would either have to: None, or no to-field present. 
             # CREATE  (if all or create is set)
             #if types_set != set([RndAddressType.PRECOMPILED, RndAddressType.STATE_ACCOUNT]):
-#            if types_set.intersection([RndAddressType.SPECIAL_ALL, RndAddressType.SPECIAL_CREATE]):
-#                if self.randomPercent()<probabilities["emptyAddressProbability"]:
-#                    return ""
+            if types_set.intersection([RndAddressType.SPECIAL_ALL, RndAddressType.SPECIAL_CREATE]):
+                if self.randomPercent()<probabilities["emptyAddressProbability"]:
+                    return ""
 
             # RANDOM
             if self.randomPercent()<probabilities["randomAddressProbability"]:

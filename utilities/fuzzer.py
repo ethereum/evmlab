@@ -17,6 +17,29 @@ from evmlab.tools.statetests.templates import statetest
 
 logger = logging.getLogger(__name__)
 
+class FilePool(object):
+    """This implements a little pool of filenames, so we can reuse files instead of constantly
+    creating and deleting files.
+
+    We still create and delete trace-files, but this speed up test generation quite a lot even so 
+    """
+    def __init__(self):
+        self.counter = 0 
+        self.frees = []
+        self.locked = []
+    
+    def get(self):
+        if len(self.frees) > 0:
+            return self.frees.pop()
+        n = "pool_%d" % self.counter
+        self.counter = self.counter+1
+        return n
+
+    def put(self, f):
+        self.frees.append(f)
+
+
+fPool= FilePool()
 
 class Config(object):
 
@@ -155,15 +178,18 @@ class RawStateTest(object):
             json.dump(self.statetest, outfile)
 
     def removeFiles(self):
-        f = self.fullfilename
-        logger.info("Removing test artefacts %s" % ([f] + self.traceFiles))
-        os.remove(f)
+#        f = self.fullfilename
+#        logger.info("Removing test artefacts %s" % ([f] + self.traceFiles))
+#        os.remove(f)
+        fPool.put(self._filename)
+
         # delete non-failed traces
-        for f in self.traceFiles:
-            os.remove(f)
+ #       for f in self.traceFiles:
+ #           os.remove(f)
 
     def tempTraceFilename(self, client):
-        return "%s-%s.trace.log" % (self.identifier, client)
+        return "%s-%s.trace.log" %(self.filename, client)
+#        return "%s-%s.trace.log" % (self.identifier, client)
 
     def tempTraceLocation(self, client):
         return os.path.abspath("%s/%s" % (self._config.logfilesPath,self.tempTraceFilename(client)))
@@ -244,7 +270,6 @@ class TestExecutor(object):
 
     def __init__(self, fuzzer):
         self._fuzzer = fuzzer
-
         self.stats = {
             "pass_count": 0,
             "fail_count": 0,
@@ -320,7 +345,7 @@ class TestExecutor(object):
 
         for test in self._fuzzer.generate_tests():
             test.socketEvent = ""
-            test.socketData = ""
+            test.socketData = b''
             if self.stats["num_active_tests"] < MAX_PARALELL:
                 #test.writeToFile()
                 # Start new procs
@@ -359,7 +384,7 @@ class TestExecutor(object):
                     # We don't expect any data here, but we'll take a peek and stash
                     # it just in case
                     data = socket.readall()
-                    test.socketData = test.socketData + str(data) 
+                    test.socketData = test.socketData + data
                 #Also, we'll save the event, may assist with debugging later
                 test.socketEvent = test.socketEvent + ("[%d]" % event)
                 socket.close()
@@ -433,6 +458,7 @@ class Fuzzer(object):
                                                                 "50"))  # create engine/weight mapping
 
         # todo: instantiate once?
+
         self.statetest_template = statetest.StateTestTemplate(nonce="0x1d",
                                                               codegenerators=codegens,
                                                               fill_prestate_for_args=True,
@@ -509,6 +535,8 @@ class Fuzzer(object):
 
         returns (filename, object)
         """
+        ##### Statetest Template init
+        from evmlab.tools.statetests.templates import statetest
 
         # We'll offload test generation to another thread
         q = queue.Queue(maxsize = 20)
@@ -517,9 +545,10 @@ class Fuzzer(object):
             while True:
                 test_obj = self.statetest_template.fill(reset_prestate=True)
                 s = StateTest(test_obj, counter, config=self._config)
+                s._filename = fPool.get()
                 s.writeToFile()
                 counter = counter + 1
-                q.put(s, block=True)            
+                q.put(s, block=True)
 
         t = threading.Thread(target=createATest)
         t.start()
@@ -634,6 +663,14 @@ class Fuzzer(object):
         stats = VMUtils.Stats()
         for (proc_info, client_name) in test.procs:
             t1 = time.time()
+            if len(test.socketData) > 0:
+                # If there was any output, it indicates an error, see #102. 
+                # The only possible output, since we wrap the execution and pipe everything to file, 
+                # are docker container exec errors if it could not instantiate the executable. 
+                # In that case, which happens about once a million execs, just ignore this test and move on. 
+                logger.warning("Got spurious docker failure: %s", str(test.socketData))
+                return (0, stats.result())
+
             test.storeTrace(client_name, proc_info['cmd'])
             canonicalizer = self.canonicalizers[client_name]
             canon_steps = []
