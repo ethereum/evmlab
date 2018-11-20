@@ -92,6 +92,18 @@ class Config(object):
             if value is not None:
                 self._config.set(uname, arg, str(value))
 
+        for override in self.cmdline_args.set_config:
+            if "=" not in override:
+                logger.warning("skipping config override (format error): %s"%override)
+                continue
+            key, value = override.strip().split("=",1)
+            section, key = key.strip().split(".",1)
+
+            logger.info("overriding: [%s] %s=%s"%(section, key,value))
+            self._config.set(section.strip(), key.strip(), value.strip())
+
+
+
         self.force_save = self._config.get(uname, 'force_save', fallback=False)
         self.enable_reporting = self._config.get(uname, 'enable_reporting', fallback=False)
         self.docker_force_update_image = self._config.get(uname, 'docker_force_update_image', fallback=None)
@@ -839,6 +851,7 @@ def configFuzzer():
     # <required> configuration file: statetests.ini
     parser.add_argument("-c", "--configfile", default="statetests.ini", required=True,
                         help="path to configuration file (default: statetests.ini)")
+    parser.add_argument("-s", "--set-config", default=[], nargs='*', help="override settings in ini as <section>.<value>=<value>")
     parser.add_argument("-D", "--dry-run", default=False, action="store_true",
                         help="Simulate and print the output instead of running it with the docker backend (default: False)")
     parser.add_argument("-B", "--benchmark", default=False, action="store_true",
