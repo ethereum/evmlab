@@ -3,20 +3,16 @@
 # Author : <github.com/tintinweb>
 import random
 import json
+import logging
 from types import SimpleNamespace
 from evmlab.tools.statetests import rndval, randomtest
 from evmlab.tools.statetests.rndval.base import WeightedRandomizer
 
 from evmlab.tools.statetests.rndval import RndCodeBytes
 
-PRECOMPILES = ["0x0000000000000000000000000000000000000001",
-                "0x0000000000000000000000000000000000000002",
-                "0x0000000000000000000000000000000000000003",
-                "0x0000000000000000000000000000000000000004",
-                "0x0000000000000000000000000000000000000005",
-                "0x0000000000000000000000000000000000000006",
-                "0x0000000000000000000000000000000000000007",
-                "0x0000000000000000000000000000000000000008"]
+
+logger = logging.getLogger("evmlab.tools.statetest")
+
 
 class Account(object):
 
@@ -54,6 +50,9 @@ class StateTestTemplate(object):
         ## set the using a defined interface
         self.codegens = codegenerators  # sets _codegenerators and _codegenerators_weighted
         self.datalength = datalength  # sets _datalength
+
+        # other
+        self._fill_counter = 0  # track how often we've filled from this template
 
         ### info
         self._info = SimpleNamespace(fuzzer="evmlab",
@@ -112,17 +111,25 @@ class StateTestTemplate(object):
 
 
     def _autofill_prestates_from_transaction(self, tx):
-        if tx.to in self.pre:
-            # already there
-            return self
+        logger.debug("autofill from tx.to")
 
-        self._autofill_prestate(tx.to)
+        if tx.to in self.pre:
+            # prestate already exists, renew it?
+            if self._fill_counter % self._config_getint("prestate.txto.renew.every.x.rounds", default=1) != 0:
+                # do not renew
+                logger.debug("autofill from tx.to - not renewing prestate due to prestate.txto.renew.every.x.rounds")
+                return
+
+        # force renewal of prestate
+        self._autofill_prestate(tx.to, force=True)
 
         return self
 
-    def _autofill_prestate(self, address):
-        if address in self.pre:
+    def _autofill_prestate(self, address, force=False):
+        logger.debug("autofill prestate")
+        if address in self.pre and not force:
             # already there
+            logger.debug("autofill prestate - skipping address already exists (and not using force)")
             return self
 
         if address.replace("0x","") not in rndval.RndAddress.addresses[rndval.RndAddressType.SENDING_ACCOUNT]+rndval.RndAddress.addresses[rndval.RndAddressType.STATE_ACCOUNT]:
@@ -151,8 +158,14 @@ class StateTestTemplate(object):
 
         return self
 
-    def _autofill_prestates_from_stack_arguments(self):
+    def _autofill_prestates_from_stack_arguments(self, tx):
         # todo: hacky hack
+        logger.debug("autofill from stack")
+        # config
+        config_renew_every_x_rounds = self._config_getint("prestate.other.renew.every.x.rounds", default=1) or 1  # 1== every round
+        config_renew_limit = self._config_getint("prestate.other.renew.limit.per.round", default=0)
+
+        nr_of_prestates_renewed_this_round = nr_of_prestates_added_this_round = 0
         all_addresses = set()
 
         for cg in self._codegenerators.values():
@@ -163,9 +176,38 @@ class StateTestTemplate(object):
                 #print(ae)
                 pass
 
+        # do not handle precompiled accounts.
+        # remove tx.to to avoid renewing it. this is handled in autifille
+        all_addresses = list(all_addresses.difference(rndval.RndAddress.addresses[rndval.RndAddressType.PRECOMPILED] + [tx.to.replace("0x","")]))
+
+        # shuffle list to avoid bailing always on the same objects (set is ordered)
+        random.shuffle(all_addresses)
+
         for addr in all_addresses:
             #print(addr)
-            self._autofill_prestate(addr)
+            if "0x%s"%addr.replace("0x","") in self.pre:
+                # address exists, renew it in this round?
+                if self._fill_counter % config_renew_every_x_rounds != 0:
+                    # do not renew, skip
+                    logger.debug(
+                        "autofill from stack - not renewing prestate due to prestate.other.renew.every.x.rounds")
+                    continue
+                # address exists, did we already hit the renewal limit? only renew up to <limit> accounts (but add new ones)
+                # config_renew_limit == 0 - disabled, otherwise max nr of accounts to renew in this filling round
+                if config_renew_limit and nr_of_prestates_renewed_this_round >= config_renew_limit:
+                    # do not renew, skip
+                    logger.debug(
+                        "autofill from stack - not renewing prestate due to prestate.other.renew.limit.per.round")
+                    continue
+                nr_of_prestates_renewed_this_round += 1
+            # force overwriting the prestate; dups are handled in the loop.
+            self._autofill_prestate(addr, force=True)
+            nr_of_prestates_added_this_round += 1
+
+        logger.info("nr_of_prestates_added_this_round = %d" % nr_of_prestates_added_this_round)
+        logger.info("nr_of_prestates_renewed_this_round = %d" % nr_of_prestates_renewed_this_round)
+
+
 
     def _build(self):
         # clone the tx namespace and replace the generator with a concrete value (we can then refer to that value later)
@@ -181,7 +223,7 @@ class StateTestTemplate(object):
             self._autofill_prestates_from_transaction(tx)
 
         if self._fill_prestate_for_args:
-            self._autofill_prestates_from_stack_arguments()
+            self._autofill_prestates_from_stack_arguments(tx)
 
         self.add_prestate(address=env.currentCoinbase, code="")
 
@@ -247,6 +289,16 @@ class StateTestTemplate(object):
                       storage=storage)
         self.pre[acc.address] = acc
 
+    def add_precomipled_prestates(self, force=False):
+        # It's better to already have the precompiles there, otherwise it just addres
+        # false positives due to the precompiles not existing in the trie.
+        # That will lead to consensus errors, but it's not an issue on mainnet,
+        # because all precompiles already exist there
+        for addr in rndval.RndAddress.addresses[rndval.RndAddressType.PRECOMPILED]:
+            addr = "0x%s"%addr.replace("0x","")
+            if addr not in self._pre or force:
+                self.add_prestate(address=addr, balance="0x01", code="")
+
     def pick_codegen(self, name=None):
         if name:
             return self._codegenerators[name]
@@ -268,20 +320,9 @@ class StateTestTemplate(object):
     def json(self):
         return json.dumps(self.__dict__, cls=randomtest.RandomTestsJsonEncoder)
 
-    def fill(self, reset_prestate=False):
-        # todo: performance
-        if reset_prestate:
-            self.pre = {}
-            # It's better to already have the precompiles there, otherwise it just addres
-            # false positives due to the precompiles not existing in the trie. 
-            # That will lead to consensus errors, but it's not an issue on mainnet, 
-            # because all precompiles already exist there
-            for a in PRECOMPILES:
-                self.pre[a] = Account(address = a, 
-                    balance = "0x01", nonce = "0x00")
-
-
-            # will be filled by _build
+    def fill(self):
+        self._fill_counter += 1
+        # will be filled by _build
         return json.loads(self.json())
 
 
