@@ -465,6 +465,7 @@ class Fuzzer(object):
                                                               fill_prestate_for_tx_to=True,
                                                               _config=self._config)
         self.statetest_template.info.fuzzer = "evmlab tin"
+        self.statetest_template.add_precomipled_prestates()
 
     def docker_remove_image(self, image, force=True):
         self._dockerclient.images.remove(image=image, force=force)
@@ -541,7 +542,8 @@ class Fuzzer(object):
         def createATest():
             counter = 0
             while True:
-                test_obj = self.statetest_template.fill(reset_prestate=True)
+                # prestates are reused and regenerated according to the settings in prestate.txto.*, prestate.other.*
+                test_obj = self.statetest_template.fill()
                 s = StateTest(test_obj, counter, config=self._config)
                 ## testing
                 # print(test_obj.keys())
@@ -566,7 +568,7 @@ class Fuzzer(object):
         counter = 0
 
         def default_method():
-            return self.statetest_template.fill(reset_prestate=True)
+            return self.statetest_template.fill()
 
         method = method or default_method
 
@@ -582,7 +584,7 @@ class Fuzzer(object):
             print("to: %s --> pre: %r" % (test_obj["randomStatetest"]["transaction"]["to"],
                                           set(test_obj["randomStatetest"]["pre"].keys())))
             s_per_test = x1-x0
-            tot_per_s = counter / (x1 - start)
+            tot_per_s = counter / (x1 - start + 1e-30)  # avoid div/0
             print("%d %f (tot %f/s)" % (counter, s_per_test, tot_per_s))
 
             counter = counter + 1
@@ -863,8 +865,8 @@ def configFuzzer():
 
         # benchmark new method
         logger.info("new method: %ssec duration"%duration)
-        avg = fuzzer.benchmark(duration=duration)
-        logger.info("new method avg generation time: %f (%f tests/s)" % (avg, 1 / avg))
+        avg_new = fuzzer.benchmark(duration=duration)
+
 
         # benchmark old method
         from evmlab.tools.statetests import templates
@@ -875,8 +877,9 @@ def configFuzzer():
             return json.loads(json.dumps(t, cls=randomtest.RandomTestsJsonEncoder))
 
         logger.info("old method: %ssec duration" % duration)
-        avg = fuzzer.benchmark(old_method, duration=duration)
-        logger.info("old method avg generation time: %f (%f tests/s)" % (avg, 1/avg))
+        avg_old = fuzzer.benchmark(old_method, duration=duration)
+        logger.info("old method avg generation time: %f (%f tests/s)" % (avg_old, 1/avg_old))
+        logger.info("new method avg generation time: %f (%f tests/s)" % (avg_new, 1 / avg_new))
 
         sys.exit(0)
 
