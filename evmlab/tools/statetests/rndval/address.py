@@ -1,6 +1,7 @@
 import enum
 import random
 from .bytes import RndByteSequence
+from .base import _RndBase, WeightedRandomizer
 from evmlab import decode_hex
 
 
@@ -129,6 +130,7 @@ class RndDestAddress(RndAddress):
         super().__init__(seed=seed, length=length, prefix=prefix)
         self.types = _types
 
+
 class RndDestAddressOrZero(RndAddress):
 
     placeholder = "[DESTADDRESS]"
@@ -138,3 +140,19 @@ class RndDestAddressOrZero(RndAddress):
                                                                   RndAddressType.SPECIAL_CREATE]):
         super().__init__(seed=seed, length=length, prefix=prefix)
         self.types = _types
+
+
+class RndSourceAddress(RndAddress):
+
+    def __init__(self, seed=None, length=20, prefix="0x"):
+        super().__init__(seed=seed, length=length, prefix=prefix)
+
+        # more likely to hit a valid address
+        weights = {RndAddress().generate: 5,
+                   RndDestAddress().generate: 10,
+                   lambda: "0x"+RndAddress.addresses[RndAddressType.SENDING_ACCOUNT][0]: 85,}
+
+        self._randomizer = WeightedRandomizer(weights=weights)
+
+    def generate(self):
+        return self._randomizer.random()()

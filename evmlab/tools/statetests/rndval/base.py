@@ -1,16 +1,23 @@
 import random
 import binascii
 
+
 class WeightedRandomizer(object):
     # https://stackoverflow.com/a/14993631/1729555
     def __init__(self, weights):
         self.__max = .0
         self.__weights = []
         for value, weight in weights.items():
+            if weight == 0:
+                # skip disabled items
+                continue
             self.__max += weight
             self.__weights.append((self.__max, value))
 
     def random(self):
+        if len(self.__weights) == 1:
+            return self.__weights[0][1]  # shortcut: return value
+
         r = random.random() * self.__max
         for ceil, value in self.__weights:
             if ceil > r:

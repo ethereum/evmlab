@@ -1,4 +1,6 @@
 import random
+import binascii
+
 from .base import _RndBase, WeightedRandomizer, int2bytes
 from .code import _RndCodeBase
 from .address import RndAddress, RndDestAddress, RndAddressType
@@ -154,7 +156,7 @@ class RndCodeInstr(_RndCodeBase):
         return bytes(b)
 
     def _track_address(self, address):
-        self._addresses_seen.add(address)
+        self._addresses_seen.add(binascii.hexlify(address).decode("utf-8"))
         return address
 
     def _fill_arguments(self, instructions):
@@ -283,7 +285,10 @@ class RndCodeInstr(_RndCodeBase):
             # finally push instruction
             yield instr
 
-    def generate(self, length=50):
+    def generate(self, length=None):
+
+        length = self._config_getint("engine.RndCodeInstr.default.length", 50) if length is None else length
+
         if self.fill_arguments:
             length = length // 2
 

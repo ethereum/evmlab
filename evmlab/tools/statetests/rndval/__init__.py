@@ -5,7 +5,7 @@
 #
 # https://github.com/ethereum/testeth/blob/ee0c6776c01b09045a379220c7e490000dae9377/test/tools/fuzzTesting/createRandomTest.cpp
 #
-from .address import RndAddress, RndAddressType, RndDestAddress, RndByteSequence,RndDestAddressOrZero
+from .address import RndAddress, RndAddressType, RndDestAddress, RndByteSequence,RndDestAddressOrZero, RndSourceAddress
 from .bytes import RndByteSequence, Rnd0xHash32, RndHash20, RndHash32, RndV
 from .hexint import RndHex32, RndBlockGasLimit, RndGasPrice, RndTransactionGasLimit, RndHexInt
 from .rlp import RndRlp
