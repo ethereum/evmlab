@@ -119,40 +119,8 @@ class RndCodeInstr(_RndCodeBase):
         # todo: add gauss histogramm random.randgauss(min,max,avg) - triangle is not really correct here
         length = length or int(random.triangular(self.MIN_CONTRACT_SIZE, 2 * self.AVERAGE_CONTRACT_SIZE + self.MIN_CONTRACT_SIZE))  # use gauss
 
-#        rnd_prolog = WeightedRandomizer(self.LIKELYHOOD_PROLOG_BY_OPCODE_INT)
-#        rnd_epilog = WeightedRandomizer(self.LIKELYHOOD_EPILOG_BY_OPCODE_INT)  # not completely true as this incorps. pro/epilog
-#        rnd_corpus = WeightedRandomizer(self.LIKELYHOOD_BY_OPCODE_INT)
-#       
-        b = []
-        for _ in range(length):
-#            b.append(valid_opcodes[random.randint(0,len(valid_opcodes)-1)])
-            b.append(random.choice(constantinople_skewed_set))
+        b = [random.choice(constantinople_skewed_set) for _ in range(length)]
 
-#        for _ in range(128):
-#            b.append(rnd_prolog.random())
-#            #  hack ahead -
-#            if self.FLAG_FOCUS_CONSTANTINOPLE in self.flags:
-#                # 10% chance of inserting a constantinople instr
-#                if self.randomPercent() < 5:
-#                    b.append(random.choice([asm_registry.INSTRUCTIONS_BY_NAME["CREATE2"].opcode,
-#                                           asm_registry.INSTRUCTIONS_BY_NAME["EXTCODEHASH"].opcode]))
-#
-#        for _ in range(length - 128 * 2):
-#            b.append(rnd_corpus.random())
-#            if self.FLAG_FOCUS_CONSTANTINOPLE in self.flags:
-#                # 10% chance of inserting a constantinople instr
-#                if self.randomPercent() < 5:
-#                    b.append(random.choice([asm_registry.INSTRUCTIONS_BY_NAME["CREATE2"].opcode,
-#                                           asm_registry.INSTRUCTIONS_BY_NAME["EXTCODEHASH"].opcode]))
-#
-#        for _ in range(128):
-#            b.append(rnd_epilog.random())
-#            if self.FLAG_FOCUS_CONSTANTINOPLE in self.flags:
-#                # 10% chance of inserting a constantinople instr
-#                if self.randomPercent() < 5:
-#                    b.append(random.choice([asm_registry.INSTRUCTIONS_BY_NAME["CREATE2"].opcode,
-#                                           asm_registry.INSTRUCTIONS_BY_NAME["EXTCODEHASH"].opcode]))
-#
         return bytes(b)
 
     def _track_address(self, address):

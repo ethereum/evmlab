@@ -9,6 +9,14 @@ from evmlab.tools.statetests.rndval.base import WeightedRandomizer
 
 from evmlab.tools.statetests.rndval import RndCodeBytes
 
+PRECOMPILES = ["0x0000000000000000000000000000000000000001",
+                "0x0000000000000000000000000000000000000002",
+                "0x0000000000000000000000000000000000000003",
+                "0x0000000000000000000000000000000000000004",
+                "0x0000000000000000000000000000000000000005",
+                "0x0000000000000000000000000000000000000006",
+                "0x0000000000000000000000000000000000000007",
+                "0x0000000000000000000000000000000000000008"]
 
 class Account(object):
 
@@ -27,6 +35,7 @@ class Account(object):
                 "storage": self.storage}
 
 
+
 class StateTestTemplate(object):
 
     def __init__(self, nonce=None, codegenerators={}, datalength=None,
@@ -34,7 +43,6 @@ class StateTestTemplate(object):
         ### global settings
         self._nonce = nonce if nonce is not None else str(rndval.RndV())
         self._config = _config
-
         ### set by setters below
         self._codegenerators = None  # default
         self._codegenerators_weighted = None
@@ -264,6 +272,15 @@ class StateTestTemplate(object):
         # todo: performance
         if reset_prestate:
             self.pre = {}
+            # It's better to already have the precompiles there, otherwise it just addres
+            # false positives due to the precompiles not existing in the trie. 
+            # That will lead to consensus errors, but it's not an issue on mainnet, 
+            # because all precompiles already exist there
+            for a in PRECOMPILES:
+                self.pre[a] = Account(address = a, 
+                    balance = "0x01", nonce = "0x00")
+
+
             # will be filled by _build
         return json.loads(self.json())
 
