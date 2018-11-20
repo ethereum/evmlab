@@ -27,7 +27,7 @@ def index():
 def download(artefact = None):
     """ Download a file -- only artefacts allowed """
 
-    artefactDir = fuzzer.cfg.artefacts
+    artefactDir = fuzzer._config.artefacts
     print("downlaod '%s'" % artefact)
     if artefact == None or artefact.strip() == "":
         # file listing
