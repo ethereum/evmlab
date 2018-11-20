@@ -703,8 +703,9 @@ class Fuzzer(object):
             if tracelen==0:
                 self._num_zero_traces += 1
             t2 = time.time()
-            logger.info("Processed %s steps for %s on test %s, pTime:%.02f ms "
-                        % (tracelen, client_name, test.identifier, 1000 * (t2 - t1)))
+            logger.info("Processed %s steps for %s on test %s, pTime:%.02f ms (depth: %s, ConstantinopleOps: %s)"
+                        % (tracelen, client_name, test.identifier, 1000 * (t2 - t1),
+                        stats.result().get("maxDepth","nA"), stats.result().get("constatinopleOps","nA")))
 
         # print(stats)
         # print(canon_steps)
