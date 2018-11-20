@@ -411,7 +411,7 @@ class TestExecutor(object):
             if time.time()> next_stats_print:
                 logger.info("=" * 25)
                 logger.info("current status: %r"%self.status())
-                logger.info("tracelength distribution: %r" % dict(collections.Counter(self.traceLengths).most_common(10)))
+                logger.info("tracelength distribution (top 10): %r" % dict(collections.Counter(self.traceLengths).most_common(10)))
                 logger.info("=" * 25)
                 next_stats_print = time.time() + print_stats_every_x_seconds
 
@@ -858,7 +858,7 @@ def configFuzzer():
                         help="Benchmark test generation (default: False)")
 
     grp_artefacts = parser.add_argument_group('Configure Output Artefacts and Reporting')
-    grp_artefacts.add_argument("-x", "--force-save", default=None, action="store_true",
+    grp_artefacts.add_argument("-x", "--preserve-files", default=None, action="store_true",
                                help="Keep tracefiles/logs/testfiles for non-failing testcases (watch disk space!) (default: False)")
     grp_artefacts.add_argument("-r", "--enable-reporting", default=None, action="store_true",
                                help="Output testrun statistics (num of passes/fails and speed (default: False)")
