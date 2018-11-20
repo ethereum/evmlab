@@ -20,7 +20,7 @@ executor = fuzzer.TestExecutor(fuzzer=f)
  
 @app.route("/")
 def index():
-    return flask.render_template("index.html", status = executor.status(), config = f._config.info())
+    return flask.render_template("index.html", status = executor.status(), config = f._config.info)
 
 @app.route("/download/")
 @app.route("/download/<artefact>")
