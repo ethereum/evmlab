@@ -9,6 +9,14 @@ from evmlab.tools.statetests.rndval.base import WeightedRandomizer
 
 from evmlab.tools.statetests.rndval import RndCodeBytes
 
+PRECOMPILES = ["0x0000000000000000000000000000000000000001",
+                "0x0000000000000000000000000000000000000002",
+                "0x0000000000000000000000000000000000000003",
+                "0x0000000000000000000000000000000000000004",
+                "0x0000000000000000000000000000000000000005",
+                "0x0000000000000000000000000000000000000006",
+                "0x0000000000000000000000000000000000000007",
+                "0x0000000000000000000000000000000000000008"]
 
 class Account(object):
 
@@ -25,6 +33,7 @@ class Account(object):
                 "code": self.code,
                 "nonce": self.nonce,
                 "storage": self.storage}
+
 
 
 class StateTestTemplate(object):
@@ -70,12 +79,6 @@ class StateTestTemplate(object):
 
         ### pre
         self._pre = {}
-        self.add_prestate(address="ffffffffffffffffffffffffffffffffffffffff")
-        self.add_prestate(address="1000000000000000000000000000000000000000")
-        self.add_prestate(address="b94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-        self.add_prestate(address="c94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-        self.add_prestate(address="d94f5374fce5edbc8e2a8697c15331677e6ebf0b")
-        self.add_prestate(address="a94f5374fce5edbc8e2a8697c15331677e6ebf0b")
 
         ### transaction
         self._transaction = SimpleNamespace(secretKey="0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
@@ -269,6 +272,15 @@ class StateTestTemplate(object):
         # todo: performance
         if reset_prestate:
             self.pre = {}
+            # It's better to already have the precompiles there, otherwise it just addres
+            # false positives due to the precompiles not existing in the trie. 
+            # That will lead to consensus errors, but it's not an issue on mainnet, 
+            # because all precompiles already exist there
+            for a in PRECOMPILES:
+                self.pre[a] = Account(address = a, 
+                    balance = "0x01", nonce = "0x00")
+
+
             # will be filled by _build
         return json.loads(self.json())
 

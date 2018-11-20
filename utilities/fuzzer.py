@@ -535,8 +535,6 @@ class Fuzzer(object):
 
         returns (filename, object)
         """
-        ##### Statetest Template init
-        from evmlab.tools.statetests.templates import statetest
 
         # We'll offload test generation to another thread
         q = queue.Queue(maxsize = 20)
@@ -545,6 +543,14 @@ class Fuzzer(object):
             while True:
                 test_obj = self.statetest_template.fill(reset_prestate=True)
                 s = StateTest(test_obj, counter, config=self._config)
+                ## testing
+                # print(test_obj.keys())
+                # tname = list(test_obj.keys())[0]
+                # for acc in test_obj[tname]["pre"].keys():
+                #     print("account", acc)
+                #     print("account", test_obj[tname]["pre"][acc])
+                # end
+
                 s._filename = fPool.get()
                 s.writeToFile()
                 counter = counter + 1
