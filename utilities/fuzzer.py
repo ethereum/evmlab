@@ -330,7 +330,9 @@ class TestExecutor(object):
             ))
 
     def startFuzzing(self):
+        print_stats_every_x_seconds = 90
         self.stats["start_time"] = time.time()
+        next_stats_print = self.stats["start_time"] + print_stats_every_x_seconds
         # This is the max cap of paralellism, it's just to prevent
         # things going out of hand if tests start piling up
         # We don't expect to actually reach it
@@ -393,6 +395,15 @@ class TestExecutor(object):
                     logger.info("All procs finished for test %s" % test.id)
                     self.stats["num_active_tests"] = self.stats["num_active_tests"] - 1
                     self.postprocess_test(test, reporting=self._fuzzer._config.enable_reporting)
+
+            if time.time()> next_stats_print:
+                logger.info("=" * 25)
+                logger.info("current status: %r"%self.status())
+                logger.info("tracelength distribution: %r" % dict(collections.Counter(self.traceLengths).most_common(10)))
+                logger.info("=" * 25)
+                next_stats_print = time.time() + print_stats_every_x_seconds
+
+
 
     def dry_run(self):
         tstart = time.time()
