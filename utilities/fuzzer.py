@@ -92,6 +92,18 @@ class Config(object):
             if value is not None:
                 self._config.set(uname, arg, str(value))
 
+        for override in self.cmdline_args.set_config:
+            if "=" not in override:
+                logger.warning("skipping config override (format error): %s"%override)
+                continue
+            key, value = override.strip().split("=",1)
+            section, key = key.strip().split(".",1)
+
+            logger.info("overriding: [%s] %s=%s"%(section, key,value))
+            self._config.set(section.strip(), key.strip(), value.strip())
+
+
+
         self.force_save = self._config.get(uname, 'force_save', fallback=False)
         self.enable_reporting = self._config.get(uname, 'enable_reporting', fallback=False)
         self.docker_force_update_image = self._config.get(uname, 'docker_force_update_image', fallback=None)
@@ -330,7 +342,9 @@ class TestExecutor(object):
             ))
 
     def startFuzzing(self):
+        print_stats_every_x_seconds = 90
         self.stats["start_time"] = time.time()
+        next_stats_print = self.stats["start_time"] + print_stats_every_x_seconds
         # This is the max cap of paralellism, it's just to prevent
         # things going out of hand if tests start piling up
         # We don't expect to actually reach it
@@ -393,6 +407,15 @@ class TestExecutor(object):
                     logger.info("All procs finished for test %s" % test.id)
                     self.stats["num_active_tests"] = self.stats["num_active_tests"] - 1
                     self.postprocess_test(test, reporting=self._fuzzer._config.enable_reporting)
+
+            if time.time()> next_stats_print:
+                logger.info("=" * 25)
+                logger.info("current status: %r"%self.status())
+                logger.info("tracelength distribution (top 10): %r" % dict(collections.Counter(self.traceLengths).most_common(10)))
+                logger.info("=" * 25)
+                next_stats_print = time.time() + print_stats_every_x_seconds
+
+
 
     def dry_run(self):
         tstart = time.time()
@@ -465,6 +488,7 @@ class Fuzzer(object):
                                                               fill_prestate_for_tx_to=True,
                                                               _config=self._config)
         self.statetest_template.info.fuzzer = "evmlab tin"
+        self.statetest_template.add_precomipled_prestates()
 
     def docker_remove_image(self, image, force=True):
         self._dockerclient.images.remove(image=image, force=force)
@@ -541,7 +565,8 @@ class Fuzzer(object):
         def createATest():
             counter = 0
             while True:
-                test_obj = self.statetest_template.fill(reset_prestate=True)
+                # prestates are reused and regenerated according to the settings in prestate.txto.*, prestate.other.*
+                test_obj = self.statetest_template.fill()
                 s = StateTest(test_obj, counter, config=self._config)
                 ## testing
                 # print(test_obj.keys())
@@ -566,7 +591,7 @@ class Fuzzer(object):
         counter = 0
 
         def default_method():
-            return self.statetest_template.fill(reset_prestate=True)
+            return self.statetest_template.fill()
 
         method = method or default_method
 
@@ -582,7 +607,7 @@ class Fuzzer(object):
             print("to: %s --> pre: %r" % (test_obj["randomStatetest"]["transaction"]["to"],
                                           set(test_obj["randomStatetest"]["pre"].keys())))
             s_per_test = x1-x0
-            tot_per_s = counter / (x1 - start)
+            tot_per_s = counter / (x1 - start + 1e-30)  # avoid div/0
             print("%d %f (tot %f/s)" % (counter, s_per_test, tot_per_s))
 
             counter = counter + 1
@@ -701,8 +726,9 @@ class Fuzzer(object):
             if tracelen==0:
                 self._num_zero_traces += 1
             t2 = time.time()
-            logger.info("Processed %s steps for %s on test %s, pTime:%.02f ms "
-                        % (tracelen, client_name, test.identifier, 1000 * (t2 - t1)))
+            logger.info("Processed %s steps for %s on test %s, pTime:%.02f ms (depth: %s, ConstantinopleOps: %s)"
+                        % (tracelen, client_name, test.identifier, 1000 * (t2 - t1),
+                        stats.result().get("maxDepth","nA"), stats.result().get("constatinopleOps","nA")))
 
         # print(stats)
         # print(canon_steps)
@@ -825,13 +851,14 @@ def configFuzzer():
     # <required> configuration file: statetests.ini
     parser.add_argument("-c", "--configfile", default="statetests.ini", required=True,
                         help="path to configuration file (default: statetests.ini)")
+    parser.add_argument("-s", "--set-config", default=[], nargs='*', help="override settings in ini as <section>.<value>=<value>")
     parser.add_argument("-D", "--dry-run", default=False, action="store_true",
                         help="Simulate and print the output instead of running it with the docker backend (default: False)")
     parser.add_argument("-B", "--benchmark", default=False, action="store_true",
                         help="Benchmark test generation (default: False)")
 
     grp_artefacts = parser.add_argument_group('Configure Output Artefacts and Reporting')
-    grp_artefacts.add_argument("-x", "--force-save", default=None, action="store_true",
+    grp_artefacts.add_argument("-x", "--preserve-files", default=None, action="store_true",
                                help="Keep tracefiles/logs/testfiles for non-failing testcases (watch disk space!) (default: False)")
     grp_artefacts.add_argument("-r", "--enable-reporting", default=None, action="store_true",
                                help="Output testrun statistics (num of passes/fails and speed (default: False)")
@@ -863,8 +890,8 @@ def configFuzzer():
 
         # benchmark new method
         logger.info("new method: %ssec duration"%duration)
-        avg = fuzzer.benchmark(duration=duration)
-        logger.info("new method avg generation time: %f (%f tests/s)" % (avg, 1 / avg))
+        avg_new = fuzzer.benchmark(duration=duration)
+
 
         # benchmark old method
         from evmlab.tools.statetests import templates
@@ -875,8 +902,9 @@ def configFuzzer():
             return json.loads(json.dumps(t, cls=randomtest.RandomTestsJsonEncoder))
 
         logger.info("old method: %ssec duration" % duration)
-        avg = fuzzer.benchmark(old_method, duration=duration)
-        logger.info("old method avg generation time: %f (%f tests/s)" % (avg, 1/avg))
+        avg_old = fuzzer.benchmark(old_method, duration=duration)
+        logger.info("old method avg generation time: %f (%f tests/s)" % (avg_old, 1/avg_old))
+        logger.info("new method avg generation time: %f (%f tests/s)" % (avg_new, 1 / avg_new))
 
         sys.exit(0)
 
