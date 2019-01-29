@@ -24,6 +24,7 @@ class Genesis(object):
             "daoForkBlock": 0,
             "byzantiumBlock" : 2000,
             "constantinopleBlock" : 2000,
+            "petersburgBlock" : 2000,
         }
 
     def geth(self):
@@ -115,6 +116,7 @@ class Genesis(object):
                 "eip1052Transition" : self.config['constantinopleBlock'],
                 "eip1014Transition" : self.config['constantinopleBlock'],
                 "eip1283Transition" : self.config['constantinopleBlock'],
+                "eip1283DisableTransition": self.config['petersburgBlock']
 
     # Also new pre
             },
@@ -164,6 +166,11 @@ class Genesis(object):
     def setConfigConstantinople(self):
         self.setConfigMetropolis()
         self.config['constantinopleBlock'] = 0
+
+    def setConfigPetersburg(self):
+        self.setConfigConstantinople()
+        self.config['petersburgBlock'] = 0
+
 
     def addPrestateAccount(self, account):
         self.alloc[account['address'].lower()] = {

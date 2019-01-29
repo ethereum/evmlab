@@ -1,5 +1,8 @@
 import rlp
-from eth_hash.auto import keccak
+try:
+     from eth_hash.auto import keccak
+except:
+     print("eth_hash is not present, may cause failures")
 import binascii
 
 def sha3(seed):
